@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedTalhoesRouteImport } from './routes/_authenticated/talhoes'
 import { Route as AuthenticatedPropriedadesRouteImport } from './routes/_authenticated/propriedades'
+import { Route as AuthenticatedPrecosRouteImport } from './routes/_authenticated/precos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
 
@@ -48,6 +49,11 @@ const AuthenticatedPropriedadesRoute =
     path: '/propriedades',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPrecosRoute = AuthenticatedPrecosRouteImport.update({
+  id: '/precos',
+  path: '/precos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/precos': typeof AuthenticatedPrecosRoute
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
   '/api/chat': typeof ApiChatRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/precos': typeof AuthenticatedPrecosRoute
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
   '/api/chat': typeof ApiChatRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/custos': typeof AuthenticatedCustosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/precos': typeof AuthenticatedPrecosRoute
   '/_authenticated/propriedades': typeof AuthenticatedPropriedadesRoute
   '/_authenticated/talhoes': typeof AuthenticatedTalhoesRoute
   '/api/chat': typeof ApiChatRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/custos'
     | '/dashboard'
+    | '/precos'
     | '/propriedades'
     | '/talhoes'
     | '/api/chat'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/custos'
     | '/dashboard'
+    | '/precos'
     | '/propriedades'
     | '/talhoes'
     | '/api/chat'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/custos'
     | '/_authenticated/dashboard'
+    | '/_authenticated/precos'
     | '/_authenticated/propriedades'
     | '/_authenticated/talhoes'
     | '/api/chat'
@@ -170,6 +182,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPropriedadesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/precos': {
+      id: '/_authenticated/precos'
+      path: '/precos'
+      fullPath: '/precos'
+      preLoaderRoute: typeof AuthenticatedPrecosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -190,6 +209,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCustosRoute: typeof AuthenticatedCustosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedPrecosRoute: typeof AuthenticatedPrecosRoute
   AuthenticatedPropriedadesRoute: typeof AuthenticatedPropriedadesRoute
   AuthenticatedTalhoesRoute: typeof AuthenticatedTalhoesRoute
 }
@@ -197,6 +217,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCustosRoute: AuthenticatedCustosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedPrecosRoute: AuthenticatedPrecosRoute,
   AuthenticatedPropriedadesRoute: AuthenticatedPropriedadesRoute,
   AuthenticatedTalhoesRoute: AuthenticatedTalhoesRoute,
 }
