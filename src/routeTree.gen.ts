@@ -16,6 +16,7 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedTalhoesRouteImport } from './routes/_authenticated/talhoes'
 import { Route as AuthenticatedPropriedadesRouteImport } from './routes/_authenticated/propriedades'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -52,10 +53,16 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCustosRoute = AuthenticatedCustosRouteImport.update({
+  id: '/custos',
+  path: '/custos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
@@ -74,6 +82,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/custos': typeof AuthenticatedCustosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/propriedades': typeof AuthenticatedPropriedadesRoute
   '/_authenticated/talhoes': typeof AuthenticatedTalhoesRoute
@@ -84,17 +93,26 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/custos'
     | '/dashboard'
     | '/propriedades'
     | '/talhoes'
     | '/api/chat'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/propriedades' | '/talhoes' | '/api/chat'
+  to:
+    | '/'
+    | '/auth'
+    | '/custos'
+    | '/dashboard'
+    | '/propriedades'
+    | '/talhoes'
+    | '/api/chat'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/custos'
     | '/_authenticated/dashboard'
     | '/_authenticated/propriedades'
     | '/_authenticated/talhoes'
@@ -159,16 +177,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/custos': {
+      id: '/_authenticated/custos'
+      path: '/custos'
+      fullPath: '/custos'
+      preLoaderRoute: typeof AuthenticatedCustosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCustosRoute: typeof AuthenticatedCustosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedPropriedadesRoute: typeof AuthenticatedPropriedadesRoute
   AuthenticatedTalhoesRoute: typeof AuthenticatedTalhoesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCustosRoute: AuthenticatedCustosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedPropriedadesRoute: AuthenticatedPropriedadesRoute,
   AuthenticatedTalhoesRoute: AuthenticatedTalhoesRoute,
