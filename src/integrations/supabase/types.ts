@@ -14,7 +14,237 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ai_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_threads: {
+        Row: {
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      costs: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          date: string
+          description: string | null
+          field_id: string
+          id: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          category: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          field_id: string
+          id?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          field_id?: string
+          id?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "costs_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fields: {
+        Row: {
+          area: number
+          created_at: string
+          crop: string
+          estimated_yield: number | null
+          id: string
+          name: string
+          planting_date: string | null
+          property_id: string
+          real_yield: number | null
+          season: string | null
+          user_id: string
+        }
+        Insert: {
+          area?: number
+          created_at?: string
+          crop: string
+          estimated_yield?: number | null
+          id?: string
+          name: string
+          planting_date?: string | null
+          property_id: string
+          real_yield?: number | null
+          season?: string | null
+          user_id: string
+        }
+        Update: {
+          area?: number
+          created_at?: string
+          crop?: string
+          estimated_yield?: number | null
+          id?: string
+          name?: string
+          planting_date?: string | null
+          property_id?: string
+          real_yield?: number | null
+          season?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fields_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prices: {
+        Row: {
+          created_at: string
+          crop: string
+          date: string
+          id: string
+          price_per_bag: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          crop: string
+          date?: string
+          id?: string
+          price_per_bag?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          crop?: string
+          date?: string
+          id?: string
+          price_per_bag?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          name?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
+      properties: {
+        Row: {
+          city: string | null
+          created_at: string
+          id: string
+          name: string
+          state: string | null
+          total_area: number
+          user_id: string
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          state?: string | null
+          total_area?: number
+          user_id: string
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          state?: string | null
+          total_area?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
