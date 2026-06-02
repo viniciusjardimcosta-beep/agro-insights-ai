@@ -20,6 +20,7 @@ import { Route as AuthenticatedPrecosRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
 import { Route as AuthenticatedConsultorRouteImport } from './routes/_authenticated/consultor'
+import { Route as AuthenticatedConsultorThreadIdRouteImport } from './routes/_authenticated/consultor.$threadId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -76,11 +77,17 @@ const AuthenticatedConsultorRoute = AuthenticatedConsultorRouteImport.update({
   path: '/consultor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedConsultorThreadIdRoute =
+  AuthenticatedConsultorThreadIdRouteImport.update({
+    id: '/$threadId',
+    path: '/$threadId',
+    getParentRoute: () => AuthenticatedConsultorRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/consultor': typeof AuthenticatedConsultorRoute
+  '/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/precos': typeof AuthenticatedPrecosRoute
@@ -88,11 +95,12 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
   '/api/chat': typeof ApiChatRoute
+  '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/consultor': typeof AuthenticatedConsultorRoute
+  '/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/precos': typeof AuthenticatedPrecosRoute
@@ -100,13 +108,14 @@ export interface FileRoutesByTo {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
   '/api/chat': typeof ApiChatRoute
+  '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_authenticated/consultor': typeof AuthenticatedConsultorRoute
+  '/_authenticated/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/_authenticated/custos': typeof AuthenticatedCustosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/precos': typeof AuthenticatedPrecosRoute
@@ -114,6 +123,7 @@ export interface FileRoutesById {
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/talhoes': typeof AuthenticatedTalhoesRoute
   '/api/chat': typeof ApiChatRoute
+  '/_authenticated/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/talhoes'
     | '/api/chat'
+    | '/consultor/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/talhoes'
     | '/api/chat'
+    | '/consultor/$threadId'
   id:
     | '__root__'
     | '/'
@@ -153,6 +165,7 @@ export interface FileRouteTypes {
     | '/_authenticated/relatorios'
     | '/_authenticated/talhoes'
     | '/api/chat'
+    | '/_authenticated/consultor/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -241,11 +254,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConsultorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/consultor/$threadId': {
+      id: '/_authenticated/consultor/$threadId'
+      path: '/$threadId'
+      fullPath: '/consultor/$threadId'
+      preLoaderRoute: typeof AuthenticatedConsultorThreadIdRouteImport
+      parentRoute: typeof AuthenticatedConsultorRoute
+    }
   }
 }
 
+interface AuthenticatedConsultorRouteChildren {
+  AuthenticatedConsultorThreadIdRoute: typeof AuthenticatedConsultorThreadIdRoute
+}
+
+const AuthenticatedConsultorRouteChildren: AuthenticatedConsultorRouteChildren =
+  {
+    AuthenticatedConsultorThreadIdRoute: AuthenticatedConsultorThreadIdRoute,
+  }
+
+const AuthenticatedConsultorRouteWithChildren =
+  AuthenticatedConsultorRoute._addFileChildren(
+    AuthenticatedConsultorRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedConsultorRoute: typeof AuthenticatedConsultorRoute
+  AuthenticatedConsultorRoute: typeof AuthenticatedConsultorRouteWithChildren
   AuthenticatedCustosRoute: typeof AuthenticatedCustosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedPrecosRoute: typeof AuthenticatedPrecosRoute
@@ -255,7 +289,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedConsultorRoute: AuthenticatedConsultorRoute,
+  AuthenticatedConsultorRoute: AuthenticatedConsultorRouteWithChildren,
   AuthenticatedCustosRoute: AuthenticatedCustosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedPrecosRoute: AuthenticatedPrecosRoute,
