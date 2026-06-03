@@ -1,4 +1,4 @@
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -10,26 +10,30 @@ const q = queryOptions({ queryKey: ["farm-snapshot"], queryFn: () => getFarmSnap
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   head: () => ({ meta: [{ title: "Relatórios — AgroIntel AI" }] }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
 
 function Page() {
-  const { data } = useSuspenseQuery(q);
+  const { data, isLoading, error } = useQuery(q);
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando relatórios...</p>;
+  if (error) return <p className="text-sm text-destructive">{error.message}</p>;
+
+  const snapshot = data ?? { fields: [], costs: [], prices: [], properties: [] };
   const farm = useMemo(
-    () => aggregateFarm(data.fields as never, data.costs as never, data.prices as never),
-    [data],
+    () => aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never),
+    [snapshot],
   );
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>();
-    for (const c of data.costs) {
+    for (const c of snapshot.costs) {
       const v = map.get(c.category) ?? 0;
       map.set(c.category, v + Number(c.amount));
     }
     return [...map.entries()].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
-  }, [data.costs]);
+  }, [snapshot.costs]);
 
   const fieldsRanked = useMemo(
     () => [...farm.perField].sort((a, b) => b.profitPerHa - a.profitPerHa),
@@ -38,7 +42,7 @@ function Page() {
   const best = fieldsRanked[0];
   const worst = fieldsRanked[fieldsRanked.length - 1];
 
-  if (data.fields.length === 0) {
+  if (snapshot.fields.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Relatórios</h1>
