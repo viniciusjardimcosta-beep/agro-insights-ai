@@ -6,7 +6,7 @@ import { aggregateFarm, BRL, NUM, latestPriceByCrop } from "@/lib/calc";
 
 type Body = { messages?: unknown; threadId?: string };
 
-export const Route = createFileRoute("/api/chat")({
+export const Route = createFileRoute("/api/public/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {

@@ -3,8 +3,9 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { ArrowLeft, Bot, Loader2, Send, Sprout, User } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,15 +58,23 @@ function ThreadPage() {
 
 function Chat({ threadId, initialMessages }: { threadId: string; initialMessages: UIMessage[] }) {
   const [token, setToken] = useState<string | null>(null);
+  const [tokenReady, setTokenReady] = useState(false);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setToken(data.session?.access_token ?? null));
+    supabase.auth.getSession().then(({ data }) => {
+      setToken(data.session?.access_token ?? null);
+      setTokenReady(true);
+    });
   }, []);
 
-  const transport = new DefaultChatTransport({
-    api: "/api/chat",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: { threadId },
-  });
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/public/chat",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: { threadId },
+      }),
+    [token, threadId],
+  );
 
   const { messages, sendMessage, status, error } = useChat({
     id: threadId,
@@ -85,6 +94,10 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
 
   async function send(text: string) {
     if (!text.trim() || busy) return;
+    if (!tokenReady || !token) {
+      toast.error("Sessão não carregada", { description: "Aguarde um instante e tente novamente." });
+      return;
+    }
     setInput("");
     await sendMessage({ text });
     setTimeout(() => taRef.current?.focus(), 0);
