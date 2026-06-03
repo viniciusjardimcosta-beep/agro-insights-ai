@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedTalhoesRouteImport } from './routes/_authenticated/talhoes'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedPropriedadesRouteImport } from './routes/_authenticated/propriedades'
@@ -20,6 +19,7 @@ import { Route as AuthenticatedPrecosRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
 import { Route as AuthenticatedConsultorRouteImport } from './routes/_authenticated/consultor'
+import { Route as ApiPublicChatRouteImport } from './routes/api/public/chat'
 import { Route as AuthenticatedConsultorThreadIdRouteImport } from './routes/_authenticated/consultor.$threadId'
 
 const AuthRoute = AuthRouteImport.update({
@@ -34,11 +34,6 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTalhoesRoute = AuthenticatedTalhoesRouteImport.update({
@@ -77,6 +72,11 @@ const AuthenticatedConsultorRoute = AuthenticatedConsultorRouteImport.update({
   path: '/consultor',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicChatRoute = ApiPublicChatRouteImport.update({
+  id: '/api/public/chat',
+  path: '/api/public/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedConsultorThreadIdRoute =
   AuthenticatedConsultorThreadIdRouteImport.update({
     id: '/$threadId',
@@ -94,8 +94,8 @@ export interface FileRoutesByFullPath {
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
-  '/api/chat': typeof ApiChatRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
+  '/api/public/chat': typeof ApiPublicChatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,8 +107,8 @@ export interface FileRoutesByTo {
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
-  '/api/chat': typeof ApiChatRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
+  '/api/public/chat': typeof ApiPublicChatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,8 +122,8 @@ export interface FileRoutesById {
   '/_authenticated/propriedades': typeof AuthenticatedPropriedadesRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/talhoes': typeof AuthenticatedTalhoesRoute
-  '/api/chat': typeof ApiChatRoute
   '/_authenticated/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
+  '/api/public/chat': typeof ApiPublicChatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,8 +137,8 @@ export interface FileRouteTypes {
     | '/propriedades'
     | '/relatorios'
     | '/talhoes'
-    | '/api/chat'
     | '/consultor/$threadId'
+    | '/api/public/chat'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,8 +150,8 @@ export interface FileRouteTypes {
     | '/propriedades'
     | '/relatorios'
     | '/talhoes'
-    | '/api/chat'
     | '/consultor/$threadId'
+    | '/api/public/chat'
   id:
     | '__root__'
     | '/'
@@ -164,15 +164,15 @@ export interface FileRouteTypes {
     | '/_authenticated/propriedades'
     | '/_authenticated/relatorios'
     | '/_authenticated/talhoes'
-    | '/api/chat'
     | '/_authenticated/consultor/$threadId'
+    | '/api/public/chat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
-  ApiChatRoute: typeof ApiChatRoute
+  ApiPublicChatRoute: typeof ApiPublicChatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -196,13 +196,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/talhoes': {
@@ -253,6 +246,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/consultor'
       preLoaderRoute: typeof AuthenticatedConsultorRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/chat': {
+      id: '/api/public/chat'
+      path: '/api/public/chat'
+      fullPath: '/api/public/chat'
+      preLoaderRoute: typeof ApiPublicChatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/consultor/$threadId': {
       id: '/_authenticated/consultor/$threadId'
@@ -306,8 +306,18 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
-  ApiChatRoute: ApiChatRoute,
+  ApiPublicChatRoute: ApiPublicChatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
