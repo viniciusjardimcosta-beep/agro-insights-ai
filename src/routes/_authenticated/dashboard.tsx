@@ -1,4 +1,4 @@
-import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -12,7 +12,6 @@ import { aggregateFarm, BRL, NUM } from "@/lib/calc";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AgroIntel AI" }] }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(snapshotQuery),
   component: Dashboard,
   errorComponent: ({ error }) => (
     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -27,11 +26,16 @@ const snapshotQuery = queryOptions({
 });
 
 function Dashboard() {
-  const { data } = useSuspenseQuery(snapshotQuery);
-  const farm = aggregateFarm(data.fields as never, data.costs as never, data.prices as never);
+  const { data, isLoading, error } = useQuery(snapshotQuery);
   const qc = useQueryClient();
   const seed = useServerFn(seedDemoData);
   const [seeding, setSeeding] = useState(false);
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando painel...</p>;
+  if (error) return <p className="text-sm text-destructive">Erro ao carregar painel: {error.message}</p>;
+
+  const snapshot = data ?? { fields: [], costs: [], prices: [], properties: [] };
+  const farm = aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never);
 
   async function loadDemo() {
     setSeeding(true);
@@ -46,7 +50,7 @@ function Dashboard() {
     }
   }
 
-  const isEmpty = data.fields.length === 0;
+  const isEmpty = snapshot.fields.length === 0;
   const alerts: { tone: "warn" | "info"; text: string }[] = [];
   if (farm.totalArea > 0) {
     if (farm.profitPerHa < 0)
@@ -67,7 +71,7 @@ function Dashboard() {
     { label: "Receita estimada", value: BRL.format(farm.totalRevenue), icon: TrendingUp },
     { label: "Lucro estimado", value: BRL.format(farm.totalProfit), icon: Coins, tone: farm.totalProfit < 0 ? "neg" : "pos" },
     { label: "Lucro por hectare", value: BRL.format(farm.profitPerHa), icon: BarChart3, tone: farm.profitPerHa < 0 ? "neg" : "pos" },
-    { label: "Talhões", value: String(data.fields.length), icon: Sprout },
+    { label: "Talhões", value: String(snapshot.fields.length), icon: Sprout },
   ];
 
   return (

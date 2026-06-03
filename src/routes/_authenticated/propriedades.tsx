@@ -1,4 +1,4 @@
-import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -16,7 +16,6 @@ const q = queryOptions({ queryKey: ["properties"], queryFn: () => listProperties
 
 export const Route = createFileRoute("/_authenticated/propriedades")({
   head: () => ({ meta: [{ title: "Propriedades — AgroIntel AI" }] }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
@@ -24,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/propriedades")({
 type Prop = { id: string; name: string; city: string | null; state: string | null; total_area: number };
 
 function Page() {
-  const { data } = useSuspenseQuery(q);
+  const { data = [], isLoading, error } = useQuery(q);
   const qc = useQueryClient();
   const save = useServerFn(upsertProperty);
   const del = useServerFn(deleteProperty);
@@ -33,6 +32,9 @@ function Page() {
 
   function openNew() { setEditing(null); setOpen(true); }
   function openEdit(p: Prop) { setEditing(p); setOpen(true); }
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando propriedades...</p>;
+  if (error) return <p className="text-sm text-destructive">{error.message}</p>;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

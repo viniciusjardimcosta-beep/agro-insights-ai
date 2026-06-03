@@ -1,4 +1,4 @@
-import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -20,12 +20,6 @@ const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields()
 
 export const Route = createFileRoute("/_authenticated/custos")({
   head: () => ({ meta: [{ title: "Custos — AgroIntel AI" }] }),
-  loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData(qCosts),
-      context.queryClient.ensureQueryData(qFields),
-    ]);
-  },
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
@@ -33,8 +27,8 @@ export const Route = createFileRoute("/_authenticated/custos")({
 type Cost = { id: string; field_id: string; category: string; description: string | null; amount: number; date: string; notes: string | null; fields?: { name: string; crop: string } | null };
 
 function Page() {
-  const { data: costs } = useSuspenseQuery(qCosts);
-  const { data: fields } = useSuspenseQuery(qFields);
+  const { data: costs = [], isLoading: loadingCosts, error: costsError } = useQuery(qCosts);
+  const { data: fields = [], isLoading: loadingFields, error: fieldsError } = useQuery(qFields);
   const qc = useQueryClient();
   const save = useServerFn(upsertCost);
   const del = useServerFn(deleteCost);
@@ -48,6 +42,9 @@ function Page() {
     setEditing(null); setFieldId(fields[0].id); setCategory(COST_CATEGORIES[0]); setOpen(true);
   }
   function openEdit(c: Cost) { setEditing(c); setFieldId(c.field_id); setCategory(c.category); setOpen(true); }
+
+  if (loadingCosts || loadingFields) return <p className="text-sm text-muted-foreground">Carregando custos...</p>;
+  if (costsError || fieldsError) return <p className="text-sm text-destructive">{(costsError ?? fieldsError)?.message}</p>;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

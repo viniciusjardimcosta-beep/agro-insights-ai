@@ -1,4 +1,4 @@
-import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -18,7 +18,6 @@ const q = queryOptions({ queryKey: ["prices"], queryFn: () => listPrices() });
 
 export const Route = createFileRoute("/_authenticated/precos")({
   head: () => ({ meta: [{ title: "Preços — AgroIntel AI" }] }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
@@ -26,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/precos")({
 type Price = { id: string; crop: string; price_per_bag: number; date: string };
 
 function Page() {
-  const { data } = useSuspenseQuery(q);
+  const { data = [], isLoading, error } = useQuery(q);
   const qc = useQueryClient();
   const save = useServerFn(upsertPrice);
   const del = useServerFn(deletePrice);
@@ -36,6 +35,9 @@ function Page() {
 
   function openNew() { setEditing(null); setCrop("soja"); setOpen(true); }
   function openEdit(p: Price) { setEditing(p); setCrop(p.crop); setOpen(true); }
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando preços...</p>;
+  if (error) return <p className="text-sm text-destructive">{error.message}</p>;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

@@ -1,8 +1,8 @@
 import { useChat } from "@ai-sdk/react";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ArrowLeft, Bot, Send, Sprout, User } from "lucide-react";
+import { ArrowLeft, Bot, Loader2, Send, Sprout, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -20,28 +20,33 @@ const SUGGESTIONS = [
 
 export const Route = createFileRoute("/_authenticated/consultor/$threadId")({
   head: () => ({ meta: [{ title: "Consultor IA — AgroIntel AI" }] }),
-  loader: ({ context, params }) =>
-    context.queryClient.ensureQueryData(
-      queryOptions({
-        queryKey: ["thread-messages", params.threadId],
-        queryFn: () => getThreadMessages({ data: { threadId: params.threadId } }),
-      }),
-    ),
   component: ThreadPage,
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
 
 function ThreadPage() {
   const { threadId } = Route.useParams();
-  const initial = useSuspenseQuery(
+  const initial = useQuery(
     queryOptions({
       queryKey: ["thread-messages", threadId],
       queryFn: () => getThreadMessages({ data: { threadId } }),
     }),
   );
 
+  if (initial.isLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando conversa...
+      </div>
+    );
+  }
+
+  if (initial.error) {
+    return <p className="text-sm text-destructive">{initial.error.message}</p>;
+  }
+
   // Map DB rows to UIMessage shape
-  const initialMessages: UIMessage[] = initial.data.messages.map((m) => ({
+  const initialMessages: UIMessage[] = (initial.data?.messages ?? []).map((m) => ({
     id: m.id,
     role: m.role as UIMessage["role"],
     parts: [{ type: "text", text: m.content }],
