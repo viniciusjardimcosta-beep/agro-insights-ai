@@ -57,23 +57,18 @@ function ThreadPage() {
 }
 
 function Chat({ threadId, initialMessages }: { threadId: string; initialMessages: UIMessage[] }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [tokenReady, setTokenReady] = useState(false);
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setToken(data.session?.access_token ?? null);
-      setTokenReady(true);
-    });
-  }, []);
-
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/public/chat",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: async () => {
+          const { data } = await supabase.auth.getSession();
+          const t = data.session?.access_token;
+          return t ? { Authorization: `Bearer ${t}` } : {};
+        },
         body: { threadId },
       }),
-    [token, threadId],
+    [threadId],
   );
 
   const { messages, sendMessage, status, error } = useChat({
@@ -94,8 +89,9 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
 
   async function send(text: string) {
     if (!text.trim() || busy) return;
-    if (!tokenReady || !token) {
-      toast.error("Sessão não carregada", { description: "Aguarde um instante e tente novamente." });
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      toast.error("Sessão não carregada", { description: "Faça login novamente." });
       return;
     }
     setInput("");
