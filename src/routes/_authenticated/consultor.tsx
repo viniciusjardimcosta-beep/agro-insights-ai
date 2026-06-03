@@ -1,4 +1,4 @@
-import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Bot, Plus, Trash2 } from "lucide-react";
@@ -11,17 +11,19 @@ const q = queryOptions({ queryKey: ["threads"], queryFn: () => listThreads() });
 
 export const Route = createFileRoute("/_authenticated/consultor")({
   head: () => ({ meta: [{ title: "Consultor IA — AgroIntel AI" }] }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
 
 function Page() {
-  const { data } = useSuspenseQuery(q);
+  const { data = [], isLoading, error } = useQuery(q);
   const create = useServerFn(createThread);
   const del = useServerFn(deleteThread);
   const qc = useQueryClient();
   const navigate = useNavigate();
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando conversas...</p>;
+  if (error) return <p className="text-sm text-destructive">{error.message}</p>;
 
   async function newThread() {
     try {
