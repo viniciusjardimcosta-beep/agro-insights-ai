@@ -61,7 +61,7 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
     () =>
       new DefaultChatTransport({
         api: "/api/public/chat",
-        headers: async () => {
+        headers: async (): Promise<Record<string, string>> => {
           const { data } = await supabase.auth.getSession();
           const t = data.session?.access_token;
           return t ? { Authorization: `Bearer ${t}` } : {};
