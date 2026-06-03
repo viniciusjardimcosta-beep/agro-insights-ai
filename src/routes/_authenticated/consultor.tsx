@@ -1,5 +1,5 @@
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Bot, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,11 +16,16 @@ export const Route = createFileRoute("/_authenticated/consultor")({
 });
 
 function Page() {
+  const isChild = useRouterState({
+    select: (s) => s.location.pathname !== "/consultor" && s.location.pathname !== "/consultor/",
+  });
   const { data = [], isLoading, error } = useQuery(q);
   const create = useServerFn(createThread);
   const del = useServerFn(deleteThread);
   const qc = useQueryClient();
   const navigate = useNavigate();
+
+  if (isChild) return <Outlet />;
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando conversas...</p>;
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
