@@ -1,4 +1,4 @@
-import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -18,12 +18,6 @@ const qProps = queryOptions({ queryKey: ["properties"], queryFn: () => listPrope
 
 export const Route = createFileRoute("/_authenticated/talhoes")({
   head: () => ({ meta: [{ title: "Talhões — AgroIntel AI" }] }),
-  loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData(qFields),
-      context.queryClient.ensureQueryData(qProps),
-    ]);
-  },
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
@@ -36,8 +30,8 @@ type Field = {
 };
 
 function Page() {
-  const { data: fields } = useSuspenseQuery(qFields);
-  const { data: props } = useSuspenseQuery(qProps);
+  const { data: fields = [], isLoading: loadingFields, error: fieldsError } = useQuery(qFields);
+  const { data: props = [], isLoading: loadingProps, error: propsError } = useQuery(qProps);
   const qc = useQueryClient();
   const save = useServerFn(upsertField);
   const del = useServerFn(deleteField);
@@ -56,6 +50,9 @@ function Page() {
   function openEdit(f: Field) {
     setEditing(f); setPropertyId(f.property_id); setCrop(f.crop); setOpen(true);
   }
+
+  if (loadingFields || loadingProps) return <p className="text-sm text-muted-foreground">Carregando talhões...</p>;
+  if (fieldsError || propsError) return <p className="text-sm text-destructive">{(fieldsError ?? propsError)?.message}</p>;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
