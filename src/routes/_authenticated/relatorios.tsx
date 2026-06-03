@@ -1,6 +1,5 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getFarmSnapshot } from "@/lib/data.functions";
@@ -21,24 +20,16 @@ function Page() {
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
 
   const snapshot = data ?? { fields: [], costs: [], prices: [], properties: [] };
-  const farm = useMemo(
-    () => aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never),
-    [snapshot],
-  );
+  const farm = aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never);
 
-  const byCategory = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of snapshot.costs) {
-      const v = map.get(c.category) ?? 0;
-      map.set(c.category, v + Number(c.amount));
-    }
-    return [...map.entries()].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
-  }, [snapshot.costs]);
+  const byCategoryMap = new Map<string, number>();
+  for (const c of snapshot.costs) {
+    const v = byCategoryMap.get(c.category) ?? 0;
+    byCategoryMap.set(c.category, v + Number(c.amount));
+  }
+  const byCategory = [...byCategoryMap.entries()].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
 
-  const fieldsRanked = useMemo(
-    () => [...farm.perField].sort((a, b) => b.profitPerHa - a.profitPerHa),
-    [farm.perField],
-  );
+  const fieldsRanked = [...farm.perField].sort((a, b) => b.profitPerHa - a.profitPerHa);
   const best = fieldsRanked[0];
   const worst = fieldsRanked[fieldsRanked.length - 1];
 
