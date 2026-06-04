@@ -117,6 +117,30 @@ export type Database = {
           },
         ]
       }
+      diagnostics: {
+        Row: {
+          created_at: string
+          health_score: number
+          id: string
+          report: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          health_score?: number
+          id?: string
+          report?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          health_score?: number
+          id?: string
+          report?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       fields: {
         Row: {
           area: number
