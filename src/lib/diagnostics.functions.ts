@@ -111,7 +111,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       .insert({
         user_id: context.userId,
         health_score: Math.round(report.healthScore),
-        report: report as unknown as Record<string, unknown>,
+        report: report as never,
       })
       .select()
       .single();
