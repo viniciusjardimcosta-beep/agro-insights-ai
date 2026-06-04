@@ -1,12 +1,13 @@
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { AlertTriangle, Banknote, BarChart3, Coins, Database, MapPinned, Sprout, TrendingUp } from "lucide-react";
+import { Activity, AlertTriangle, Banknote, BarChart3, Coins, Database, MapPinned, Sparkles, Sprout, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getFarmSnapshot } from "@/lib/data.functions";
+import { latestDiagnostic } from "@/lib/diagnostics.functions";
 import { seedDemoData } from "@/lib/demo.functions";
 import { aggregateFarm, BRL, NUM } from "@/lib/calc";
 
@@ -25,8 +26,20 @@ const snapshotQuery = queryOptions({
   queryFn: () => getFarmSnapshot(),
 });
 
+const latestDiagnosticQuery = queryOptions({
+  queryKey: ["latest-diagnostic"],
+  queryFn: () => latestDiagnostic(),
+});
+
+function scoreColor(score: number) {
+  if (score >= 75) return "text-primary";
+  if (score >= 50) return "text-warning";
+  return "text-destructive";
+}
+
 function Dashboard() {
   const { data, isLoading, error } = useQuery(snapshotQuery);
+  const { data: latestDiag } = useQuery(latestDiagnosticQuery);
   const qc = useQueryClient();
   const seed = useServerFn(seedDemoData);
   const [seeding, setSeeding] = useState(false);
@@ -104,6 +117,39 @@ function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Diagnostic health card */}
+      <Card className="shadow-[var(--shadow-card)]">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <Activity className="h-4 w-4 text-primary" />
+            Saúde Financeira
+          </CardTitle>
+          <Button asChild size="sm" variant={latestDiag ? "outline" : "default"}>
+            <Link to="/diagnostico">
+              <Sparkles className="mr-1 h-3 w-3" />
+              {latestDiag ? "Ver diagnóstico" : "Gerar diagnóstico"}
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {latestDiag ? (
+            <div className="flex items-end gap-3">
+              <div className={`text-4xl font-bold ${scoreColor(latestDiag.health_score)}`}>
+                {latestDiag.health_score}
+              </div>
+              <div className="pb-1 text-sm text-muted-foreground">
+                / 100 · atualizado em{" "}
+                {new Date(latestDiag.created_at).toLocaleDateString("pt-BR")}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Gere seu primeiro diagnóstico para ver a nota de saúde financeira da fazenda.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {alerts.length > 0 && (
         <div className="space-y-2">
