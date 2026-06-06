@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BRL } from "@/lib/calc";
 import {
   generateDiagnostic,
@@ -118,9 +119,43 @@ function DiagnosticoPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-end gap-4">
-                  <div className={`text-6xl font-bold ${scoreColor(current.health_score)}`}>
-                    {current.health_score}
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        className={`text-6xl font-bold ${scoreColor(current.health_score)} cursor-pointer underline-offset-4 hover:underline focus:outline-none`}
+                        title="Ver composição da nota"
+                      >
+                        {current.health_score}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-80">
+                      <div className="mb-2 text-sm font-semibold">Composição da nota</div>
+                      {report.scoreBreakdown && report.scoreBreakdown.length > 0 ? (
+                        <ul className="space-y-1.5 text-sm">
+                          {report.scoreBreakdown.map((b, i) => {
+                            const pos = b.points >= 0;
+                            return (
+                              <li key={i} className="flex items-start justify-between gap-3">
+                                <span className="text-muted-foreground">{b.label}</span>
+                                <span className={`font-mono font-semibold ${pos ? "text-primary" : "text-destructive"}`}>
+                                  {pos ? "+" : ""}
+                                  {b.points}
+                                </span>
+                              </li>
+                            );
+                          })}
+                          <li className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-semibold">
+                            <span>Total</span>
+                            <span className="font-mono">{current.health_score}/100</span>
+                          </li>
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Sem detalhamento disponível para este diagnóstico.
+                        </p>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                   <div className="pb-2">
                     <div className="text-sm text-muted-foreground">de 100</div>
                     <div className={`font-semibold ${scoreColor(current.health_score)}`}>
@@ -128,6 +163,9 @@ function DiagnosticoPage() {
                     </div>
                   </div>
                 </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Clique na nota para ver a composição.
+                </p>
                 <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full bg-primary transition-all"
