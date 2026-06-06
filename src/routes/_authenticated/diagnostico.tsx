@@ -1,7 +1,7 @@
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -119,43 +119,10 @@ function DiagnosticoPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-end gap-4">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        className={`text-6xl font-bold ${scoreColor(current.health_score)} cursor-pointer underline-offset-4 hover:underline focus:outline-none`}
-                        title="Ver composição da nota"
-                      >
-                        {current.health_score}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-80">
-                      <div className="mb-2 text-sm font-semibold">Composição da nota</div>
-                      {report.scoreBreakdown && report.scoreBreakdown.length > 0 ? (
-                        <ul className="space-y-1.5 text-sm">
-                          {report.scoreBreakdown.map((b, i) => {
-                            const pos = b.points >= 0;
-                            return (
-                              <li key={i} className="flex items-start justify-between gap-3">
-                                <span className="text-muted-foreground">{b.label}</span>
-                                <span className={`font-mono font-semibold ${pos ? "text-primary" : "text-destructive"}`}>
-                                  {pos ? "+" : ""}
-                                  {b.points}
-                                </span>
-                              </li>
-                            );
-                          })}
-                          <li className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-semibold">
-                            <span>Total</span>
-                            <span className="font-mono">{current.health_score}/100</span>
-                          </li>
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          Sem detalhamento disponível para este diagnóstico.
-                        </p>
-                      )}
-                    </PopoverContent>
-                  </Popover>
+                  <ScoreWithBreakdown
+                    score={current.health_score}
+                    breakdown={Array.isArray(report.scoreBreakdown) ? report.scoreBreakdown : []}
+                  />
                   <div className="pb-2">
                     <div className="text-sm text-muted-foreground">de 100</div>
                     <div className={`font-semibold ${scoreColor(current.health_score)}`}>
@@ -337,3 +304,60 @@ function Stat({
 
 // re-export so tree-shaking keeps icon used
 void CheckCircle2;
+
+function ScoreWithBreakdown({
+  score,
+  breakdown,
+}: {
+  score: number;
+  breakdown: { label: string; points: number }[];
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const triggerClass = `text-6xl font-bold ${scoreColor(score)} underline-offset-4 focus:outline-none`;
+
+  // SSR-safe: render plain number until hydrated, then upgrade to interactive Popover.
+  if (!mounted) {
+    return <div className={triggerClass}>{score}</div>;
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`${triggerClass} cursor-pointer hover:underline`}
+          title="Ver composição da nota"
+        >
+          {score}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80">
+        <div className="mb-2 text-sm font-semibold">Composição da nota</div>
+        {breakdown.length > 0 ? (
+          <ul className="space-y-1.5 text-sm">
+            {breakdown.map((b, i) => {
+              const pos = (b?.points ?? 0) >= 0;
+              return (
+                <li key={i} className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">{b?.label ?? "-"}</span>
+                  <span className={`font-mono font-semibold ${pos ? "text-primary" : "text-destructive"}`}>
+                    {pos ? "+" : ""}
+                    {b?.points ?? 0}
+                  </span>
+                </li>
+              );
+            })}
+            <li className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-semibold">
+              <span>Total</span>
+              <span className="font-mono">{score}/100</span>
+            </li>
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">Composição ainda não disponível.</p>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
