@@ -1,31 +1,146 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { aggregateFarm, BRL, NUM, latestPriceByCrop } from "@/lib/calc";
 
+// Lenient schema: coerce numbers, allow extra fields, fill defaults so the AI
+// rarely fails validation. We normalize/cap arrays after parsing.
+const num = z.preprocess((v) => {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = Number(v.replace(/[^\d.\-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}, z.number());
+
 const ReportSchema = z.object({
-  healthScore: z.number().min(0).max(100),
+  healthScore: num,
   finance: z.object({
-    revenue: z.number(),
-    costs: z.number(),
-    profit: z.number(),
-    profitPerHa: z.number(),
+    revenue: num,
+    costs: num,
+    profit: num,
+    profitPerHa: num,
   }),
-  risks: z.array(z.string()).max(3),
-  opportunities: z.array(z.string()).max(3),
+  risks: z.array(z.string()).default([]),
+  opportunities: z.array(z.string()).default([]),
   indicators: z.object({
-    mostProfitableCrop: z.string(),
-    leastProfitableCrop: z.string(),
-    mostEfficientField: z.string(),
-    leastEfficientField: z.string(),
-    singleCropDependencyPct: z.number().min(0).max(100),
+    mostProfitableCrop: z.string().default("-"),
+    leastProfitableCrop: z.string().default("-"),
+    mostEfficientField: z.string().default("-"),
+    leastEfficientField: z.string().default("-"),
+    singleCropDependencyPct: num.default(0),
   }),
-  actionPlan: z.array(z.string()).length(3),
+  actionPlan: z.array(z.string()).default([]),
 });
 
 export type DiagnosticReport = z.infer<typeof ReportSchema>;
+
+const schemaShape = {
+  healthScore: "number 0-100",
+  finance: { revenue: "number", costs: "number", profit: "number", profitPerHa: "number" },
+  risks: ["string", "..."],
+  opportunities: ["string", "..."],
+  indicators: {
+    mostProfitableCrop: "string",
+    leastProfitableCrop: "string",
+    mostEfficientField: "string",
+    leastEfficientField: "string",
+    singleCropDependencyPct: "number 0-100",
+  },
+  actionPlan: ["string", "string", "string"],
+};
+
+function extractJson(raw: string): unknown {
+  let s = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = s.search(/[\{\[]/);
+  const end = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+  if (start === -1 || end === -1 || end < start) throw new Error("Sem JSON na resposta");
+  s = s.slice(start, end + 1);
+  try {
+    return JSON.parse(s);
+  } catch {
+    const repaired = s
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*\]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, " ");
+    return JSON.parse(repaired);
+  }
+}
+
+function normalize(report: DiagnosticReport): DiagnosticReport {
+  return {
+    ...report,
+    healthScore: Math.max(0, Math.min(100, Math.round(report.healthScore))),
+    risks: report.risks.slice(0, 3),
+    opportunities: report.opportunities.slice(0, 3),
+    actionPlan: report.actionPlan.slice(0, 3),
+    indicators: {
+      ...report.indicators,
+      singleCropDependencyPct: Math.max(0, Math.min(100, report.indicators.singleCropDependencyPct)),
+    },
+  };
+}
+
+function fallbackReport(
+  farm: ReturnType<typeof aggregateFarm>,
+  textNote?: string,
+): DiagnosticReport {
+  const byCrop: Record<string, { revenue: number; profit: number; area: number }> = {};
+  for (const f of farm.perField) {
+    const c = (byCrop[f.field.crop] ??= { revenue: 0, profit: 0, area: 0 });
+    c.revenue += f.revenue;
+    c.profit += f.profit;
+    c.area += f.area;
+  }
+  const crops = Object.entries(byCrop);
+  const sortedByProfit = [...crops].sort((a, b) =>
+    (b[1].area > 0 ? b[1].profit / b[1].area : -Infinity) -
+    (a[1].area > 0 ? a[1].profit / a[1].area : -Infinity),
+  );
+  const sortedFields = [...farm.perField].sort((a, b) => b.profitPerHa - a.profitPerHa);
+  const topCropRev = crops.reduce((m, [, v]) => Math.max(m, v.revenue), 0);
+  const dep = farm.totalRevenue > 0 ? (topCropRev / farm.totalRevenue) * 100 : 0;
+
+  const margin = farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : -100;
+  const score = Math.max(0, Math.min(100, Math.round(50 + margin)));
+
+  return normalize({
+    healthScore: score,
+    finance: {
+      revenue: farm.totalRevenue,
+      costs: farm.totalCost,
+      profit: farm.totalProfit,
+      profitPerHa: farm.profitPerHa,
+    },
+    risks: [
+      farm.totalProfit < 0 ? "Resultado negativo no consolidado da fazenda." : "Margem apertada em parte dos talhões.",
+      dep >= 70 ? `Alta dependência de uma única cultura (${Math.round(dep)}% da receita).` : "Diversificação de culturas moderada.",
+      "Custos por hectare merecem revisão detalhada por categoria.",
+    ],
+    opportunities: [
+      "Renegociar insumos e revisar contratos de maior peso no custo.",
+      "Melhorar comercialização travando preços em janelas favoráveis.",
+      "Aprimorar gestão de fluxo de caixa e capital de giro.",
+    ],
+    indicators: {
+      mostProfitableCrop: sortedByProfit[0]?.[0] ?? "-",
+      leastProfitableCrop: sortedByProfit[sortedByProfit.length - 1]?.[0] ?? "-",
+      mostEfficientField: sortedFields[0]?.field.name ?? "-",
+      leastEfficientField: sortedFields[sortedFields.length - 1]?.field.name ?? "-",
+      singleCropDependencyPct: dep,
+    },
+    actionPlan: [
+      "Mapear os 5 maiores custos por talhão e renegociar fornecedores.",
+      "Revisar política de comercialização e definir gatilhos de venda por cultura.",
+      textNote
+        ? "Reforçar controles financeiros (fluxo de caixa, conciliação e indicadores mensais)."
+        : "Reforçar controles financeiros (fluxo de caixa, conciliação e indicadores mensais).",
+    ],
+  });
+}
 
 export const listDiagnostics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -97,14 +212,40 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 - Tudo em português do Brasil, frases curtas. Não invente dados além do contexto.`;
 
     const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
-    const { experimental_output: output } = await generateText({
-      model: gateway("google/gemini-3-flash-preview"),
-      system,
-      prompt: `Dados da fazenda:\n${summary}\n\nGere o diagnóstico no schema fornecido.`,
-      experimental_output: Output.object({ schema: ReportSchema }),
-    });
+    const schemaHint = JSON.stringify(schemaShape, null, 2);
+    const userPrompt = `Dados da fazenda:\n${summary}\n\nResponda APENAS com um JSON válido (sem markdown, sem comentários) seguindo EXATAMENTE este formato:\n${schemaHint}\n\nRegras:\n- Use números crus (sem R$, sem pontos de milhar, ponto como decimal).\n- risks e opportunities: no máximo 3 itens cada.\n- actionPlan: exatamente 3 strings.\n- Todos os campos são obrigatórios.`;
 
-    const report = output;
+    let report: DiagnosticReport | null = null;
+    let rawResponse = "";
+    try {
+      const { text } = await generateText({
+        model: gateway("google/gemini-3-flash-preview"),
+        system,
+        prompt: userPrompt,
+      });
+      rawResponse = text;
+      const parsed = extractJson(text);
+      const result = ReportSchema.safeParse(parsed);
+      if (!result.success) {
+        console.error("[diagnostico] schema mismatch", {
+          expected: schemaShape,
+          received: parsed,
+          issues: result.error.issues.map((i) => ({
+            path: i.path.join("."),
+            code: i.code,
+            message: i.message,
+          })),
+        });
+        throw new Error("schema_mismatch");
+      }
+      report = normalize(result.data);
+    } catch (err) {
+      console.error("[diagnostico] geração estruturada falhou — usando fallback", {
+        error: (err as Error).message,
+        raw: rawResponse.slice(0, 2000),
+      });
+      report = fallbackReport(farm, rawResponse);
+    }
 
     const { data: inserted, error: insertError } = await context.supabase
       .from("diagnostics")
