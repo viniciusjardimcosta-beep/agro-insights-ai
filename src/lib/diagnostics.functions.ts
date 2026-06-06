@@ -108,10 +108,11 @@ function fallbackReport(
   const dep = farm.totalRevenue > 0 ? (topCropRev / farm.totalRevenue) * 100 : 0;
 
   const margin = farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : -100;
-  const score = Math.max(0, Math.min(100, Math.round(50 + margin)));
+  const { score, breakdown } = computeScoreBreakdown(farm);
 
   return normalize({
     healthScore: score,
+    scoreBreakdown: breakdown,
     finance: {
       revenue: farm.totalRevenue,
       costs: farm.totalCost,
@@ -143,6 +144,82 @@ function fallbackReport(
         : "Reforçar controles financeiros (fluxo de caixa, conciliação e indicadores mensais).",
     ],
   });
+}
+
+export function computeScoreBreakdown(
+  farm: ReturnType<typeof aggregateFarm>,
+): { score: number; breakdown: { label: string; points: number }[] } {
+  const breakdown: { label: string; points: number }[] = [];
+  let score = 25;
+  breakdown.push({ label: "Base inicial", points: 25 });
+
+  const margin = farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : -100;
+  if (margin >= 0) {
+    const pts = Math.min(35, Math.round((margin / 20) * 35));
+    score += pts;
+    breakdown.push({ label: `Margem positiva (${margin.toFixed(1)}%)`, points: pts });
+  } else {
+    const pts = Math.max(-20, Math.round(margin / 2));
+    score += pts;
+    breakdown.push({ label: `Margem negativa (${margin.toFixed(1)}%)`, points: pts });
+  }
+
+  if (farm.totalProfit > 0) {
+    score += 25;
+    breakdown.push({ label: "Geração de caixa positiva", points: 25 });
+  } else {
+    score -= 10;
+    breakdown.push({ label: "Sem geração de caixa", points: -10 });
+  }
+
+  const aboveBE = farm.perField.filter((f) => f.breakevenBagPerHa > 0 && f.yieldBag >= f.breakevenBagPerHa).length;
+  const totalFields = farm.perField.length || 1;
+  const beRatio = aboveBE / totalFields;
+  const bePts = Math.round(beRatio * 15);
+  if (bePts > 0) {
+    score += bePts;
+    breakdown.push({
+      label: `Produtividade acima do ponto de equilíbrio (${aboveBE}/${totalFields} talhões)`,
+      points: bePts,
+    });
+  } else {
+    score -= 5;
+    breakdown.push({ label: "Nenhum talhão acima do ponto de equilíbrio", points: -5 });
+  }
+
+  // Dependency penalty
+  const byCrop: Record<string, number> = {};
+  for (const f of farm.perField) byCrop[f.field.crop] = (byCrop[f.field.crop] ?? 0) + f.revenue;
+  const entries = Object.entries(byCrop).sort((a, b) => b[1] - a[1]);
+  const dep = farm.totalRevenue > 0 && entries[0] ? (entries[0][1] / farm.totalRevenue) * 100 : 0;
+  if (dep >= 60 && entries[0]) {
+    const pts = -Math.min(15, Math.round((dep - 60) / 3));
+    if (pts < 0) {
+      score += pts;
+      breakdown.push({
+        label: `Dependência da cultura ${entries[0][0]} (${Math.round(dep)}% da receita)`,
+        points: pts,
+      });
+    }
+  }
+
+  // High cost crops
+  const cropAgg: Record<string, { cost: number; revenue: number; area: number }> = {};
+  for (const f of farm.perField) {
+    const c = (cropAgg[f.field.crop] ??= { cost: 0, revenue: 0, area: 0 });
+    c.cost += f.totalCost;
+    c.revenue += f.revenue;
+    c.area += f.area;
+  }
+  for (const [crop, v] of Object.entries(cropAgg)) {
+    if (v.revenue > 0 && v.cost / v.revenue > 0.85) {
+      score -= 5;
+      breakdown.push({ label: `Custo elevado da cultura ${crop}`, points: -5 });
+    }
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  return { score, breakdown };
 }
 
 export const listDiagnostics = createServerFn({ method: "GET" })
