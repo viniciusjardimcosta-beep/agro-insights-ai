@@ -327,6 +327,14 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       report = fallbackReport(farm, rawResponse);
     }
 
+    // Always compute deterministic score + breakdown from real data, overriding AI.
+    const computed = computeScoreBreakdown(farm);
+    report = {
+      ...report,
+      healthScore: computed.score,
+      scoreBreakdown: computed.breakdown,
+    };
+
     const { data: inserted, error: insertError } = await context.supabase
       .from("diagnostics")
       .insert({
