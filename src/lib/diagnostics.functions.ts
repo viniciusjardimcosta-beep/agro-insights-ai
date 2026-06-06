@@ -34,6 +34,9 @@ const ReportSchema = z.object({
     singleCropDependencyPct: num.default(0),
   }),
   actionPlan: z.array(z.string()).default([]),
+  scoreBreakdown: z
+    .array(z.object({ label: z.string(), points: num }))
+    .default([]),
 });
 
 export type DiagnosticReport = z.infer<typeof ReportSchema>;
