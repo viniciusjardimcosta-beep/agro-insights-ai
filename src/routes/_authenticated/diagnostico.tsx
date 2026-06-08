@@ -143,6 +143,22 @@ function DiagnosticoPage() {
               </CardContent>
             </Card>
 
+            {/* Composição da Nota — visible section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>🧮 Composição da Nota</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScoreComposition
+                  score={current.health_score}
+                  breakdown={
+                    Array.isArray(report.scoreBreakdown) ? report.scoreBreakdown : []
+                  }
+                  reason={report.scoreReason ?? ""}
+                />
+              </CardContent>
+            </Card>
+
             {/* Finance */}
             <Card>
               <CardHeader>
