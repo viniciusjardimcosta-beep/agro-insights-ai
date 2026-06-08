@@ -143,6 +143,22 @@ function DiagnosticoPage() {
               </CardContent>
             </Card>
 
+            {/* Composição da Nota — visible section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>🧮 Composição da Nota</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScoreComposition
+                  score={current.health_score}
+                  breakdown={
+                    Array.isArray(report.scoreBreakdown) ? report.scoreBreakdown : []
+                  }
+                  reason={report.scoreReason ?? ""}
+                />
+              </CardContent>
+            </Card>
+
             {/* Finance */}
             <Card>
               <CardHeader>
@@ -305,6 +321,107 @@ function Stat({
 
 // re-export so tree-shaking keeps icon used
 void CheckCircle2;
+
+function ScoreComposition({
+  score,
+  breakdown,
+  reason,
+}: {
+  score: number;
+  breakdown: { label: string; points: number }[];
+  reason?: string;
+}) {
+  if (!breakdown || breakdown.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">Composição ainda não disponível.</p>
+    );
+  }
+  const base = breakdown.find((b) => b.label === "Base inicial");
+  const positives = breakdown.filter(
+    (b) => b.label !== "Base inicial" && (b?.points ?? 0) > 0,
+  );
+  const penalties = breakdown.filter((b) => (b?.points ?? 0) < 0);
+  const sumPos = positives.reduce((s, b) => s + b.points, 0);
+  const sumNeg = penalties.reduce((s, b) => s + b.points, 0);
+
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
+        <span className="text-muted-foreground">Base</span>
+        <span className="font-mono font-semibold">{base?.points ?? 100}</span>
+      </div>
+
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-destructive">
+          Penalidades
+        </div>
+        {penalties.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma penalidade aplicada.</p>
+        ) : (
+          <ul className="space-y-1">
+            {penalties.map((b, i) => (
+              <li
+                key={i}
+                className="flex items-start justify-between gap-3 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2"
+              >
+                <span>{b.label}</span>
+                <span className="font-mono font-semibold text-destructive">{b.points}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+          Bônus
+        </div>
+        {positives.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum bônus aplicado.</p>
+        ) : (
+          <ul className="space-y-1">
+            {positives.map((b, i) => (
+              <li
+                key={i}
+                className="flex items-start justify-between gap-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2"
+              >
+                <span>{b.label}</span>
+                <span className="font-mono font-semibold text-primary">
+                  {b.label.startsWith("Ajuste") ? b.points : `+${b.points}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+        <div className="mb-1 font-semibold text-foreground">Cálculo</div>
+        <div className="font-mono">
+          {base?.points ?? 100} {sumNeg !== 0 ? sumNeg : ""}{" "}
+          {sumPos !== 0 ? `+ ${sumPos}` : ""} = {(base?.points ?? 100) + sumNeg + sumPos}
+          {(base?.points ?? 100) + sumNeg + sumPos !== score && (
+            <> → limitado a {score}</>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between rounded-md border-2 border-primary/40 bg-primary/5 px-3 py-3">
+        <span className="font-semibold">Resultado final</span>
+        <span className={`font-mono text-2xl font-bold ${scoreColor(score)}`}>
+          {score}/100
+        </span>
+      </div>
+
+      {reason && (
+        <div className="rounded-md border bg-card p-3 text-xs">
+          <div className="mb-1 font-semibold">Motivo da nota</div>
+          <p className="text-muted-foreground">{reason}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ScoreWithBreakdown({
   score,

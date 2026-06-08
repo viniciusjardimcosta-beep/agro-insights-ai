@@ -157,12 +157,10 @@ export function computeScoreBreakdown(
 } {
   const breakdown: { label: string; points: number }[] = [];
   breakdown.push({ label: "Base inicial", points: 100 });
-  let score = 100;
 
   const add = (label: string, points: number) => {
     if (points === 0) return;
     breakdown.push({ label, points });
-    score += points;
   };
 
   const margin =
@@ -195,6 +193,53 @@ export function computeScoreBreakdown(
       `Dependência da cultura ${topCropEntry?.[0]} acima de 60% do lucro (${Math.round(depPct)}%)`,
       -10,
     );
+
+  // Rentability spread between best and worst crop (profit/ha)
+  const profitPerHaByCrop: Record<string, { profit: number; area: number }> = {};
+  for (const f of farm.perField) {
+    const c = (profitPerHaByCrop[f.field.crop] ??= { profit: 0, area: 0 });
+    c.profit += f.profit;
+    c.area += f.area;
+  }
+  const pphList = Object.entries(profitPerHaByCrop)
+    .filter(([, v]) => v.area > 0)
+    .map(([crop, v]) => ({ crop, pph: v.profit / v.area }));
+  if (pphList.length >= 2) {
+    const best = pphList.reduce((a, b) => (b.pph > a.pph ? b : a));
+    const worst = pphList.reduce((a, b) => (b.pph < a.pph ? b : a));
+    const ref = Math.max(Math.abs(best.pph), Math.abs(worst.pph));
+    if (ref > 0) {
+      const spreadPct = ((best.pph - worst.pph) / ref) * 100;
+      if (spreadPct > 50)
+        add(
+          `Diferença de rentabilidade entre ${best.crop} e ${worst.crop} acima de 50% (${Math.round(spreadPct)}%)`,
+          -15,
+        );
+      else if (spreadPct > 30)
+        add(
+          `Diferença de rentabilidade entre ${best.crop} e ${worst.crop} acima de 30% (${Math.round(spreadPct)}%)`,
+          -10,
+        );
+    }
+  }
+
+  // High cost/revenue ratio per crop ("custo elevado da soja" etc.)
+  const cropTotals: Record<string, { cost: number; revenue: number }> = {};
+  for (const f of farm.perField) {
+    const c = (cropTotals[f.field.crop] ??= { cost: 0, revenue: 0 });
+    c.cost += f.totalCost;
+    c.revenue += f.revenue;
+  }
+  const highCostCrops = Object.entries(cropTotals).filter(
+    ([, v]) => v.revenue > 0 && v.cost / v.revenue > 0.7,
+  );
+  if (highCostCrops.length > 0) {
+    const points = Math.max(-15, -5 * highCostCrops.length);
+    add(
+      `Custo elevado (>70% da receita) em ${highCostCrops.map(([c, v]) => `${c} ${Math.round((v.cost / v.revenue) * 100)}%`).join(", ")}`,
+      points,
+    );
+  }
 
   // Any field with negative profit
   const negativeFields = farm.perField.filter((f) => f.profit < 0);
@@ -249,7 +294,7 @@ export function computeScoreBreakdown(
   // Bonuses
   if (farm.perField.length > 0 && farm.perField.every((f) => f.profit > 0))
     add("Todos os talhões lucrativos", 5);
-  if (margin > 30) add(`Margem líquida acima de 30% (${margin.toFixed(1)}%)`, 10);
+  if (margin > 30) add(`Margem líquida acima de 30% (${margin.toFixed(1)}%)`, 5);
   const allBEUnder60 =
     farm.perField.length > 0 &&
     farm.perField.every((f) => {
@@ -259,7 +304,18 @@ export function computeScoreBreakdown(
     });
   if (allBEUnder60) add("Ponto de equilíbrio confortável em todos os talhões", 5);
 
-  score = Math.max(0, Math.min(100, score));
+  // Raw sum + cap adjustment as a visible breakdown entry so the math is honest.
+  const rawSum = breakdown.reduce((s, b) => s + b.points, 0);
+  let score = rawSum;
+  if (score > 100) {
+    const adj = 100 - score;
+    breakdown.push({ label: "Ajuste para teto de 100", points: adj });
+    score = 100;
+  } else if (score < 0) {
+    const adj = -score;
+    breakdown.push({ label: "Ajuste para piso de 0", points: adj });
+    score = 0;
+  }
 
   const reason =
     score >= 85
