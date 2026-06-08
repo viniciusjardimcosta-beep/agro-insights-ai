@@ -37,6 +37,7 @@ const ReportSchema = z.object({
   scoreBreakdown: z
     .array(z.object({ label: z.string(), points: num }))
     .default([]),
+  scoreReason: z.string().default(""),
 });
 
 export type DiagnosticReport = z.infer<typeof ReportSchema>;
