@@ -114,6 +114,7 @@ function fallbackReport(
   return normalize({
     healthScore: score,
     scoreBreakdown: breakdown,
+    scoreReason: "",
     finance: {
       revenue: farm.totalRevenue,
       costs: farm.totalCost,
