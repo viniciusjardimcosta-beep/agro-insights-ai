@@ -149,78 +149,129 @@ function fallbackReport(
 
 export function computeScoreBreakdown(
   farm: ReturnType<typeof aggregateFarm>,
-): { score: number; breakdown: { label: string; points: number }[] } {
+): {
+  score: number;
+  breakdown: { label: string; points: number }[];
+  reason: string;
+} {
   const breakdown: { label: string; points: number }[] = [];
-  let score = 25;
-  breakdown.push({ label: "Base inicial", points: 25 });
+  breakdown.push({ label: "Base inicial", points: 100 });
+  let score = 100;
 
-  const margin = farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : -100;
-  if (margin >= 0) {
-    const pts = Math.min(35, Math.round((margin / 20) * 35));
-    score += pts;
-    breakdown.push({ label: `Margem positiva (${margin.toFixed(1)}%)`, points: pts });
-  } else {
-    const pts = Math.max(-20, Math.round(margin / 2));
-    score += pts;
-    breakdown.push({ label: `Margem negativa (${margin.toFixed(1)}%)`, points: pts });
-  }
+  const add = (label: string, points: number) => {
+    if (points === 0) return;
+    breakdown.push({ label, points });
+    score += points;
+  };
 
-  if (farm.totalProfit > 0) {
-    score += 25;
-    breakdown.push({ label: "Geração de caixa positiva", points: 25 });
-  } else {
-    score -= 10;
-    breakdown.push({ label: "Sem geração de caixa", points: -10 });
-  }
+  const margin =
+    farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : -100;
 
-  const aboveBE = farm.perField.filter((f) => f.breakevenBagPerHa > 0 && f.yieldBag >= f.breakevenBagPerHa).length;
-  const totalFields = farm.perField.length || 1;
-  const beRatio = aboveBE / totalFields;
-  const bePts = Math.round(beRatio * 15);
-  if (bePts > 0) {
-    score += bePts;
-    breakdown.push({
-      label: `Produtividade acima do ponto de equilíbrio (${aboveBE}/${totalFields} talhões)`,
-      points: bePts,
-    });
-  } else {
-    score -= 5;
-    breakdown.push({ label: "Nenhum talhão acima do ponto de equilíbrio", points: -5 });
-  }
+  // Margin penalties (mutually exclusive bands)
+  if (margin < 10) add(`Margem líquida abaixo de 10% (${margin.toFixed(1)}%)`, -25);
+  else if (margin < 20)
+    add(`Margem líquida entre 10% e 20% (${margin.toFixed(1)}%)`, -15);
 
-  // Dependency penalty
-  const byCrop: Record<string, number> = {};
-  for (const f of farm.perField) byCrop[f.field.crop] = (byCrop[f.field.crop] ?? 0) + f.revenue;
-  const entries = Object.entries(byCrop).sort((a, b) => b[1] - a[1]);
-  const dep = farm.totalRevenue > 0 && entries[0] ? (entries[0][1] / farm.totalRevenue) * 100 : 0;
-  if (dep >= 60 && entries[0]) {
-    const pts = -Math.min(15, Math.round((dep - 60) / 3));
-    if (pts < 0) {
-      score += pts;
-      breakdown.push({
-        label: `Dependência da cultura ${entries[0][0]} (${Math.round(dep)}% da receita)`,
-        points: pts,
-      });
-    }
-  }
-
-  // High cost crops
-  const cropAgg: Record<string, { cost: number; revenue: number; area: number }> = {};
+  // Crop dependency by PROFIT
+  const profitByCrop: Record<string, number> = {};
+  let totalPositiveProfit = 0;
   for (const f of farm.perField) {
-    const c = (cropAgg[f.field.crop] ??= { cost: 0, revenue: 0, area: 0 });
-    c.cost += f.totalCost;
-    c.revenue += f.revenue;
-    c.area += f.area;
+    profitByCrop[f.field.crop] = (profitByCrop[f.field.crop] ?? 0) + f.profit;
   }
-  for (const [crop, v] of Object.entries(cropAgg)) {
-    if (v.revenue > 0 && v.cost / v.revenue > 0.85) {
-      score -= 5;
-      breakdown.push({ label: `Custo elevado da cultura ${crop}`, points: -5 });
-    }
-  }
+  for (const v of Object.values(profitByCrop)) if (v > 0) totalPositiveProfit += v;
+  const topCropEntry = Object.entries(profitByCrop).sort((a, b) => b[1] - a[1])[0];
+  const depPct =
+    totalPositiveProfit > 0 && topCropEntry && topCropEntry[1] > 0
+      ? (topCropEntry[1] / totalPositiveProfit) * 100
+      : 0;
+  if (depPct > 75)
+    add(
+      `Dependência da cultura ${topCropEntry?.[0]} acima de 75% do lucro (${Math.round(depPct)}%)`,
+      -20,
+    );
+  else if (depPct > 60)
+    add(
+      `Dependência da cultura ${topCropEntry?.[0]} acima de 60% do lucro (${Math.round(depPct)}%)`,
+      -10,
+    );
+
+  // Any field with negative profit
+  const negativeFields = farm.perField.filter((f) => f.profit < 0);
+  if (negativeFields.length > 0)
+    add(
+      `Talhão com lucro negativo (${negativeFields.map((f) => f.field.name).join(", ")})`,
+      -25,
+    );
+
+  // Cost/ha 25% above mean
+  const costPerHaList = farm.perField
+    .filter((f) => f.area > 0)
+    .map((f) => f.costPerHa);
+  const meanCostHa =
+    costPerHaList.length > 0
+      ? costPerHaList.reduce((s, v) => s + v, 0) / costPerHaList.length
+      : 0;
+  const highCostFields = farm.perField.filter(
+    (f) => meanCostHa > 0 && f.costPerHa > meanCostHa * 1.25,
+  );
+  if (highCostFields.length > 0)
+    add(
+      `Custo por hectare 25% acima da média (${highCostFields.map((f) => f.field.name).join(", ")})`,
+      -10,
+    );
+
+  // Breakeven > 70% of estimated yield
+  const beHigh = farm.perField.filter((f) => {
+    const est = Number(f.field.estimated_yield ?? 0);
+    return est > 0 && f.breakevenBagPerHa > 0 && f.breakevenBagPerHa / est > 0.7;
+  });
+  if (beHigh.length > 0)
+    add(
+      `Ponto de equilíbrio acima de 70% da produtividade estimada (${beHigh.map((f) => f.field.name).join(", ")})`,
+      -10,
+    );
+
+  // Missing price for any crop
+  const cropsInFields = Array.from(new Set(farm.perField.map((f) => f.field.crop)));
+  const missingPrice = cropsInFields.filter((c) => !(farm.priceByCrop[c] > 0));
+  if (missingPrice.length > 0)
+    add(`Falta de preço cadastrado (${missingPrice.join(", ")})`, -15);
+
+  // Missing cost for any field
+  const missingCost = farm.perField.filter((f) => f.totalCost <= 0);
+  if (missingCost.length > 0)
+    add(
+      `Falta de custo cadastrado (${missingCost.map((f) => f.field.name).join(", ")})`,
+      -15,
+    );
+
+  // Bonuses
+  if (farm.perField.length > 0 && farm.perField.every((f) => f.profit > 0))
+    add("Todos os talhões lucrativos", 5);
+  if (margin > 30) add(`Margem líquida acima de 30% (${margin.toFixed(1)}%)`, 10);
+  const allBEUnder60 =
+    farm.perField.length > 0 &&
+    farm.perField.every((f) => {
+      const est = Number(f.field.estimated_yield ?? 0);
+      if (est <= 0 || f.breakevenBagPerHa <= 0) return true;
+      return f.breakevenBagPerHa / est <= 0.6;
+    });
+  if (allBEUnder60) add("Ponto de equilíbrio confortável em todos os talhões", 5);
 
   score = Math.max(0, Math.min(100, score));
-  return { score, breakdown };
+
+  const reason =
+    score >= 85
+      ? "Excelente saúde financeira: margem sólida e poucos riscos identificados."
+      : score >= 70
+        ? "Saúde financeira saudável, com pontos de atenção localizados."
+        : score >= 50
+          ? "Saúde financeira em atenção: existem penalidades relevantes a corrigir."
+          : score >= 30
+            ? "Saúde financeira frágil: múltiplas penalidades reduzindo a nota."
+            : "Saúde financeira crítica: prejuízos e/ou dados insuficientes dominam o resultado.";
+
+  return { score, breakdown, reason };
 }
 
 export const listDiagnostics = createServerFn({ method: "GET" })
