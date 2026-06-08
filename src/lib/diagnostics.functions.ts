@@ -386,6 +386,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       ...report,
       healthScore: computed.score,
       scoreBreakdown: computed.breakdown,
+      scoreReason: computed.reason,
     };
 
     const { data: inserted, error: insertError } = await context.supabase
