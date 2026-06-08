@@ -122,6 +122,7 @@ function DiagnosticoPage() {
                   <ScoreWithBreakdown
                     score={current.health_score}
                     breakdown={Array.isArray(report.scoreBreakdown) ? report.scoreBreakdown : []}
+                    reason={report.scoreReason ?? ""}
                   />
                   <div className="pb-2">
                     <div className="text-sm text-muted-foreground">de 100</div>
@@ -308,9 +309,11 @@ void CheckCircle2;
 function ScoreWithBreakdown({
   score,
   breakdown,
+  reason,
 }: {
   score: number;
   breakdown: { label: string; points: number }[];
+  reason?: string;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -321,6 +324,9 @@ function ScoreWithBreakdown({
   if (!mounted) {
     return <div className={triggerClass}>{score}</div>;
   }
+
+  const positives = breakdown.filter((b) => (b?.points ?? 0) > 0);
+  const penalties = breakdown.filter((b) => (b?.points ?? 0) < 0);
 
   return (
     <Popover>
@@ -333,29 +339,62 @@ function ScoreWithBreakdown({
           {score}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-80">
-        <div className="mb-2 text-sm font-semibold">Composição da nota</div>
-        {breakdown.length > 0 ? (
-          <ul className="space-y-1.5 text-sm">
-            {breakdown.map((b, i) => {
-              const pos = (b?.points ?? 0) >= 0;
-              return (
-                <li key={i} className="flex items-start justify-between gap-3">
-                  <span className="text-muted-foreground">{b?.label ?? "-"}</span>
-                  <span className={`font-mono font-semibold ${pos ? "text-primary" : "text-destructive"}`}>
-                    {pos ? "+" : ""}
-                    {b?.points ?? 0}
-                  </span>
-                </li>
-              );
-            })}
-            <li className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-semibold">
+      <PopoverContent align="start" className="max-h-[70vh] w-96 overflow-y-auto">
+        <div className="mb-3 text-sm font-semibold">Composição da nota</div>
+        {breakdown.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Composição ainda não disponível.</p>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <div>
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                Pontos positivos
+              </div>
+              {positives.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhum bônus aplicado.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {positives.map((b, i) => (
+                    <li key={i} className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">{b.label}</span>
+                      <span className="font-mono font-semibold text-primary">+{b.points}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-destructive">
+                Penalidades
+              </div>
+              {penalties.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhuma penalidade aplicada.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {penalties.map((b, i) => (
+                    <li key={i} className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">{b.label}</span>
+                      <span className="font-mono font-semibold text-destructive">{b.points}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t pt-2 text-sm font-semibold">
               <span>Total</span>
               <span className="font-mono">{score}/100</span>
-            </li>
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">Composição ainda não disponível.</p>
+            </div>
+            <div className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+              <div className="mb-1 font-semibold text-foreground">Fórmula</div>
+              Base 100 + bônus − penalidades, limitado entre 0 e 100. Cálculo determinístico:
+              mesmos dados → mesma nota.
+            </div>
+            {reason && (
+              <div className="rounded-md border bg-card p-2 text-xs">
+                <div className="mb-1 font-semibold">Motivo da nota</div>
+                <p className="text-muted-foreground">{reason}</p>
+              </div>
+            )}
+          </div>
         )}
       </PopoverContent>
     </Popover>
