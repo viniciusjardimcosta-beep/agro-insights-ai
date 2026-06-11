@@ -38,6 +38,39 @@ const ReportSchema = z.object({
     .array(z.object({ label: z.string(), points: num }))
     .default([]),
   scoreReason: z.string().default(""),
+  metrics: z
+    .object({
+      margin: num.default(0),
+      revenue: num.default(0),
+      costs: num.default(0),
+      profit: num.default(0),
+      profitPerHa: num.default(0),
+      costPerHa: num.default(0),
+      depPct: num.default(0),
+      topCrop: z.string().default(""),
+      costByCrop: z.record(z.string(), num).default({}),
+      priceByCrop: z.record(z.string(), num).default({}),
+      costPerHaByCrop: z.record(z.string(), num).default({}),
+      breakevenByCrop: z.record(z.string(), num).default({}),
+      profitPerHaByCrop: z.record(z.string(), num).default({}),
+      negativeFieldsCount: num.default(0),
+    })
+    .default({
+      margin: 0,
+      revenue: 0,
+      costs: 0,
+      profit: 0,
+      profitPerHa: 0,
+      costPerHa: 0,
+      depPct: 0,
+      topCrop: "",
+      costByCrop: {},
+      priceByCrop: {},
+      costPerHaByCrop: {},
+      breakevenByCrop: {},
+      profitPerHaByCrop: {},
+      negativeFieldsCount: 0,
+    }),
 });
 
 export type DiagnosticReport = z.infer<typeof ReportSchema>;
