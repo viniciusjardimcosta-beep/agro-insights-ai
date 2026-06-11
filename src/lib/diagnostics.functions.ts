@@ -148,6 +148,7 @@ function fallbackReport(
     healthScore: score,
     scoreBreakdown: breakdown,
     scoreReason: "",
+    metrics: computeMetrics(farm),
     finance: {
       revenue: farm.totalRevenue,
       costs: farm.totalCost,
