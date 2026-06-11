@@ -159,6 +159,21 @@ function DiagnosticoPage() {
               </CardContent>
             </Card>
 
+            {/* Evolução vs diagnóstico anterior */}
+            <Card>
+              <CardHeader>
+                <CardTitle>📈 Evolução da Saúde Financeira</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Evolution
+                  current={current}
+                  previous={
+                    history[history.findIndex((d) => d.id === current.id) + 1] ?? null
+                  }
+                />
+              </CardContent>
+            </Card>
+
             {/* Finance */}
             <Card>
               <CardHeader>
