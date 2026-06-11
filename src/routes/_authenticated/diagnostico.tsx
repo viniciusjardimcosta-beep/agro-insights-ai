@@ -159,6 +159,21 @@ function DiagnosticoPage() {
               </CardContent>
             </Card>
 
+            {/* Evolução vs diagnóstico anterior */}
+            <Card>
+              <CardHeader>
+                <CardTitle>📈 Evolução da Saúde Financeira</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Evolution
+                  current={current}
+                  previous={
+                    history[history.findIndex((d) => d.id === current.id) + 1] ?? null
+                  }
+                />
+              </CardContent>
+            </Card>
+
             {/* Finance */}
             <Card>
               <CardHeader>
@@ -321,6 +336,196 @@ function Stat({
 
 // re-export so tree-shaking keeps icon used
 void CheckCircle2;
+
+type DiagnosticRow = {
+  id: string;
+  created_at: string;
+  health_score: number;
+  report: DiagnosticReport | unknown;
+};
+
+function Evolution({
+  current,
+  previous,
+}: {
+  current: DiagnosticRow;
+  previous: DiagnosticRow | null;
+}) {
+  if (!previous) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Este é o primeiro diagnóstico. A evolução aparecerá quando você gerar um novo.
+      </p>
+    );
+  }
+  const cur = (current.report ?? {}) as DiagnosticReport;
+  const prev = (previous.report ?? {}) as DiagnosticReport;
+  const cm = cur.metrics;
+  const pm = prev.metrics;
+  const delta = current.health_score - previous.health_score;
+  const positive = delta > 0;
+  const negative = delta < 0;
+
+  const causes: { label: string; before: string; after: string; worse: boolean }[] = [];
+  const pct = (n: number) => `${n.toFixed(1)}%`;
+  const brl = (n: number) => BRL.format(n);
+  const num1 = (n: number) => n.toFixed(1);
+
+  if (cm && pm) {
+    // Margin
+    if (Math.abs(cm.margin - pm.margin) >= 0.5) {
+      causes.push({
+        label: "Margem líquida",
+        before: pct(pm.margin),
+        after: pct(cm.margin),
+        worse: cm.margin < pm.margin,
+      });
+    }
+    // Profit/ha
+    if (Math.abs(cm.profitPerHa - pm.profitPerHa) >= 1) {
+      causes.push({
+        label: "Lucro por hectare",
+        before: brl(pm.profitPerHa),
+        after: brl(cm.profitPerHa),
+        worse: cm.profitPerHa < pm.profitPerHa,
+      });
+    }
+    // Cost/ha global
+    if (pm.costPerHa > 0 && Math.abs(cm.costPerHa - pm.costPerHa) / pm.costPerHa >= 0.02) {
+      const diffPct = ((cm.costPerHa - pm.costPerHa) / pm.costPerHa) * 100;
+      causes.push({
+        label: `Custo por hectare (${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%)`,
+        before: brl(pm.costPerHa),
+        after: brl(cm.costPerHa),
+        worse: cm.costPerHa > pm.costPerHa,
+      });
+    }
+    // Dependency
+    if (Math.abs(cm.depPct - pm.depPct) >= 1) {
+      causes.push({
+        label: `Dependência da cultura ${cm.topCrop || pm.topCrop}`,
+        before: pct(pm.depPct),
+        after: pct(cm.depPct),
+        worse: cm.depPct > pm.depPct,
+      });
+    }
+    // Negative fields
+    if (cm.negativeFieldsCount !== pm.negativeFieldsCount) {
+      causes.push({
+        label: "Talhões com lucro negativo",
+        before: String(pm.negativeFieldsCount),
+        after: String(cm.negativeFieldsCount),
+        worse: cm.negativeFieldsCount > pm.negativeFieldsCount,
+      });
+    }
+    // Per-crop price
+    const crops = new Set([
+      ...Object.keys(cm.priceByCrop || {}),
+      ...Object.keys(pm.priceByCrop || {}),
+    ]);
+    for (const crop of crops) {
+      const a = pm.priceByCrop?.[crop] ?? 0;
+      const b = cm.priceByCrop?.[crop] ?? 0;
+      if (a > 0 && b > 0 && Math.abs(b - a) / a >= 0.02) {
+        const diffPct = ((b - a) / a) * 100;
+        causes.push({
+          label: `Preço da saca de ${crop} (${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%)`,
+          before: brl(a),
+          after: brl(b),
+          worse: b < a,
+        });
+      }
+    }
+    // Per-crop cost/ha
+    for (const crop of crops) {
+      const a = pm.costPerHaByCrop?.[crop] ?? 0;
+      const b = cm.costPerHaByCrop?.[crop] ?? 0;
+      if (a > 0 && b > 0 && Math.abs(b - a) / a >= 0.02) {
+        const diffPct = ((b - a) / a) * 100;
+        causes.push({
+          label: `Custo/ha de ${crop} (${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%)`,
+          before: brl(a),
+          after: brl(b),
+          worse: b > a,
+        });
+      }
+    }
+    // Per-crop breakeven
+    for (const crop of crops) {
+      const a = pm.breakevenByCrop?.[crop] ?? 0;
+      const b = cm.breakevenByCrop?.[crop] ?? 0;
+      if (Math.abs(b - a) >= 0.5) {
+        causes.push({
+          label: `Ponto de equilíbrio de ${crop} (sc/ha)`,
+          before: num1(a),
+          after: num1(b),
+          worse: b > a,
+        });
+      }
+    }
+  }
+
+  // Filter causes by direction of overall change to show "principais causas"
+  const filtered =
+    delta === 0
+      ? causes
+      : causes.filter((c) => (negative ? c.worse : !c.worse));
+  const shown = (filtered.length > 0 ? filtered : causes).slice(0, 8);
+
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Nota anterior" value={String(previous.health_score)} />
+        <Stat label="Nota atual" value={String(current.health_score)} />
+        <Stat
+          label="Variação"
+          value={`${delta > 0 ? "+" : ""}${delta} pontos`}
+          tone={positive ? "pos" : negative ? "neg" : undefined}
+        />
+      </div>
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {positive
+            ? "Principais causas da melhora"
+            : negative
+              ? "Principais causas da queda"
+              : "Fatores que mudaram"}
+        </div>
+        {!cm || !pm ? (
+          <p className="text-xs text-muted-foreground">
+            Composição comparável indisponível para um dos diagnósticos.
+          </p>
+        ) : shown.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Nenhum indicador relevante mudou entre os diagnósticos.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {shown.map((c, i) => (
+              <li
+                key={i}
+                className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 ${
+                  c.worse
+                    ? "border-destructive/20 bg-destructive/5"
+                    : "border-primary/20 bg-primary/5"
+                }`}
+              >
+                <span>{c.label}</span>
+                <span className="font-mono text-xs">
+                  <span className="text-muted-foreground">{c.before}</span>
+                  {" → "}
+                  <span className={c.worse ? "text-destructive" : "text-primary"}>
+                    {c.after}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ScoreComposition({
   score,

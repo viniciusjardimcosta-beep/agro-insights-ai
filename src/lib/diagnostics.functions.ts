@@ -38,6 +38,39 @@ const ReportSchema = z.object({
     .array(z.object({ label: z.string(), points: num }))
     .default([]),
   scoreReason: z.string().default(""),
+  metrics: z
+    .object({
+      margin: num.default(0),
+      revenue: num.default(0),
+      costs: num.default(0),
+      profit: num.default(0),
+      profitPerHa: num.default(0),
+      costPerHa: num.default(0),
+      depPct: num.default(0),
+      topCrop: z.string().default(""),
+      costByCrop: z.record(z.string(), num).default({}),
+      priceByCrop: z.record(z.string(), num).default({}),
+      costPerHaByCrop: z.record(z.string(), num).default({}),
+      breakevenByCrop: z.record(z.string(), num).default({}),
+      profitPerHaByCrop: z.record(z.string(), num).default({}),
+      negativeFieldsCount: num.default(0),
+    })
+    .default({
+      margin: 0,
+      revenue: 0,
+      costs: 0,
+      profit: 0,
+      profitPerHa: 0,
+      costPerHa: 0,
+      depPct: 0,
+      topCrop: "",
+      costByCrop: {},
+      priceByCrop: {},
+      costPerHaByCrop: {},
+      breakevenByCrop: {},
+      profitPerHaByCrop: {},
+      negativeFieldsCount: 0,
+    }),
 });
 
 export type DiagnosticReport = z.infer<typeof ReportSchema>;
@@ -115,6 +148,7 @@ function fallbackReport(
     healthScore: score,
     scoreBreakdown: breakdown,
     scoreReason: "",
+    metrics: computeMetrics(farm),
     finance: {
       revenue: farm.totalRevenue,
       costs: farm.totalCost,
@@ -343,6 +377,68 @@ export function computeScoreBreakdown(
   return { score, breakdown, reason };
 }
 
+export function computeMetrics(
+  farm: ReturnType<typeof aggregateFarm>,
+): DiagnosticReport["metrics"] {
+  const margin =
+    farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : 0;
+  const byCrop: Record<
+    string,
+    { cost: number; revenue: number; profit: number; area: number; yieldSum: number; price: number }
+  > = {};
+  for (const f of farm.perField) {
+    const c = (byCrop[f.field.crop] ??= {
+      cost: 0,
+      revenue: 0,
+      profit: 0,
+      area: 0,
+      yieldSum: 0,
+      price: f.price,
+    });
+    c.cost += f.totalCost;
+    c.revenue += f.revenue;
+    c.profit += f.profit;
+    c.area += f.area;
+    c.yieldSum += f.yieldBag * f.area;
+    c.price = f.price || c.price;
+  }
+  const totalRev = farm.totalRevenue;
+  let topCrop = "";
+  let topRev = 0;
+  const costByCrop: Record<string, number> = {};
+  const priceByCrop: Record<string, number> = {};
+  const costPerHaByCrop: Record<string, number> = {};
+  const breakevenByCrop: Record<string, number> = {};
+  const profitPerHaByCrop: Record<string, number> = {};
+  for (const [crop, v] of Object.entries(byCrop)) {
+    if (v.revenue > topRev) {
+      topRev = v.revenue;
+      topCrop = crop;
+    }
+    costByCrop[crop] = v.cost;
+    priceByCrop[crop] = v.price;
+    costPerHaByCrop[crop] = v.area > 0 ? v.cost / v.area : 0;
+    profitPerHaByCrop[crop] = v.area > 0 ? v.profit / v.area : 0;
+    breakevenByCrop[crop] = v.price > 0 && v.area > 0 ? v.cost / v.area / v.price : 0;
+  }
+  return {
+    margin,
+    revenue: farm.totalRevenue,
+    costs: farm.totalCost,
+    profit: farm.totalProfit,
+    profitPerHa: farm.profitPerHa,
+    costPerHa: farm.costPerHa,
+    depPct: totalRev > 0 ? (topRev / totalRev) * 100 : 0,
+    topCrop,
+    costByCrop,
+    priceByCrop,
+    costPerHaByCrop,
+    breakevenByCrop,
+    profitPerHaByCrop,
+    negativeFieldsCount: farm.perField.filter((f) => f.profit < 0).length,
+  };
+}
+
 export const listDiagnostics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -450,11 +546,13 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 
     // Always compute deterministic score + breakdown from real data, overriding AI.
     const computed = computeScoreBreakdown(farm);
+    const metrics = computeMetrics(farm);
     report = {
       ...report,
       healthScore: computed.score,
       scoreBreakdown: computed.breakdown,
       scoreReason: computed.reason,
+      metrics,
     };
 
     const { data: inserted, error: insertError } = await context.supabase
