@@ -376,6 +376,68 @@ export function computeScoreBreakdown(
   return { score, breakdown, reason };
 }
 
+export function computeMetrics(
+  farm: ReturnType<typeof aggregateFarm>,
+): DiagnosticReport["metrics"] {
+  const margin =
+    farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : 0;
+  const byCrop: Record<
+    string,
+    { cost: number; revenue: number; profit: number; area: number; yieldSum: number; price: number }
+  > = {};
+  for (const f of farm.perField) {
+    const c = (byCrop[f.field.crop] ??= {
+      cost: 0,
+      revenue: 0,
+      profit: 0,
+      area: 0,
+      yieldSum: 0,
+      price: f.price,
+    });
+    c.cost += f.totalCost;
+    c.revenue += f.revenue;
+    c.profit += f.profit;
+    c.area += f.area;
+    c.yieldSum += f.yieldBag * f.area;
+    c.price = f.price || c.price;
+  }
+  const totalRev = farm.totalRevenue;
+  let topCrop = "";
+  let topRev = 0;
+  const costByCrop: Record<string, number> = {};
+  const priceByCrop: Record<string, number> = {};
+  const costPerHaByCrop: Record<string, number> = {};
+  const breakevenByCrop: Record<string, number> = {};
+  const profitPerHaByCrop: Record<string, number> = {};
+  for (const [crop, v] of Object.entries(byCrop)) {
+    if (v.revenue > topRev) {
+      topRev = v.revenue;
+      topCrop = crop;
+    }
+    costByCrop[crop] = v.cost;
+    priceByCrop[crop] = v.price;
+    costPerHaByCrop[crop] = v.area > 0 ? v.cost / v.area : 0;
+    profitPerHaByCrop[crop] = v.area > 0 ? v.profit / v.area : 0;
+    breakevenByCrop[crop] = v.price > 0 && v.area > 0 ? v.cost / v.area / v.price : 0;
+  }
+  return {
+    margin,
+    revenue: farm.totalRevenue,
+    costs: farm.totalCost,
+    profit: farm.totalProfit,
+    profitPerHa: farm.profitPerHa,
+    costPerHa: farm.costPerHa,
+    depPct: totalRev > 0 ? (topRev / totalRev) * 100 : 0,
+    topCrop,
+    costByCrop,
+    priceByCrop,
+    costPerHaByCrop,
+    breakevenByCrop,
+    profitPerHaByCrop,
+    negativeFieldsCount: farm.perField.filter((f) => f.profit < 0).length,
+  };
+}
+
 export const listDiagnostics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
