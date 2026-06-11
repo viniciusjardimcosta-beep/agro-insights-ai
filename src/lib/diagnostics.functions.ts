@@ -166,10 +166,12 @@ export function computeScoreBreakdown(
   const margin =
     farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : -100;
 
-  // Margin penalties (mutually exclusive bands)
-  if (margin < 10) add(`Margem líquida abaixo de 10% (${margin.toFixed(1)}%)`, -25);
-  else if (margin < 20)
-    add(`Margem líquida entre 10% e 20% (${margin.toFixed(1)}%)`, -15);
+  // Margin bands (graduated)
+  if (margin >= 50) add(`Margem líquida ${margin.toFixed(1)}% (acima de 50%)`, 5);
+  else if (margin >= 35) add(`Margem líquida ${margin.toFixed(1)}% (35% a 50%)`, 3);
+  else if (margin >= 20) add(`Margem líquida ${margin.toFixed(1)}% (20% a 35%)`, 0);
+  else if (margin >= 10) add(`Margem líquida ${margin.toFixed(1)}% (10% a 20%)`, -10);
+  else add(`Margem líquida ${margin.toFixed(1)}% (abaixo de 10%)`, -20);
 
   // Crop dependency by PROFIT
   const profitByCrop: Record<string, number> = {};
@@ -183,16 +185,15 @@ export function computeScoreBreakdown(
     totalPositiveProfit > 0 && topCropEntry && topCropEntry[1] > 0
       ? (topCropEntry[1] / totalPositiveProfit) * 100
       : 0;
-  if (depPct > 75)
+  const depLabel = (pts: number, faixa: string) =>
     add(
-      `Dependência da cultura ${topCropEntry?.[0]} acima de 75% do lucro (${Math.round(depPct)}%)`,
-      -20,
+      `Dependência da cultura ${topCropEntry?.[0]} ${depPct.toFixed(1)}% do lucro (${faixa})`,
+      pts,
     );
-  else if (depPct > 60)
-    add(
-      `Dependência da cultura ${topCropEntry?.[0]} acima de 60% do lucro (${Math.round(depPct)}%)`,
-      -10,
-    );
+  if (depPct > 80) depLabel(-20, "acima de 80%");
+  else if (depPct > 70) depLabel(-15, "70% a 80%");
+  else if (depPct > 60) depLabel(-10, "60% a 70%");
+  else if (depPct >= 50) depLabel(-5, "50% a 60%");
 
   // Rentability spread between best and worst crop (profit/ha)
   const profitPerHaByCrop: Record<string, { profit: number; area: number }> = {};
@@ -210,16 +211,14 @@ export function computeScoreBreakdown(
     const ref = Math.max(Math.abs(best.pph), Math.abs(worst.pph));
     if (ref > 0) {
       const spreadPct = ((best.pph - worst.pph) / ref) * 100;
-      if (spreadPct > 50)
+      const lbl = (pts: number, faixa: string) =>
         add(
-          `Diferença de rentabilidade entre ${best.crop} e ${worst.crop} acima de 50% (${Math.round(spreadPct)}%)`,
-          -15,
+          `Diferença de rentabilidade ${best.crop} vs ${worst.crop} ${spreadPct.toFixed(1)}% (${faixa})`,
+          pts,
         );
-      else if (spreadPct > 30)
-        add(
-          `Diferença de rentabilidade entre ${best.crop} e ${worst.crop} acima de 30% (${Math.round(spreadPct)}%)`,
-          -10,
-        );
+      if (spreadPct > 70) lbl(-25, "acima de 70%");
+      else if (spreadPct > 50) lbl(-15, "50% a 70%");
+      else if (spreadPct >= 30) lbl(-5, "30% a 50%");
     }
   }
 
@@ -241,12 +240,12 @@ export function computeScoreBreakdown(
     );
   }
 
-  // Any field with negative profit
+  // -25 per field with negative profit
   const negativeFields = farm.perField.filter((f) => f.profit < 0);
   if (negativeFields.length > 0)
     add(
-      `Talhão com lucro negativo (${negativeFields.map((f) => f.field.name).join(", ")})`,
-      -25,
+      `Talhões com lucro negativo: ${negativeFields.map((f) => f.field.name).join(", ")} (${negativeFields.length}× -25)`,
+      -25 * negativeFields.length,
     );
 
   // Cost/ha 25% above mean
@@ -257,25 +256,39 @@ export function computeScoreBreakdown(
     costPerHaList.length > 0
       ? costPerHaList.reduce((s, v) => s + v, 0) / costPerHaList.length
       : 0;
-  const highCostFields = farm.perField.filter(
-    (f) => meanCostHa > 0 && f.costPerHa > meanCostHa * 1.25,
-  );
-  if (highCostFields.length > 0)
-    add(
-      `Custo por hectare 25% acima da média (${highCostFields.map((f) => f.field.name).join(", ")})`,
-      -10,
-    );
+  if (meanCostHa > 0) {
+    const buckets = { b1: [] as string[], b2: [] as string[], b3: [] as string[] };
+    for (const f of farm.perField) {
+      if (f.area <= 0) continue;
+      const overPct = ((f.costPerHa - meanCostHa) / meanCostHa) * 100;
+      if (overPct > 35) buckets.b3.push(`${f.field.name} +${overPct.toFixed(1)}%`);
+      else if (overPct >= 20) buckets.b2.push(`${f.field.name} +${overPct.toFixed(1)}%`);
+      else if (overPct >= 10) buckets.b1.push(`${f.field.name} +${overPct.toFixed(1)}%`);
+    }
+    if (buckets.b3.length)
+      add(`Custo/ha acima de 35% da média: ${buckets.b3.join(", ")}`, -20 * buckets.b3.length);
+    if (buckets.b2.length)
+      add(`Custo/ha 20% a 35% acima da média: ${buckets.b2.join(", ")}`, -10 * buckets.b2.length);
+    if (buckets.b1.length)
+      add(`Custo/ha 10% a 20% acima da média: ${buckets.b1.join(", ")}`, -5 * buckets.b1.length);
+  }
 
-  // Breakeven > 70% of estimated yield
-  const beHigh = farm.perField.filter((f) => {
+  // Breakeven / estimated yield, graduated per field
+  const beBuckets = { b1: [] as string[], b2: [] as string[], b3: [] as string[] };
+  for (const f of farm.perField) {
     const est = Number(f.field.estimated_yield ?? 0);
-    return est > 0 && f.breakevenBagPerHa > 0 && f.breakevenBagPerHa / est > 0.7;
-  });
-  if (beHigh.length > 0)
-    add(
-      `Ponto de equilíbrio acima de 70% da produtividade estimada (${beHigh.map((f) => f.field.name).join(", ")})`,
-      -10,
-    );
+    if (est <= 0 || f.breakevenBagPerHa <= 0) continue;
+    const ratio = (f.breakevenBagPerHa / est) * 100;
+    if (ratio > 80) beBuckets.b3.push(`${f.field.name} ${ratio.toFixed(1)}%`);
+    else if (ratio > 65) beBuckets.b2.push(`${f.field.name} ${ratio.toFixed(1)}%`);
+    else if (ratio > 50) beBuckets.b1.push(`${f.field.name} ${ratio.toFixed(1)}%`);
+  }
+  if (beBuckets.b3.length)
+    add(`Ponto de equilíbrio acima de 80% da produtividade: ${beBuckets.b3.join(", ")}`, -20 * beBuckets.b3.length);
+  if (beBuckets.b2.length)
+    add(`Ponto de equilíbrio 65% a 80% da produtividade: ${beBuckets.b2.join(", ")}`, -10 * beBuckets.b2.length);
+  if (beBuckets.b1.length)
+    add(`Ponto de equilíbrio 50% a 65% da produtividade: ${beBuckets.b1.join(", ")}`, -5 * beBuckets.b1.length);
 
   // Missing price for any crop
   const cropsInFields = Array.from(new Set(farm.perField.map((f) => f.field.crop)));
@@ -291,10 +304,9 @@ export function computeScoreBreakdown(
       -15,
     );
 
-  // Bonuses
+  // Bonuses (margin bonus is already part of the graduated band above)
   if (farm.perField.length > 0 && farm.perField.every((f) => f.profit > 0))
     add("Todos os talhões lucrativos", 5);
-  if (margin > 30) add(`Margem líquida acima de 30% (${margin.toFixed(1)}%)`, 5);
   const allBEUnder60 =
     farm.perField.length > 0 &&
     farm.perField.every((f) => {
