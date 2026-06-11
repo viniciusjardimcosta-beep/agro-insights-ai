@@ -360,117 +360,100 @@ function Evolution({
   }
   const cur = (current.report ?? {}) as DiagnosticReport;
   const prev = (previous.report ?? {}) as DiagnosticReport;
-  const cm = cur.metrics;
-  const pm = prev.metrics;
   const delta = current.health_score - previous.health_score;
   const positive = delta > 0;
   const negative = delta < 0;
 
-  const causes: { label: string; before: string; after: string; worse: boolean }[] = [];
-  const pct = (n: number) => `${n.toFixed(1)}%`;
-  const brl = (n: number) => BRL.format(n);
-  const num1 = (n: number) => n.toFixed(1);
+  const curBd = Array.isArray(cur.scoreBreakdown) ? cur.scoreBreakdown : [];
+  const prevBd = Array.isArray(prev.scoreBreakdown) ? prev.scoreBreakdown : [];
 
-  if (cm && pm) {
-    // Margin
-    if (Math.abs(cm.margin - pm.margin) >= 0.5) {
-      causes.push({
-        label: "Margem líquida",
-        before: pct(pm.margin),
-        after: pct(cm.margin),
-        worse: cm.margin < pm.margin,
-      });
+  // Group breakdown entries by a stable rule key so we can compute per-rule impact.
+  function ruleKey(label: string): { key: string; display: string } | null {
+    if (label === "Base inicial") return null;
+    if (label.startsWith("Ajuste para")) return null;
+    if (label.startsWith("Margem líquida")) return { key: "margem", display: "Margem líquida" };
+    if (label.startsWith("Dependência da cultura")) {
+      const m = label.match(/Dependência da cultura (\S+)/);
+      return { key: `dep:${m?.[1] ?? ""}`, display: `Dependência de ${m?.[1] ?? "cultura"}` };
     }
-    // Profit/ha
-    if (Math.abs(cm.profitPerHa - pm.profitPerHa) >= 1) {
-      causes.push({
-        label: "Lucro por hectare",
-        before: brl(pm.profitPerHa),
-        after: brl(cm.profitPerHa),
-        worse: cm.profitPerHa < pm.profitPerHa,
-      });
+    if (label.startsWith("Diferença de rentabilidade")) {
+      const m = label.match(/Diferença de rentabilidade (\S+) vs (\S+)/);
+      return {
+        key: "spread",
+        display: `Diferença de rentabilidade ${m?.[1] ?? ""} vs ${m?.[2] ?? ""}`.trim(),
+      };
     }
-    // Cost/ha global
-    if (pm.costPerHa > 0 && Math.abs(cm.costPerHa - pm.costPerHa) / pm.costPerHa >= 0.02) {
-      const diffPct = ((cm.costPerHa - pm.costPerHa) / pm.costPerHa) * 100;
-      causes.push({
-        label: `Custo por hectare (${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%)`,
-        before: brl(pm.costPerHa),
-        after: brl(cm.costPerHa),
-        worse: cm.costPerHa > pm.costPerHa,
-      });
-    }
-    // Dependency
-    if (Math.abs(cm.depPct - pm.depPct) >= 1) {
-      causes.push({
-        label: `Dependência da cultura ${cm.topCrop || pm.topCrop}`,
-        before: pct(pm.depPct),
-        after: pct(cm.depPct),
-        worse: cm.depPct > pm.depPct,
-      });
-    }
-    // Negative fields
-    if (cm.negativeFieldsCount !== pm.negativeFieldsCount) {
-      causes.push({
-        label: "Talhões com lucro negativo",
-        before: String(pm.negativeFieldsCount),
-        after: String(cm.negativeFieldsCount),
-        worse: cm.negativeFieldsCount > pm.negativeFieldsCount,
-      });
-    }
-    // Per-crop price
-    const crops = new Set([
-      ...Object.keys(cm.priceByCrop || {}),
-      ...Object.keys(pm.priceByCrop || {}),
-    ]);
-    for (const crop of crops) {
-      const a = pm.priceByCrop?.[crop] ?? 0;
-      const b = cm.priceByCrop?.[crop] ?? 0;
-      if (a > 0 && b > 0 && Math.abs(b - a) / a >= 0.02) {
-        const diffPct = ((b - a) / a) * 100;
-        causes.push({
-          label: `Preço da saca de ${crop} (${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%)`,
-          before: brl(a),
-          after: brl(b),
-          worse: b < a,
-        });
-      }
-    }
-    // Per-crop cost/ha
-    for (const crop of crops) {
-      const a = pm.costPerHaByCrop?.[crop] ?? 0;
-      const b = cm.costPerHaByCrop?.[crop] ?? 0;
-      if (a > 0 && b > 0 && Math.abs(b - a) / a >= 0.02) {
-        const diffPct = ((b - a) / a) * 100;
-        causes.push({
-          label: `Custo/ha de ${crop} (${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%)`,
-          before: brl(a),
-          after: brl(b),
-          worse: b > a,
-        });
-      }
-    }
-    // Per-crop breakeven
-    for (const crop of crops) {
-      const a = pm.breakevenByCrop?.[crop] ?? 0;
-      const b = cm.breakevenByCrop?.[crop] ?? 0;
-      if (Math.abs(b - a) >= 0.5) {
-        causes.push({
-          label: `Ponto de equilíbrio de ${crop} (sc/ha)`,
-          before: num1(a),
-          after: num1(b),
-          worse: b > a,
-        });
-      }
-    }
+    if (label.startsWith("Custo elevado")) return { key: "custo_alto", display: "Custo elevado por cultura (>70% receita)" };
+    if (label.startsWith("Talhões com lucro negativo")) return { key: "neg_fields", display: "Talhões com lucro negativo" };
+    if (label.startsWith("Custo/ha")) return { key: "custo_ha", display: "Custo/ha acima da média" };
+    if (label.startsWith("Ponto de equilíbrio") && !label.includes("confortável"))
+      return { key: "breakeven", display: "Ponto de equilíbrio dos talhões" };
+    if (label.startsWith("Ponto de equilíbrio confortável"))
+      return { key: "be_confort", display: "Ponto de equilíbrio confortável em todos os talhões" };
+    if (label.startsWith("Todos os talhões lucrativos"))
+      return { key: "all_profit", display: "Todos os talhões lucrativos" };
+    if (label.startsWith("Falta de preço")) return { key: "missing_price", display: "Falta de preço cadastrado" };
+    if (label.startsWith("Falta de custo")) return { key: "missing_cost", display: "Falta de custo cadastrado" };
+    return { key: `outro:${label}`, display: label };
   }
 
-  // Filter causes by direction of overall change to show "principais causas"
-  const filtered =
-    delta === 0
-      ? causes
-      : causes.filter((c) => (negative ? c.worse : !c.worse));
-  const shown = (filtered.length > 0 ? filtered : causes).slice(0, 8);
+  // Extract a human-readable value from a label (first percent or "X sc/ha")
+  function extractValue(label: string): string | null {
+    const pctMatch = label.match(/(-?\d+[.,]?\d*)\s*%/);
+    if (pctMatch) return `${pctMatch[1].replace(",", ".")}%`;
+    return null;
+  }
+
+  type Row = {
+    key: string;
+    display: string;
+    prevPts: number;
+    curPts: number;
+    impact: number;
+    before: string | null;
+    after: string | null;
+  };
+  const byKey = new Map<string, Row>();
+  for (const b of prevBd) {
+    const r = ruleKey(b.label);
+    if (!r) continue;
+    const row = byKey.get(r.key) ?? {
+      key: r.key,
+      display: r.display,
+      prevPts: 0,
+      curPts: 0,
+      impact: 0,
+      before: null,
+      after: null,
+    };
+    row.prevPts += Number(b.points) || 0;
+    row.before = extractValue(b.label) ?? row.before;
+    byKey.set(r.key, row);
+  }
+  for (const b of curBd) {
+    const r = ruleKey(b.label);
+    if (!r) continue;
+    const row = byKey.get(r.key) ?? {
+      key: r.key,
+      display: r.display,
+      prevPts: 0,
+      curPts: 0,
+      impact: 0,
+      before: null,
+      after: null,
+    };
+    row.curPts += Number(b.points) || 0;
+    row.after = extractValue(b.label) ?? row.after;
+    row.display = r.display;
+    byKey.set(r.key, row);
+  }
+  const rows: Row[] = Array.from(byKey.values())
+    .map((r) => ({ ...r, impact: r.curPts - r.prevPts }))
+    .filter((r) => r.impact !== 0 || r.prevPts !== r.curPts);
+  rows.sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+
+  const totalImpact = rows.reduce((s, r) => s + r.impact, 0);
+  const hasAnyBreakdown = curBd.length > 0 || prevBd.length > 0;
 
   return (
     <div className="space-y-4 text-sm">
@@ -491,36 +474,82 @@ function Evolution({
               ? "Principais causas da queda"
               : "Fatores que mudaram"}
         </div>
-        {!cm || !pm ? (
+        {!hasAnyBreakdown ? (
           <p className="text-xs text-muted-foreground">
             Composição comparável indisponível para um dos diagnósticos.
           </p>
-        ) : shown.length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             Nenhum indicador relevante mudou entre os diagnósticos.
           </p>
         ) : (
-          <ul className="space-y-1">
-            {shown.map((c, i) => (
-              <li
-                key={i}
-                className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 ${
-                  c.worse
-                    ? "border-destructive/20 bg-destructive/5"
-                    : "border-primary/20 bg-primary/5"
+          <>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>Indicador</span>
+              <span className="text-right">Anterior → Atual</span>
+              <span className="text-right">Impacto</span>
+            </div>
+            <ul className="mt-1 space-y-1">
+              {rows.map((r) => {
+                const better = r.impact > 0;
+                const worse = r.impact < 0;
+                return (
+                  <li
+                    key={r.key}
+                    className={`grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-md border px-3 py-2 ${
+                      better
+                        ? "border-primary/20 bg-primary/5"
+                        : worse
+                          ? "border-destructive/20 bg-destructive/5"
+                          : "border-border bg-muted/30"
+                    }`}
+                  >
+                    <span>{r.display}</span>
+                    <span className="text-right font-mono text-xs">
+                      {r.before || r.after ? (
+                        <>
+                          <span className="text-muted-foreground">{r.before ?? "—"}</span>
+                          {" → "}
+                          <span className={worse ? "text-destructive" : better ? "text-primary" : ""}>
+                            {r.after ?? "—"}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {r.prevPts} → {r.curPts} pts
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`text-right font-mono font-semibold ${
+                        better ? "text-primary" : worse ? "text-destructive" : "text-muted-foreground"
+                      }`}
+                    >
+                      {r.impact > 0 ? `+${r.impact}` : r.impact}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-2 flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">
+                Soma dos impactos por regra
+              </span>
+              <span
+                className={`font-mono font-semibold ${
+                  totalImpact > 0 ? "text-primary" : totalImpact < 0 ? "text-destructive" : ""
                 }`}
               >
-                <span>{c.label}</span>
-                <span className="font-mono text-xs">
-                  <span className="text-muted-foreground">{c.before}</span>
-                  {" → "}
-                  <span className={c.worse ? "text-destructive" : "text-primary"}>
-                    {c.after}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+                {totalImpact > 0 ? `+${totalImpact}` : totalImpact} pts
+              </span>
+            </div>
+            {totalImpact !== delta && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Diferença para a variação total ({delta > 0 ? "+" : ""}
+                {delta}) decorre do ajuste de teto/piso da nota (0–100).
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>
