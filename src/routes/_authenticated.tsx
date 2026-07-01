@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity } from "lucide-react";
+import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ const NAV = [
   { to: "/precos", label: "Preços", icon: TrendingUp },
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart },
   { to: "/diagnostico", label: "Diagnóstico", icon: Activity },
+  { to: "/simulador", label: "Simulador", icon: FlaskConical },
   { to: "/consultor", label: "Consultor IA", icon: Bot },
 ] as const;
 
