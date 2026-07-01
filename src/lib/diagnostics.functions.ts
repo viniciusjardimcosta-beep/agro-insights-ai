@@ -4,6 +4,13 @@ import { generateText } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { aggregateFarm, BRL, NUM, latestPriceByCrop } from "@/lib/calc";
+import {
+  computeScoreBreakdown as _computeScoreBreakdown,
+  computeMetrics as _computeMetrics,
+} from "@/lib/score";
+
+export const computeScoreBreakdown = _computeScoreBreakdown;
+export const computeMetrics = _computeMetrics;
 
 // Lenient schema: coerce numbers, allow extra fields, fill defaults so the AI
 // rarely fails validation. We normalize/cap arrays after parsing.
