@@ -2,14 +2,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type ScoreBreakdown = { label: string; points: number }[];
+export type JsonObject = Record<string, unknown>;
+
 export type SimulatedScenarioRow = {
   id: string;
   user_id: string;
   property_id: string | null;
   name: string;
-  scenario_data: unknown;
-  metrics_snapshot: unknown;
-  score_breakdown: unknown;
+  scenario_data: JsonObject;
+  metrics_snapshot: JsonObject;
+  score_breakdown: ScoreBreakdown;
   simulated_score: number;
   created_at: string;
 };
@@ -29,9 +32,9 @@ export const listScenarios = createServerFn({ method: "GET" })
 const createInput = z.object({
   name: z.string().min(1).max(120),
   property_id: z.string().uuid().nullable().optional(),
-  scenario_data: z.unknown(),
-  metrics_snapshot: z.unknown(),
-  score_breakdown: z.unknown(),
+  scenario_data: z.record(z.string(), z.any()),
+  metrics_snapshot: z.record(z.string(), z.any()),
+  score_breakdown: z.array(z.object({ label: z.string(), points: z.number() })),
   simulated_score: z.number().int().min(0).max(100),
 });
 
