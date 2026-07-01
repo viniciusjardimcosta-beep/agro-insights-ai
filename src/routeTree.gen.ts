@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTalhoesRouteImport } from './routes/_authenticated/talhoes'
+import { Route as AuthenticatedSimuladorRouteImport } from './routes/_authenticated/simulador'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedPropriedadesRouteImport } from './routes/_authenticated/propriedades'
 import { Route as AuthenticatedPrecosRouteImport } from './routes/_authenticated/precos'
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedTalhoesRoute = AuthenticatedTalhoesRouteImport.update({
   id: '/talhoes',
   path: '/talhoes',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSimuladorRoute = AuthenticatedSimuladorRouteImport.update({
+  id: '/simulador',
+  path: '/simulador',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/precos': typeof AuthenticatedPrecosRoute
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/simulador': typeof AuthenticatedSimuladorRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/precos': typeof AuthenticatedPrecosRoute
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/simulador': typeof AuthenticatedSimuladorRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/_authenticated/precos': typeof AuthenticatedPrecosRoute
   '/_authenticated/propriedades': typeof AuthenticatedPropriedadesRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/simulador': typeof AuthenticatedSimuladorRoute
   '/_authenticated/talhoes': typeof AuthenticatedTalhoesRoute
   '/_authenticated/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/precos'
     | '/propriedades'
     | '/relatorios'
+    | '/simulador'
     | '/talhoes'
     | '/consultor/$threadId'
     | '/api/public/chat'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/precos'
     | '/propriedades'
     | '/relatorios'
+    | '/simulador'
     | '/talhoes'
     | '/consultor/$threadId'
     | '/api/public/chat'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/_authenticated/precos'
     | '/_authenticated/propriedades'
     | '/_authenticated/relatorios'
+    | '/_authenticated/simulador'
     | '/_authenticated/talhoes'
     | '/_authenticated/consultor/$threadId'
     | '/api/public/chat'
@@ -216,6 +228,13 @@ declare module '@tanstack/react-router' {
       path: '/talhoes'
       fullPath: '/talhoes'
       preLoaderRoute: typeof AuthenticatedTalhoesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/simulador': {
+      id: '/_authenticated/simulador'
+      path: '/simulador'
+      fullPath: '/simulador'
+      preLoaderRoute: typeof AuthenticatedSimuladorRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/relatorios': {
@@ -306,6 +325,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPrecosRoute: typeof AuthenticatedPrecosRoute
   AuthenticatedPropriedadesRoute: typeof AuthenticatedPropriedadesRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedSimuladorRoute: typeof AuthenticatedSimuladorRoute
   AuthenticatedTalhoesRoute: typeof AuthenticatedTalhoesRoute
 }
 
@@ -317,6 +337,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPrecosRoute: AuthenticatedPrecosRoute,
   AuthenticatedPropriedadesRoute: AuthenticatedPropriedadesRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedSimuladorRoute: AuthenticatedSimuladorRoute,
   AuthenticatedTalhoesRoute: AuthenticatedTalhoesRoute,
 }
 
