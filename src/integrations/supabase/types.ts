@@ -269,6 +269,50 @@ export type Database = {
         }
         Relationships: []
       }
+      simulated_scenarios: {
+        Row: {
+          created_at: string
+          id: string
+          metrics_snapshot: Json
+          name: string
+          property_id: string | null
+          scenario_data: Json
+          score_breakdown: Json
+          simulated_score: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metrics_snapshot?: Json
+          name: string
+          property_id?: string | null
+          scenario_data?: Json
+          score_breakdown?: Json
+          simulated_score?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metrics_snapshot?: Json
+          name?: string
+          property_id?: string | null
+          scenario_data?: Json
+          score_breakdown?: Json
+          simulated_score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulated_scenarios_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
