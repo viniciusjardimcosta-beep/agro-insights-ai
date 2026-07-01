@@ -2,8 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | Json[]
+  | { [k: string]: Json };
 export type ScoreBreakdown = { label: string; points: number }[];
-export type JsonObject = Record<string, unknown>;
+export type JsonObject = { [k: string]: Json };
 
 export type SimulatedScenarioRow = {
   id: string;
@@ -26,7 +33,7 @@ export const listScenarios = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
-    return (data ?? []) as SimulatedScenarioRow[];
+    return (data ?? []) as unknown as SimulatedScenarioRow[];
   });
 
 const createInput = z.object({
@@ -56,7 +63,7 @@ export const createScenario = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
-    return inserted as SimulatedScenarioRow;
+    return inserted as unknown as SimulatedScenarioRow;
   });
 
 export const deleteScenario = createServerFn({ method: "POST" })
