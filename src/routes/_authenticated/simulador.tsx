@@ -131,8 +131,16 @@ function SimuladorPage() {
   const [scenarioName, setScenarioName] = useState("Cenário simulado");
 
   useEffect(() => {
-    // Initialize / re-initialize when real data loads or changes.
-    setEdits(baseEdits);
+    // Initialize on first load; on later refetches (window focus, save
+    // invalidations, etc.) preserve any values the user has already edited
+    // and only merge in new/removed fields. Without this, react-query
+    // refetches would wipe the simulation and every metric would snap back
+    // to the real snapshot, making the UI appear frozen.
+    setEdits((prev) => {
+      if (prev.length === 0) return baseEdits;
+      const prevById = new Map(prev.map((e) => [e.id, e]));
+      return baseEdits.map((b) => prevById.get(b.id) ?? b);
+    });
   }, [baseEdits]);
 
   // Real (current) farm — NEVER mutated by the simulation.
