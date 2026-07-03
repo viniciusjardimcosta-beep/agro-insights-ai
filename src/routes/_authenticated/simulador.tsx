@@ -4,6 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import {
   FlaskConical,
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
   RotateCcw,
   Save,
   Sparkles,
@@ -271,15 +275,15 @@ function SimuladorPage() {
           <CardTitle>📈 Impacto da Simulação</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Impact label="Receita" prev={realFarm.totalRevenue} next={simFarm.totalRevenue} money />
-          <Impact label="Custos" prev={realFarm.totalCost} next={simFarm.totalCost} money invert />
-          <Impact label="Lucro" prev={realFarm.totalProfit} next={simFarm.totalProfit} money />
+          <Impact label="Receita" prev={realFarm.totalRevenue} next={simFarm.totalRevenue} format="money" />
+          <Impact label="Custos" prev={realFarm.totalCost} next={simFarm.totalCost} format="money" invert />
+          <Impact label="Lucro" prev={realFarm.totalProfit} next={simFarm.totalProfit} format="money" />
           <Impact
             label="Nota"
             prev={realScore.score}
             next={simScore.score}
-            suffix=" pts"
-            digits={0}
+            format="points"
+            showPct={false}
           />
         </CardContent>
       </Card>
