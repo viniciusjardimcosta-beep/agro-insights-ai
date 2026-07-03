@@ -4,6 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import {
   FlaskConical,
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
   RotateCcw,
   Save,
   Sparkles,
@@ -271,15 +275,15 @@ function SimuladorPage() {
           <CardTitle>📈 Impacto da Simulação</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Impact label="Receita" prev={realFarm.totalRevenue} next={simFarm.totalRevenue} money />
-          <Impact label="Custos" prev={realFarm.totalCost} next={simFarm.totalCost} money invert />
-          <Impact label="Lucro" prev={realFarm.totalProfit} next={simFarm.totalProfit} money />
+          <Impact label="Receita" prev={realFarm.totalRevenue} next={simFarm.totalRevenue} format="money" />
+          <Impact label="Custos" prev={realFarm.totalCost} next={simFarm.totalCost} format="money" invert />
+          <Impact label="Lucro" prev={realFarm.totalProfit} next={simFarm.totalProfit} format="money" />
           <Impact
             label="Nota"
             prev={realScore.score}
             next={simScore.score}
-            suffix=" pts"
-            digits={0}
+            format="points"
+            showPct={false}
           />
         </CardContent>
       </Card>
@@ -505,47 +509,80 @@ function Impact({
   label,
   prev,
   next,
-  money,
+  format,
   invert,
-  suffix = "",
-  digits = 2,
+  showPct = true,
 }: {
   label: string;
   prev: number;
   next: number;
-  money?: boolean;
+  format: "money" | "points";
   invert?: boolean;
-  suffix?: string;
-  digits?: number;
+  showPct?: boolean;
 }) {
   const delta = next - prev;
-  const better = invert ? delta < 0 : delta > 0;
-  const worse = invert ? delta > 0 : delta < 0;
-  const fmt = (n: number) =>
-    money ? BRL.format(n) : `${n.toLocaleString("pt-BR", { maximumFractionDigits: digits })}${suffix}`;
-  const deltaFmt = money
-    ? `${delta >= 0 ? "+" : ""}${BRL.format(delta)}`
-    : `${delta >= 0 ? "+" : ""}${delta.toLocaleString("pt-BR", { maximumFractionDigits: digits })}${suffix}`;
+  const eps = format === "points" ? 0.5 : 0.005;
+  const dir: "up" | "down" | "flat" =
+    delta > eps ? "up" : delta < -eps ? "down" : "flat";
+  const better =
+    dir === "flat" ? false : invert ? dir === "down" : dir === "up";
+  const worse =
+    dir === "flat" ? false : invert ? dir === "up" : dir === "down";
+  const tone = better
+    ? "text-emerald-600 dark:text-emerald-400"
+    : worse
+      ? "text-red-600 dark:text-red-400"
+      : "text-muted-foreground";
+  const borderTone = better
+    ? "border-emerald-500/30 bg-emerald-500/5"
+    : worse
+      ? "border-red-500/30 bg-red-500/5"
+      : "border-border bg-muted/30";
+
+  const fmtValue = (n: number) =>
+    format === "money"
+      ? BRL.format(n)
+      : `${n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} pts`;
+
+  const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+  const absDelta = Math.abs(delta);
+  const deltaValueFmt =
+    format === "money"
+      ? `${sign}${BRL.format(absDelta)}`
+      : `${sign}${absDelta.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} pts`;
+
+  const pctText = (() => {
+    if (!showPct) return null;
+    if (prev === 0) return delta === 0 ? "0,0%" : "—";
+    const pct = (delta / Math.abs(prev)) * 100;
+    const pSign = pct > 0 ? "+" : pct < 0 ? "−" : "";
+    return `${pSign}${Math.abs(pct).toLocaleString("pt-BR", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })}%`;
+  })();
+
+  const Arrow =
+    dir === "up" ? ArrowUpRight : dir === "down" ? ArrowDownRight : Minus;
+
   return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-mono text-sm">
-        <span className="text-muted-foreground">{fmt(prev)}</span>
-        {" → "}
-        <span
-          className={
-            better ? "text-primary" : worse ? "text-destructive" : "font-semibold"
-          }
-        >
-          {fmt(next)}
+    <div className={`rounded-lg border p-3 transition ${borderTone}`}>
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 font-mono text-sm tabular-nums">
+        <span className="text-muted-foreground">{fmtValue(prev)}</span>
+        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className={`font-semibold ${dir === "flat" ? "text-foreground" : tone}`}>
+          {fmtValue(next)}
         </span>
       </div>
-      <div
-        className={`mt-1 text-xs font-semibold ${
-          better ? "text-primary" : worse ? "text-destructive" : "text-muted-foreground"
-        }`}
-      >
-        {deltaFmt}
+      <div className={`mt-2 flex items-center gap-1.5 text-xs font-semibold tabular-nums ${tone}`}>
+        <Arrow className="h-3.5 w-3.5 shrink-0" />
+        <span>{dir === "flat" ? "Sem alteração" : deltaValueFmt}</span>
+        {pctText && dir !== "flat" && (
+          <span className="opacity-80">({pctText})</span>
+        )}
       </div>
     </div>
   );
