@@ -707,13 +707,19 @@ function BreakdownDiff({
 
   return (
     <div className="space-y-4 text-sm">
-      <DiffSection title="Ganhos e bônus" rows={gains} positive />
-      <DiffSection title="Penalidades novas ou piores" rows={losses} positive={false} />
-      <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-xs">
-        <span className="text-muted-foreground">Soma dos impactos por regra</span>
+      {gains.length > 0 && <DiffSection title="Ganhos e bônus" rows={gains} positive />}
+      {losses.length > 0 && (
+        <DiffSection title="Penalidades" rows={losses} positive={false} />
+      )}
+      <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
+        <span className="text-sm font-semibold">Total de impacto</span>
         <span
-          className={`font-mono font-semibold ${
-            totalImpact > 0 ? "text-primary" : totalImpact < 0 ? "text-destructive" : ""
+          className={`font-mono text-base font-bold ${
+            totalImpact > 0
+              ? "text-emerald-600 dark:text-emerald-400"
+              : totalImpact < 0
+                ? "text-red-600 dark:text-red-400"
+                : "text-muted-foreground"
           }`}
         >
           {totalImpact > 0 ? `+${totalImpact}` : totalImpact} pts
@@ -738,55 +744,53 @@ function DiffSection({
   rows: DiffRow[];
   positive: boolean;
 }) {
+  const toneText = positive
+    ? "text-emerald-600 dark:text-emerald-400"
+    : "text-red-600 dark:text-red-400";
+  const toneBorder = positive
+    ? "border-emerald-500/30 bg-emerald-500/5"
+    : "border-red-500/30 bg-red-500/5";
   return (
     <div>
       <div
-        className={`mb-2 text-xs font-semibold uppercase tracking-wide ${
-          positive ? "text-primary" : "text-destructive"
-        }`}
+        className={`mb-2 text-xs font-semibold uppercase tracking-wide ${toneText}`}
       >
         {title}
       </div>
-      {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Nada nesta categoria.</p>
-      ) : (
-        <ul className="space-y-1">
-          {rows.map((r) => (
+      <ul className="space-y-2">
+        {rows.map((r) => {
+          const hasValues = Boolean(r.before || r.after);
+          return (
             <li
               key={r.key}
-              className={`grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-md border px-3 py-2 ${
-                positive
-                  ? "border-primary/20 bg-primary/5"
-                  : "border-destructive/20 bg-destructive/5"
-              }`}
+              className={`flex flex-col gap-2 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-between ${toneBorder}`}
             >
-              <span>{r.display}</span>
-              <span className="text-right font-mono text-xs">
-                {r.before || r.after ? (
-                  <>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium">{r.display}</div>
+                {hasValues ? (
+                  <div className="mt-1 flex items-center gap-2 font-mono text-xs">
                     <span className="text-muted-foreground">{r.before ?? "—"}</span>
-                    {" → "}
-                    <span className={positive ? "text-primary" : "text-destructive"}>
-                      {r.after ?? "—"}
-                    </span>
-                  </>
+                    <span className="text-muted-foreground">↓</span>
+                    <span className={toneText}>{r.after ?? "—"}</span>
+                  </div>
                 ) : (
-                  <span className="text-muted-foreground">
-                    {r.prevPts} → {r.nextPts} pts
-                  </span>
+                  <div className="mt-1 font-mono text-xs text-muted-foreground">
+                    {r.prevPts} pts ↓ {r.nextPts} pts
+                  </div>
                 )}
-              </span>
-              <span
-                className={`text-right font-mono font-semibold ${
-                  positive ? "text-primary" : "text-destructive"
-                }`}
-              >
-                {r.impact > 0 ? `+${r.impact}` : r.impact}
-              </span>
+              </div>
+              <div className="flex items-baseline gap-1 sm:flex-col sm:items-end sm:gap-0">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Impacto
+                </span>
+                <span className={`font-mono text-sm font-semibold ${toneText}`}>
+                  {r.impact > 0 ? `+${r.impact}` : r.impact} pts
+                </span>
+              </div>
             </li>
-          ))}
-        </ul>
-      )}
+          );
+        })}
+      </ul>
     </div>
   );
 }
