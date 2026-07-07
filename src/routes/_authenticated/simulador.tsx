@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   FlaskConical,
   ArrowRight,
@@ -14,6 +14,9 @@ import {
   Sun,
   TrendingDown,
   Trash2,
+  Trophy,
+  GitCompare,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -133,6 +136,36 @@ function SimuladorPage() {
   );
   const [edits, setEdits] = useState<FieldEdit[]>([]);
   const [scenarioName, setScenarioName] = useState("Cenário simulado");
+  const [cmpA, setCmpA] = useState<string>("");
+  const [cmpB, setCmpB] = useState<string>("");
+
+  useEffect(() => {
+    if (scenarios.length >= 2) {
+      setCmpA((prev) => (prev && scenarios.some((s) => s.id === prev) ? prev : scenarios[0].id));
+      setCmpB((prev) => (prev && scenarios.some((s) => s.id === prev) ? prev : scenarios[1].id));
+    }
+  }, [scenarios]);
+
+  function loadScenarioAsBase(row: SimulatedScenarioRow) {
+    const raw = (row.scenario_data as { edits?: unknown })?.edits;
+    if (!Array.isArray(raw) || raw.length === 0) {
+      toast.error("Cenário sem dados editáveis para carregar.");
+      return;
+    }
+    const loaded = raw as FieldEdit[];
+    // Merge with current baseEdits so any newly added real fields still appear.
+    const byId = new Map(loaded.map((e) => [e.id, e]));
+    const merged = baseEdits.map((b) => {
+      const found = byId.get(b.id);
+      return found ? { ...b, ...found } : b;
+    });
+    // Also include cenário-only fields (in case a field was later deleted).
+    for (const e of loaded) if (!merged.some((m) => m.id === e.id)) merged.push(e);
+    setEdits(merged);
+    setScenarioName(`${row.name} (editando)`);
+    toast.success(`Cenário "${row.name}" carregado para edição.`);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   useEffect(() => {
     // Initialize on first load; on later refetches (window focus, save
@@ -399,12 +432,45 @@ function SimuladorPage() {
                   row={s}
                   currentRealScore={realScore.score}
                   onDelete={() => deleteMut.mutate(s.id)}
+                  onUseAsBase={() => loadScenarioAsBase(s)}
                 />
               ))}
             </ul>
           )}
         </CardContent>
       </Card>
+
+      {/* Comparar cenários salvos */}
+      {scenarios.length >= 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GitCompare className="h-5 w-5" /> Comparar Cenários Salvos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ScenarioPicker
+                label="Cenário A"
+                value={cmpA}
+                onChange={setCmpA}
+                scenarios={scenarios}
+              />
+              <ScenarioPicker
+                label="Cenário B"
+                value={cmpB}
+                onChange={setCmpB}
+                scenarios={scenarios}
+              />
+            </div>
+            <ScenarioCompare
+              a={scenarios.find((s) => s.id === cmpA)}
+              b={scenarios.find((s) => s.id === cmpB)}
+              onUseAsBase={loadScenarioAsBase}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -821,10 +887,12 @@ function ScenarioHistoryRow({
   row,
   currentRealScore,
   onDelete,
+  onUseAsBase,
 }: {
   row: SimulatedScenarioRow;
   currentRealScore: number;
   onDelete: () => void;
+  onUseAsBase: () => void;
 }) {
   const diff = row.simulated_score - currentRealScore;
   return (
@@ -850,10 +918,298 @@ function ScenarioHistoryRow({
             {diff > 0 ? `+${diff}` : diff} pts
           </div>
         </div>
+        <Button size="sm" variant="outline" onClick={onUseAsBase} title="Carregar para edição">
+          <Upload className="mr-1 h-4 w-4" /> Usar como base
+        </Button>
         <Button size="sm" variant="ghost" onClick={onDelete} title="Excluir cenário">
           <Trash2 className="h-4 w-4 text-destructive" />
         </Button>
       </div>
     </li>
+  );
+}
+
+// --- Compare two saved scenarios ---
+
+function ScenarioPicker({
+  label,
+  value,
+  onChange,
+  scenarios,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  scenarios: SimulatedScenarioRow[];
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9 rounded-md border bg-background px-2 text-sm"
+      >
+        {scenarios.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name} — {s.simulated_score}/100 · {new Date(s.created_at).toLocaleDateString("pt-BR")}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+type ScenarioMetricsView = {
+  score: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+  breakevenByCrop: Record<string, number>;
+};
+
+function extractView(row: SimulatedScenarioRow): ScenarioMetricsView {
+  const m = (row.metrics_snapshot ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const be = (m.breakevenByCrop ?? {}) as Record<string, number>;
+  return {
+    score: row.simulated_score,
+    revenue: num(m.revenue),
+    cost: num(m.costs),
+    profit: num(m.profit),
+    margin: num(m.margin),
+    breakevenByCrop: Object.fromEntries(
+      Object.entries(be).map(([k, v]) => [k, Number(v) || 0]),
+    ),
+  };
+}
+
+function ScenarioCompare({
+  a,
+  b,
+  onUseAsBase,
+}: {
+  a?: SimulatedScenarioRow;
+  b?: SimulatedScenarioRow;
+  onUseAsBase: (row: SimulatedScenarioRow) => void;
+}) {
+  if (!a || !b) {
+    return <p className="text-sm text-muted-foreground">Selecione dois cenários.</p>;
+  }
+  if (a.id === b.id) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Escolha dois cenários diferentes para comparar.
+      </p>
+    );
+  }
+  const va = extractView(a);
+  const vb = extractView(b);
+
+  // Winner rules: higher score, higher profit, lower cost, better (higher) margin.
+  const winners = {
+    score: va.score === vb.score ? "tie" : va.score > vb.score ? "a" : "b",
+    profit: va.profit === vb.profit ? "tie" : va.profit > vb.profit ? "a" : "b",
+    cost: va.cost === vb.cost ? "tie" : va.cost < vb.cost ? "a" : "b",
+    margin: va.margin === vb.margin ? "tie" : va.margin > vb.margin ? "a" : "b",
+  } as const;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <CompareColumn row={a} view={va} winners={winners} side="a" onUseAsBase={onUseAsBase} />
+        <CompareColumn row={b} view={vb} winners={winners} side="b" onUseAsBase={onUseAsBase} />
+      </div>
+
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Diferenças (B em relação a A)
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Impact label="Nota" prev={va.score} next={vb.score} format="points" showPct={false} />
+          <Impact label="Receita" prev={va.revenue} next={vb.revenue} format="money" />
+          <Impact label="Custos" prev={va.cost} next={vb.cost} format="money" invert />
+          <Impact label="Lucro" prev={va.profit} next={vb.profit} format="money" />
+          <MarginImpact prev={va.margin} next={vb.margin} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompareColumn({
+  row,
+  view,
+  winners,
+  side,
+  onUseAsBase,
+}: {
+  row: SimulatedScenarioRow;
+  view: ScenarioMetricsView;
+  winners: { score: string; profit: string; cost: string; margin: string };
+  side: "a" | "b";
+  onUseAsBase: (row: SimulatedScenarioRow) => void;
+}) {
+  const badge = (won: boolean) =>
+    won ? (
+      <span className="ml-1 inline-flex items-center gap-0.5 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-emerald-600 dark:text-emerald-400">
+        <Trophy className="h-3 w-3" /> melhor
+      </span>
+    ) : null;
+  const topRules = [...row.score_breakdown]
+    .filter((r) => r.points !== 0 && !r.label.startsWith("Base") && !r.label.startsWith("Ajuste"))
+    .sort((a, b) => Math.abs(b.points) - Math.abs(a.points))
+    .slice(0, 5);
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between text-base">
+          <span className="truncate">
+            <span className="mr-2 text-xs text-muted-foreground">Cenário {side.toUpperCase()}</span>
+            {row.name}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => onUseAsBase(row)}>
+            <Upload className="mr-1 h-4 w-4" /> Usar como base
+          </Button>
+        </CardTitle>
+        <div className="text-xs text-muted-foreground">
+          {new Date(row.created_at).toLocaleString("pt-BR")}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div>
+          <div className="text-xs text-muted-foreground">
+            Nota {badge(winners.score === side)}
+          </div>
+          <div className="text-3xl font-bold">{view.score}/100</div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <CmpStat label="Receita" value={BRL.format(view.revenue)} />
+          <CmpStat
+            label={<>Custos {badge(winners.cost === side)}</>}
+            value={BRL.format(view.cost)}
+          />
+          <CmpStat
+            label={<>Lucro {badge(winners.profit === side)}</>}
+            value={BRL.format(view.profit)}
+            tone={view.profit < 0 ? "neg" : "pos"}
+          />
+          <CmpStat
+            label={<>Margem {badge(winners.margin === side)}</>}
+            value={`${view.margin.toFixed(1)}%`}
+          />
+        </div>
+        {Object.keys(view.breakevenByCrop).length > 0 && (
+          <div>
+            <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              Ponto de equilíbrio (sc/ha)
+            </div>
+            <ul className="space-y-0.5 text-xs">
+              {Object.entries(view.breakevenByCrop).map(([c, v]) => (
+                <li key={c} className="flex justify-between">
+                  <span className="text-muted-foreground">{c}</span>
+                  <span className="font-mono">{NUM.format(v)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {topRules.length > 0 && (
+          <div>
+            <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              Principais regras do score
+            </div>
+            <ul className="space-y-1 text-xs">
+              {topRules.map((r, i) => (
+                <li key={i} className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground" title={r.label}>
+                    {r.label}
+                  </span>
+                  <span
+                    className={`font-mono font-semibold ${
+                      r.points > 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {r.points > 0 ? `+${r.points}` : r.points}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CmpStat({
+  label,
+  value,
+  tone,
+}: {
+  label: ReactNode;
+  value: string;
+  tone?: "pos" | "neg";
+}) {
+  return (
+    <div>
+      <div className="flex items-center text-xs text-muted-foreground">{label}</div>
+      <div
+        className={`text-base font-semibold ${
+          tone === "neg" ? "text-destructive" : tone === "pos" ? "text-primary" : ""
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function MarginImpact({ prev, next }: { prev: number; next: number }) {
+  const delta = next - prev;
+  const eps = 0.05;
+  const dir: "up" | "down" | "flat" =
+    delta > eps ? "up" : delta < -eps ? "down" : "flat";
+  const better = dir === "up";
+  const worse = dir === "down";
+  const tone = better
+    ? "text-emerald-600 dark:text-emerald-400"
+    : worse
+      ? "text-red-600 dark:text-red-400"
+      : "text-muted-foreground";
+  const borderTone = better
+    ? "border-emerald-500/30 bg-emerald-500/5"
+    : worse
+      ? "border-red-500/30 bg-red-500/5"
+      : "border-border bg-muted/30";
+  const Arrow =
+    dir === "up" ? ArrowUpRight : dir === "down" ? ArrowDownRight : Minus;
+  const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+  return (
+    <div className={`rounded-lg border p-3 transition ${borderTone}`}>
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Margem
+      </div>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 font-mono text-sm tabular-nums">
+        <span className="text-muted-foreground">{prev.toFixed(1)}%</span>
+        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className={`font-semibold ${dir === "flat" ? "text-foreground" : tone}`}>
+          {next.toFixed(1)}%
+        </span>
+      </div>
+      <div className={`mt-2 flex items-center gap-1.5 text-xs font-semibold tabular-nums ${tone}`}>
+        <Arrow className="h-3.5 w-3.5 shrink-0" />
+        <span>
+          {dir === "flat"
+            ? "Sem alteração"
+            : `${sign}${Math.abs(delta).toFixed(1)} pp`}
+        </span>
+      </div>
+    </div>
   );
 }
