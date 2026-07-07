@@ -1152,7 +1152,7 @@ function CmpStat({
   value,
   tone,
 }: {
-  label: React.ReactNode;
+  label: ReactNode;
   value: string;
   tone?: "pos" | "neg";
 }) {
