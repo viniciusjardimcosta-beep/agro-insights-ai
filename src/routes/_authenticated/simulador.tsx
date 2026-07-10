@@ -1059,8 +1059,17 @@ function CompareColumn({
         <Trophy className="h-3 w-3" /> melhor
       </span>
     ) : null;
-  const topRules = [...row.score_breakdown]
-    .filter((r) => r.points !== 0 && !r.label.startsWith("Base") && !r.label.startsWith("Ajuste"))
+  const rawBreakdown = Array.isArray(row.score_breakdown) ? row.score_breakdown : [];
+  const topRules = rawBreakdown
+    .filter(
+      (r) =>
+        r &&
+        typeof r.points === "number" &&
+        r.points !== 0 &&
+        typeof r.label === "string" &&
+        !r.label.startsWith("Base") &&
+        !r.label.startsWith("Ajuste"),
+    )
     .sort((a, b) => Math.abs(b.points) - Math.abs(a.points))
     .slice(0, 5);
   return (
