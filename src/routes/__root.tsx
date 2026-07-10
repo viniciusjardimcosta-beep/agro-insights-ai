@@ -126,6 +126,9 @@ function RootComponent() {
   const router = useRouter();
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // Only react to real identity transitions. TOKEN_REFRESHED (~hourly + focus)
+      // and INITIAL_SESSION (every mount) otherwise thrash the router/cache.
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       if (event === "SIGNED_OUT") {
         queryClient.clear();
       } else {
