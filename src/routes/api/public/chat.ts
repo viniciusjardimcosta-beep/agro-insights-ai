@@ -145,7 +145,12 @@ ${summary}`;
                     .join("");
                   return { role: m.role, content: text };
                 })
-                .filter((m) => m.content && !existingKeys.has(`${m.role}::${m.content}`))
+                .filter(
+                  (m) =>
+                    m.content &&
+                    (m.role === "user" || m.role === "assistant" || m.role === "system") &&
+                    !existingKeys.has(`${m.role}::${m.content}`),
+                )
                 .map((m) => ({ ...m, thread_id: threadId, user_id: userId }));
               if (toInsert.length) {
                 await supabase.from("ai_messages").insert(toInsert);
