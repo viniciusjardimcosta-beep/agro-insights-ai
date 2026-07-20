@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+const NOT_FOUND = "Recurso não encontrado";
+
 // ---------------- Properties ----------------
 export const listProperties = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -27,6 +29,11 @@ export const upsertProperty = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => propertyInput.parse(input))
   .handler(async ({ context, data }) => {
     const row = { ...data, user_id: context.userId };
+    if (data.id) {
+      const { data: existing } = await context.supabase
+        .from("properties").select("id").eq("id", data.id).maybeSingle();
+      if (!existing) throw new Error(NOT_FOUND);
+    }
     const { error } = await context.supabase.from("properties").upsert(row);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -69,6 +76,14 @@ export const upsertField = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => fieldInput.parse(input))
   .handler(async ({ context, data }) => {
+    const { data: prop } = await context.supabase
+      .from("properties").select("id").eq("id", data.property_id).maybeSingle();
+    if (!prop) throw new Error(NOT_FOUND);
+    if (data.id) {
+      const { data: existing } = await context.supabase
+        .from("fields").select("id").eq("id", data.id).maybeSingle();
+      if (!existing) throw new Error(NOT_FOUND);
+    }
     const row = { ...data, user_id: context.userId };
     const { error } = await context.supabase.from("fields").upsert(row);
     if (error) throw new Error(error.message);
@@ -110,6 +125,14 @@ export const upsertCost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => costInput.parse(input))
   .handler(async ({ context, data }) => {
+    const { data: field } = await context.supabase
+      .from("fields").select("id").eq("id", data.field_id).maybeSingle();
+    if (!field) throw new Error(NOT_FOUND);
+    if (data.id) {
+      const { data: existing } = await context.supabase
+        .from("costs").select("id").eq("id", data.id).maybeSingle();
+      if (!existing) throw new Error(NOT_FOUND);
+    }
     const row = { ...data, user_id: context.userId };
     const { error } = await context.supabase.from("costs").upsert(row);
     if (error) throw new Error(error.message);
