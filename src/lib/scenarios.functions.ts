@@ -49,6 +49,11 @@ export const createScenario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => createInput.parse(input))
   .handler(async ({ context, data }) => {
+    if (data.property_id) {
+      const { data: prop } = await context.supabase
+        .from("properties").select("id").eq("id", data.property_id).maybeSingle();
+      if (!prop) throw new Error("Recurso não encontrado");
+    }
     const { data: inserted, error } = await context.supabase
       .from("simulated_scenarios")
       .insert({
