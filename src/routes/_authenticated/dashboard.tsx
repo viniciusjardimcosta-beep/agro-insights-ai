@@ -10,6 +10,7 @@ import { getFarmSnapshot } from "@/lib/data.functions";
 import { latestDiagnostic } from "@/lib/diagnostics.functions";
 import { seedDemoData } from "@/lib/demo.functions";
 import { aggregateFarm, BRL, NUM } from "@/lib/calc";
+import { ExecutiveReportButton } from "@/components/executive-report-button";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AgroIntel AI" }] }),
@@ -100,6 +101,7 @@ function Dashboard() {
             {seeding ? "Carregando..." : "Carregar dados de demonstração"}
           </Button>
         )}
+        {!isEmpty && <ExecutiveReportButton />}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

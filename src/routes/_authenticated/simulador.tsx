@@ -31,6 +31,7 @@ import {
   listScenarios,
   type SimulatedScenarioRow,
 } from "@/lib/scenarios.functions";
+import { ExecutiveReportButton } from "@/components/executive-report-button";
 
 export const Route = createFileRoute("/_authenticated/simulador")({
   head: () => ({ meta: [{ title: "Simulador — AgroIntel AI" }] }),
@@ -267,13 +268,16 @@ function SimuladorPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Simulador de Cenários</h1>
-        <p className="text-sm text-muted-foreground">
-          Teste mudanças em preço, produtividade, área e custo por hectare sem alterar os
-          dados reais da fazenda. Nada é salvo no banco a não ser que você clique em
-          <strong> Salvar Cenário</strong>.
-        </p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Simulador de Cenários</h1>
+          <p className="text-sm text-muted-foreground">
+            Teste mudanças em preço, produtividade, área e custo por hectare sem alterar os
+            dados reais da fazenda. Nada é salvo no banco a não ser que você clique em
+            <strong> Salvar Cenário</strong>.
+          </p>
+        </div>
+        <ExecutiveReportButton />
       </div>
 
       {/* Cenário Atual x Simulado */}
