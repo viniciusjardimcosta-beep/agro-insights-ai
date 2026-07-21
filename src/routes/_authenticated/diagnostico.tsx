@@ -20,6 +20,7 @@ import {
   listDiagnostics,
   type DiagnosticReport,
 } from "@/lib/diagnostics.functions";
+import { ExecutiveReportButton } from "@/components/executive-report-button";
 
 export const Route = createFileRoute("/_authenticated/diagnostico")({
   head: () => ({ meta: [{ title: "Diagnóstico — AgroIntel AI" }] }),
@@ -83,14 +84,17 @@ function DiagnosticoPage() {
             A IA analisa seus dados e gera um relatório financeiro completo.
           </p>
         </div>
-        <Button onClick={run} disabled={busy} size="lg">
-          {busy ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="mr-2 h-4 w-4" />
-          )}
-          {history.length === 0 ? "Gerar Diagnóstico" : "Gerar Novo Diagnóstico"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExecutiveReportButton />
+          <Button onClick={run} disabled={busy} size="lg">
+            {busy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-2 h-4 w-4" />
+            )}
+            {history.length === 0 ? "Gerar Diagnóstico" : "Gerar Novo Diagnóstico"}
+          </Button>
+        </div>
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando histórico...</p>}
