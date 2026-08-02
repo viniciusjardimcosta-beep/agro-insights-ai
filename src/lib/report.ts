@@ -228,7 +228,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     const fullW = pageW - margin * 2;
     const half = (fullW - 16) / 2;
     const penaltyItems = penalties.map((p) => `${p.label} (${p.points})`);
-    const bonusItems = bonuses.map((p) => `+${p.points} · ${p.label}`.replace(/^\+/, "") && `${p.label} (+${p.points})`);
+    const bonusItems = bonuses.map((p) => `${p.label} (+${p.points})`);
 
     // Side-by-side only when both columns are short enough to fit together.
     const penH = measureList(doc, penaltyItems, half);
@@ -569,27 +569,59 @@ function drawLabelBlock(doc: jsPDF, label: string, value: string, x: number, y: 
   return y + 56;
 }
 
-function drawList(doc: jsPDF, title: string, items: string[], x: number, y: number, w: number, color: [number, number, number]) {
+const LIST_LINE = 12;
+const LIST_ITEM_GAP = 8;
+const LIST_TITLE_H = 18;
+
+function listLines(doc: jsPDF, items: string[], w: number): string[][] {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  return items.map((it) => doc.splitTextToSize(it, w - 20) as string[]);
+}
+
+/** Real height of a list block (title + wrapped items), in points. */
+function measureList(doc: jsPDF, items: string[], w: number): number {
+  if (items.length === 0) return LIST_TITLE_H + LIST_LINE;
+  const lines = listLines(doc, items, w);
+  return (
+    LIST_TITLE_H +
+    lines.reduce((s, l) => s + l.length * LIST_LINE + LIST_ITEM_GAP, 0)
+  );
+}
+
+/** Draws a bullet list and returns the y just below it. */
+function drawList(
+  doc: jsPDF,
+  title: string,
+  items: string[],
+  x: number,
+  y: number,
+  w: number,
+  color: [number, number, number],
+): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...color);
   doc.text(title, x, y);
-  y += 10;
+  let cursor = y + LIST_TITLE_H;
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.setTextColor(...DARK);
   if (items.length === 0) {
     doc.setTextColor(...MUTED);
-    doc.text("—", x, y + 8);
-    return;
+    doc.text("—", x, cursor);
+    return cursor + LIST_LINE;
   }
-  items.forEach((it, i) => {
-    const yy = y + 8 + i * 16;
+
+  const lines = listLines(doc, items, w);
+  lines.forEach((l) => {
     doc.setFillColor(...color);
-    doc.circle(x + 3, yy - 3, 2, "F");
+    doc.circle(x + 3, cursor - 3, 2, "F");
     doc.setTextColor(...DARK);
-    doc.text(it, x + 12, yy, { maxWidth: w - 16 });
+    l.forEach((line, li) => doc.text(line, x + 14, cursor + li * LIST_LINE));
+    cursor += l.length * LIST_LINE + LIST_ITEM_GAP;
   });
+  return cursor;
 }
 
 function drawBarChart(
