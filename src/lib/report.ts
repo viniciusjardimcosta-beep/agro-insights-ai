@@ -72,7 +72,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const propertyName = property.name || "Propriedade sem nome";
   const propertyLoc =
     [property.city, property.state].filter(Boolean).join(" / ") || "-";
-  const producer = input.producerName || "-";
+  const producer = (input.producerName ?? "").trim() || "Produtor não informado";
   const now = new Date();
   const dateLabel = now.toLocaleDateString("pt-BR");
   const dateTimeLabel = now.toLocaleString("pt-BR");
@@ -86,11 +86,21 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const score = diag?.health_score ?? 0;
   const cls = classify(score);
 
-  // pick best scenario by simulated_score (highest)
+  // Best scenario: highest simulated_score → tie-break by profit → by net margin.
   const scenarios = input.scenarios ?? [];
+  const snapNum = (s: SimulatedScenarioRow, k: string) => {
+    const m = (s.metrics_snapshot as unknown as Record<string, unknown>) || {};
+    const v = Number(m[k]);
+    return Number.isFinite(v) ? v : 0;
+  };
   const bestScenario =
     scenarios.length > 0
-      ? [...scenarios].sort((a, b) => b.simulated_score - a.simulated_score)[0]
+      ? [...scenarios].sort(
+          (a, b) =>
+            b.simulated_score - a.simulated_score ||
+            snapNum(b, "profit") - snapNum(a, "profit") ||
+            snapNum(b, "margin") - snapNum(a, "margin"),
+        )[0]
       : null;
 
   // -------- COVER --------
@@ -110,6 +120,15 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const addPage = () => {
     doc.addPage();
   };
+  // Starts a fresh content page with header chrome and returns the initial y.
+  const newContentPage = () => {
+    addPage();
+    drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
+    return 90;
+  };
+  const BOTTOM = pageH - 60;
+  // Ensures `needed` vertical points are available, breaking the page if not.
+  const ensure = (y: number, needed: number) => (y + needed > BOTTOM ? newContentPage() : y);
 
   // Page 2 — Resumo Executivo
   addPage();
