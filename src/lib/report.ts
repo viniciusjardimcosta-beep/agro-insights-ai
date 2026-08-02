@@ -603,18 +603,22 @@ function drawKpiGrid(doc: jsPDF, items: [string, string][], x: number, y: number
 }
 
 function drawLabelBlock(doc: jsPDF, label: string, value: string, x: number, y: number, w: number, color: [number, number, number]) {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  const lines = doc.splitTextToSize(value, w - 28) as string[];
+  const h = Math.max(46, 28 + lines.length * 14);
   doc.setFillColor(...LIGHT);
-  doc.roundedRect(x, y, w, 46, 4, 4, "F");
+  doc.roundedRect(x, y, w, h, 4, 4, "F");
   doc.setFillColor(...color);
-  doc.rect(x, y, 4, 46, "F");
+  doc.rect(x, y, 4, h, "F");
   doc.setTextColor(...MUTED);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(label.toUpperCase(), x + 14, y + 16);
   doc.setTextColor(...DARK);
   doc.setFontSize(11);
-  doc.text(value, x + 14, y + 34, { maxWidth: w - 24 });
-  return y + 56;
+  lines.forEach((l, i) => doc.text(l, x + 14, y + 32 + i * 14));
+  return y + h + 12;
 }
 
 const LIST_LINE = 12;
