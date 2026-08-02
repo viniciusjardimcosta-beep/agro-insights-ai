@@ -748,11 +748,8 @@ function derivePriorities(
   const plan = report?.actionPlan ?? [];
   for (const p of plan) {
     if (out.length >= 3) break;
-    // Short title only when the text has a natural short lead clause; the full
-    // text always goes to `detail` (never truncated, never duplicated).
-    const lead = p.split(/[:.\u2013\u2014]/)[0]?.trim() ?? "";
-    const title = lead && lead.length <= 48 && lead.length < p.trim().length ? lead : "";
-    push(title, p);
+    // No synthetic title: the diagnostic action text is shown once, in full.
+    push("", p);
   }
 
   // Final fallbacks
