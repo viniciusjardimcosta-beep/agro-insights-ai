@@ -691,9 +691,9 @@ function drawBarChart(
   doc.setFontSize(11);
   doc.setTextColor(...DARK);
   doc.text(title, x, y);
-  y += 8;
+  y += 16;
   const chartY = y;
-  const chartH = h - 20;
+  const chartH = h - 46; // room for value labels on top and x labels below
 
   if (data.length === 0) {
     doc.setTextColor(...MUTED);
@@ -709,7 +709,9 @@ function drawBarChart(
   const range = maxVal - minVal || 1;
   const barCount = data.length;
   const gap = 8;
-  const barW = Math.max(6, (w - gap * (barCount - 1)) / barCount);
+  const barW = Math.min(56, Math.max(6, (w - gap * (barCount - 1)) / barCount));
+  const usedW = barCount * barW + gap * (barCount - 1);
+  const startX = x + Math.max(0, (w - usedW) / 2);
   const zeroY = chartY + chartH - ((0 - minVal) / range) * chartH;
 
   // baseline
@@ -718,7 +720,7 @@ function drawBarChart(
   doc.line(x, zeroY, x + w, zeroY);
 
   data.forEach((d, i) => {
-    const bx = x + i * (barW + gap);
+    const bx = startX + i * (barW + gap);
     const val = d.value;
     const barH = Math.abs(val - 0) / range * chartH;
     const by = val >= 0 ? zeroY - barH : zeroY;
@@ -736,11 +738,12 @@ function drawBarChart(
 
     doc.setTextColor(...MUTED);
     doc.setFontSize(7);
-    const lbl = d.label.length > 14 ? d.label.slice(0, 13) + "…" : d.label;
+    const maxChars = Math.max(6, Math.floor(barW / 3.2));
+    const lbl = d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + "…" : d.label;
     doc.text(lbl, bx + barW / 2, chartY + chartH + 12, { align: "center" });
   });
 
-  return y + h + 8;
+  return chartY + chartH + 30;
 }
 
 function fmtDeltaMoney(v: number) {
