@@ -360,13 +360,15 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   doc.setFontSize(12);
   doc.setTextColor(...DARK);
   doc.text("Prioridades", margin, y);
-  y += 10;
+  y += 18;
 
   priorities.forEach((p, i) => {
-    y = drawPriority(doc, i + 1, p, margin, y + 8, pageW - margin * 2);
+    const h = measurePriority(doc, p, pageW - margin * 2);
+    y = ensure(y, h + 10);
+    y = drawPriority(doc, i + 1, p, margin, y, pageW - margin * 2);
   });
 
-  y += 12;
+  y = ensure(y + 12, 130);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(...DARK);
