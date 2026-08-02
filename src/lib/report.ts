@@ -761,24 +761,44 @@ function derivePriorities(
   return out.slice(0, 3);
 }
 
+function priorityLayout(doc: jsPDF, p: { title: string; detail: string }, w: number) {
+  const textW = w - 66;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  const titleLines = p.title ? (doc.splitTextToSize(p.title, textW) as string[]) : [];
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const detailLines = doc.splitTextToSize(p.detail, textW) as string[];
+  const h = Math.max(54, 24 + titleLines.length * 14 + detailLines.length * 12);
+  return { titleLines, detailLines, h, textW };
+}
+
+function measurePriority(doc: jsPDF, p: { title: string; detail: string }, w: number) {
+  return priorityLayout(doc, p, w).h;
+}
+
 function drawPriority(doc: jsPDF, n: number, p: { title: string; detail: string }, x: number, y: number, w: number) {
-  const h = 54;
+  const { titleLines, detailLines, h } = priorityLayout(doc, p, w);
   doc.setFillColor(...LIGHT);
   doc.roundedRect(x, y, w, h, 4, 4, "F");
   doc.setFillColor(...PRIMARY);
-  doc.circle(x + 22, y + 27, 14, "F");
+  doc.circle(x + 22, y + 24, 14, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(String(n), x + 22, y + 32, { align: "center" });
+  doc.text(String(n), x + 22, y + 29, { align: "center" });
 
-  doc.setTextColor(...DARK);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text(p.title, x + 46, y + 20, { maxWidth: w - 60 });
+  let ty = y + 20;
+  if (titleLines.length) {
+    doc.setTextColor(...DARK);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    titleLines.forEach((l, i) => doc.text(l, x + 46, ty + i * 14));
+    ty += titleLines.length * 14 + 2;
+  }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...MUTED);
-  doc.text(p.detail, x + 46, y + 36, { maxWidth: w - 60 });
-  return y + h + 8;
+  detailLines.forEach((l, i) => doc.text(l, x + 46, ty + i * 12));
+  return y + h + 10;
 }
