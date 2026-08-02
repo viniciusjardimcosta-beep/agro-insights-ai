@@ -278,28 +278,27 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   }
   const costCatEntries = Object.entries(costByCat).sort((a, b) => b[1] - a[1]);
 
-  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, pageW - margin * 2, 160, PRIMARY, (v) => BRL.format(v));
+  const CHART_H = 170;
+  y = ensure(y, CHART_H);
+  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v));
 
   // Lucro por talhão
   const profitPerField = farm.perField.map((f) => ({ label: f.field.name, value: f.profit }));
-  y = drawBarChart(doc, "Lucro por talhão (R$)", profitPerField, margin, y, pageW - margin * 2, 160, PRIMARY, (v) => BRL.format(v), true);
-
-  if (y > pageH - 180) {
-    addPage();
-    drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-    y = 90;
-  }
+  y = ensure(y, CHART_H);
+  y = drawBarChart(doc, "Lucro por talhão (R$)", profitPerField, margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v), true);
 
   // Margem por talhão (%)
   const marginPerField = farm.perField.map((f) => ({
     label: f.field.name,
     value: f.revenue > 0 ? (f.profit / f.revenue) * 100 : 0,
   }));
-  y = drawBarChart(doc, "Margem por talhão (%)", marginPerField, margin, y, pageW - margin * 2, 160, ACCENT, (v) => `${v.toFixed(1)}%`, true);
+  y = ensure(y, CHART_H);
+  y = drawBarChart(doc, "Margem por talhão (%)", marginPerField, margin, y, pageW - margin * 2, CHART_H, ACCENT, (v) => `${v.toFixed(1)}%`, true);
 
   // Rentabilidade (lucro/ha)
   const rentPerField = farm.perField.map((f) => ({ label: f.field.name, value: f.profitPerHa }));
-  y = drawBarChart(doc, "Rentabilidade — Lucro por hectare (R$/ha)", rentPerField, margin, y, pageW - margin * 2, 160, PRIMARY, (v) => BRL.format(v), true);
+  y = ensure(y, CHART_H);
+  y = drawBarChart(doc, "Rentabilidade — Lucro por hectare (R$/ha)", rentPerField, margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v), true);
 
   // Page 5 — Comparação de Cenários
   addPage();
