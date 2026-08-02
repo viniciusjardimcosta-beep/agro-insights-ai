@@ -72,7 +72,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const propertyName = property.name || "Propriedade sem nome";
   const propertyLoc =
     [property.city, property.state].filter(Boolean).join(" / ") || "-";
-  const producer = input.producerName || "-";
+  const producer = (input.producerName ?? "").trim() || "Produtor não informado";
   const now = new Date();
   const dateLabel = now.toLocaleDateString("pt-BR");
   const dateTimeLabel = now.toLocaleString("pt-BR");
@@ -86,11 +86,21 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const score = diag?.health_score ?? 0;
   const cls = classify(score);
 
-  // pick best scenario by simulated_score (highest)
+  // Best scenario: highest simulated_score → tie-break by profit → by net margin.
   const scenarios = input.scenarios ?? [];
+  const snapNum = (s: SimulatedScenarioRow, k: string) => {
+    const m = (s.metrics_snapshot as unknown as Record<string, unknown>) || {};
+    const v = Number(m[k]);
+    return Number.isFinite(v) ? v : 0;
+  };
   const bestScenario =
     scenarios.length > 0
-      ? [...scenarios].sort((a, b) => b.simulated_score - a.simulated_score)[0]
+      ? [...scenarios].sort(
+          (a, b) =>
+            b.simulated_score - a.simulated_score ||
+            snapNum(b, "profit") - snapNum(a, "profit") ||
+            snapNum(b, "margin") - snapNum(a, "margin"),
+        )[0]
       : null;
 
   // -------- COVER --------
@@ -110,6 +120,15 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const addPage = () => {
     doc.addPage();
   };
+  // Starts a fresh content page with header chrome and returns the initial y.
+  const newContentPage = () => {
+    addPage();
+    drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
+    return 90;
+  };
+  const BOTTOM = pageH - 60;
+  // Ensures `needed` vertical points are available, breaking the page if not.
+  const ensure = (y: number, needed: number) => (y + needed > BOTTOM ? newContentPage() : y);
 
   // Page 2 — Resumo Executivo
   addPage();
@@ -204,29 +223,46 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
         }
       },
     });
-    y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 14;
+    y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 18;
 
-    if (y > pageH - 220) {
-      addPage();
-      drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-      y = 90;
+    const fullW = pageW - margin * 2;
+    const half = (fullW - 16) / 2;
+    const penaltyItems = penalties.map((p) => `${p.label} (${p.points})`);
+    const bonusItems = bonuses.map((p) => `${p.label} (+${p.points})`);
+
+    // Side-by-side only when both columns are short enough to fit together.
+    const penH = measureList(doc, penaltyItems, half);
+    const bonH = measureList(doc, bonusItems, half);
+    const sideBySide =
+      Math.max(penH, bonH) <= 180 && y + Math.max(penH, bonH) <= BOTTOM;
+
+    if (sideBySide) {
+      y = ensure(y, Math.max(penH, bonH));
+      drawList(doc, "Penalidades", penaltyItems, margin, y, half, DANGER);
+      drawList(doc, "Bônus", bonusItems, margin + half + 16, y, half, PRIMARY);
+      y += Math.max(penH, bonH) + 18;
+    } else {
+      const sections: [string, string[], [number, number, number]][] = [
+        ["Penalidades", penaltyItems, DANGER],
+        ["Bônus", bonusItems, PRIMARY],
+      ];
+      for (const [title, items, color] of sections) {
+        const h = measureList(doc, items, fullW);
+        y = ensure(y, Math.min(h, BOTTOM - 90));
+        y = drawList(doc, title, items, margin, y, fullW, color) + 18;
+      }
     }
 
-    const half = (pageW - margin * 2 - 12) / 2;
-    drawList(doc, "Penalidades", penalties.map((p) => `${p.label} (${p.points})`), margin, y, half, DANGER);
-    drawList(doc, "Bônus", bonuses.map((p) => `${p.label} (+${p.points})`), margin + half + 12, y, half, PRIMARY);
-    y += 130;
-
-    if (y > pageH - 200) {
-      addPage();
-      drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-      y = 90;
+    const blocks: [string, string[], [number, number, number]][] = [
+      ["Riscos", report.risks ?? [], DANGER],
+      ["Oportunidades", report.opportunities ?? [], PRIMARY],
+      ["Plano de ação", report.actionPlan ?? [], DARK],
+    ];
+    for (const [title, items, color] of blocks) {
+      const h = measureList(doc, items, fullW);
+      y = ensure(y, Math.min(h, BOTTOM - 90));
+      y = drawList(doc, title, items, margin, y, fullW, color) + 18;
     }
-    drawList(doc, "Riscos", report.risks ?? [], margin, y, pageW - margin * 2, DANGER);
-    y += 24 + Math.max(1, (report.risks ?? []).length) * 16;
-    drawList(doc, "Oportunidades", report.opportunities ?? [], margin, y, pageW - margin * 2, PRIMARY);
-    y += 24 + Math.max(1, (report.opportunities ?? []).length) * 16;
-    drawList(doc, "Plano de ação", report.actionPlan ?? [], margin, y, pageW - margin * 2, DARK);
   }
 
   // Page 4 — Indicadores Visuais (charts as vector bars)
@@ -242,28 +278,27 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   }
   const costCatEntries = Object.entries(costByCat).sort((a, b) => b[1] - a[1]);
 
-  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, pageW - margin * 2, 160, PRIMARY, (v) => BRL.format(v));
+  const CHART_H = 170;
+  y = ensure(y, CHART_H);
+  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v));
 
   // Lucro por talhão
   const profitPerField = farm.perField.map((f) => ({ label: f.field.name, value: f.profit }));
-  y = drawBarChart(doc, "Lucro por talhão (R$)", profitPerField, margin, y, pageW - margin * 2, 160, PRIMARY, (v) => BRL.format(v), true);
-
-  if (y > pageH - 180) {
-    addPage();
-    drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-    y = 90;
-  }
+  y = ensure(y, CHART_H);
+  y = drawBarChart(doc, "Lucro por talhão (R$)", profitPerField, margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v), true);
 
   // Margem por talhão (%)
   const marginPerField = farm.perField.map((f) => ({
     label: f.field.name,
     value: f.revenue > 0 ? (f.profit / f.revenue) * 100 : 0,
   }));
-  y = drawBarChart(doc, "Margem por talhão (%)", marginPerField, margin, y, pageW - margin * 2, 160, ACCENT, (v) => `${v.toFixed(1)}%`, true);
+  y = ensure(y, CHART_H);
+  y = drawBarChart(doc, "Margem por talhão (%)", marginPerField, margin, y, pageW - margin * 2, CHART_H, ACCENT, (v) => `${v.toFixed(1)}%`, true);
 
   // Rentabilidade (lucro/ha)
   const rentPerField = farm.perField.map((f) => ({ label: f.field.name, value: f.profitPerHa }));
-  y = drawBarChart(doc, "Rentabilidade — Lucro por hectare (R$/ha)", rentPerField, margin, y, pageW - margin * 2, 160, PRIMARY, (v) => BRL.format(v), true);
+  y = ensure(y, CHART_H);
+  y = drawBarChart(doc, "Rentabilidade — Lucro por hectare (R$/ha)", rentPerField, margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v), true);
 
   // Page 5 — Comparação de Cenários
   addPage();
@@ -293,10 +328,35 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
       ["Nota financeira", diag ? String(score) : "-", String(bestScore), diag ? fmtDeltaPoints(bestScore - score) : "-"],
     ];
 
+    const scoreIsBetter = diag ? bestScore > score : true;
     doc.setFontSize(10);
     doc.setTextColor(...MUTED);
-    doc.text(`Melhor cenário salvo: ${bestScenario.name}`, margin, y);
-    y += 12;
+    doc.text(
+      scoreIsBetter
+        ? `Melhor cenário: ${bestScenario.name}`
+        : `Melhor cenário salvo para comparação: ${bestScenario.name}`,
+      margin,
+      y,
+    );
+    y += 16;
+
+    if (!scoreIsBetter) {
+      const warn = doc.splitTextToSize(
+        "Este cenário melhora alguns indicadores financeiros, mas reduz a Nota de Saúde Financeira.",
+        pageW - margin * 2 - 28,
+      ) as string[];
+      const boxH = 16 + warn.length * 12;
+      doc.setFillColor(254, 243, 199);
+      doc.roundedRect(margin, y, pageW - margin * 2, boxH, 4, 4, "F");
+      doc.setFillColor(...WARN);
+      doc.rect(margin, y, 4, boxH, "F");
+      doc.setTextColor(...WARN);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      warn.forEach((l, i) => doc.text(l, margin + 14, y + 14 + i * 12));
+      doc.setFont("helvetica", "normal");
+      y += boxH + 14;
+    }
 
     autoTable(doc, {
       startY: y,
@@ -324,13 +384,15 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   doc.setFontSize(12);
   doc.setTextColor(...DARK);
   doc.text("Prioridades", margin, y);
-  y += 10;
+  y += 18;
 
   priorities.forEach((p, i) => {
-    y = drawPriority(doc, i + 1, p, margin, y + 8, pageW - margin * 2);
+    const h = measurePriority(doc, p, pageW - margin * 2);
+    y = ensure(y, h + 10);
+    y = drawPriority(doc, i + 1, p, margin, y, pageW - margin * 2);
   });
 
-  y += 12;
+  y = ensure(y + 12, 130);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(...DARK);
@@ -361,7 +423,28 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     drawFooter(doc, pageW, pageH, margin, p, total, dateTimeLabel);
   }
 
-  doc.save(`relatorio-executivo-${slug(propertyName)}.pdf`);
+  downloadPdf(doc, `relatorio-executivo-${slug(propertyName)}.pdf`);
+}
+
+/**
+ * Downloads the PDF without touching the React-managed DOM tree.
+ * jsPDF's own `save()` appends/removes an <a> inside document.body, which React
+ * (this app renders <html>/<body> itself) then fails to reconcile — that was the
+ * source of the "insertBefore" runtime error. A detached anchor works in all
+ * modern browsers and never mutates the document.
+ */
+function downloadPdf(doc: jsPDF, filename: string) {
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a"); // never appended to the document
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    a.dispatchEvent(new MouseEvent("click", { bubbles: false, cancelable: true }));
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
 }
 
 // -------------------- drawing helpers --------------------
@@ -519,41 +602,77 @@ function drawKpiGrid(doc: jsPDF, items: [string, string][], x: number, y: number
 }
 
 function drawLabelBlock(doc: jsPDF, label: string, value: string, x: number, y: number, w: number, color: [number, number, number]) {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  const lines = doc.splitTextToSize(value, w - 28) as string[];
+  const h = Math.max(46, 28 + lines.length * 14);
   doc.setFillColor(...LIGHT);
-  doc.roundedRect(x, y, w, 46, 4, 4, "F");
+  doc.roundedRect(x, y, w, h, 4, 4, "F");
   doc.setFillColor(...color);
-  doc.rect(x, y, 4, 46, "F");
+  doc.rect(x, y, 4, h, "F");
   doc.setTextColor(...MUTED);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(label.toUpperCase(), x + 14, y + 16);
   doc.setTextColor(...DARK);
   doc.setFontSize(11);
-  doc.text(value, x + 14, y + 34, { maxWidth: w - 24 });
-  return y + 56;
+  lines.forEach((l, i) => doc.text(l, x + 14, y + 32 + i * 14));
+  return y + h + 12;
 }
 
-function drawList(doc: jsPDF, title: string, items: string[], x: number, y: number, w: number, color: [number, number, number]) {
+const LIST_LINE = 12;
+const LIST_ITEM_GAP = 8;
+const LIST_TITLE_H = 18;
+
+function listLines(doc: jsPDF, items: string[], w: number): string[][] {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  return items.map((it) => doc.splitTextToSize(it, w - 20) as string[]);
+}
+
+/** Real height of a list block (title + wrapped items), in points. */
+function measureList(doc: jsPDF, items: string[], w: number): number {
+  if (items.length === 0) return LIST_TITLE_H + LIST_LINE;
+  const lines = listLines(doc, items, w);
+  return (
+    LIST_TITLE_H +
+    lines.reduce((s, l) => s + l.length * LIST_LINE + LIST_ITEM_GAP, 0)
+  );
+}
+
+/** Draws a bullet list and returns the y just below it. */
+function drawList(
+  doc: jsPDF,
+  title: string,
+  items: string[],
+  x: number,
+  y: number,
+  w: number,
+  color: [number, number, number],
+): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...color);
   doc.text(title, x, y);
-  y += 10;
+  let cursor = y + LIST_TITLE_H;
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.setTextColor(...DARK);
   if (items.length === 0) {
     doc.setTextColor(...MUTED);
-    doc.text("—", x, y + 8);
-    return;
+    doc.text("—", x, cursor);
+    return cursor + LIST_LINE;
   }
-  items.forEach((it, i) => {
-    const yy = y + 8 + i * 16;
+
+  const lines = listLines(doc, items, w);
+  lines.forEach((l) => {
     doc.setFillColor(...color);
-    doc.circle(x + 3, yy - 3, 2, "F");
+    doc.circle(x + 3, cursor - 3, 2, "F");
     doc.setTextColor(...DARK);
-    doc.text(it, x + 12, yy, { maxWidth: w - 16 });
+    l.forEach((line, li) => doc.text(line, x + 14, cursor + li * LIST_LINE));
+    cursor += l.length * LIST_LINE + LIST_ITEM_GAP;
   });
+  return cursor;
 }
 
 function drawBarChart(
@@ -572,9 +691,9 @@ function drawBarChart(
   doc.setFontSize(11);
   doc.setTextColor(...DARK);
   doc.text(title, x, y);
-  y += 8;
+  y += 16;
   const chartY = y;
-  const chartH = h - 20;
+  const chartH = h - 46; // room for value labels on top and x labels below
 
   if (data.length === 0) {
     doc.setTextColor(...MUTED);
@@ -590,7 +709,9 @@ function drawBarChart(
   const range = maxVal - minVal || 1;
   const barCount = data.length;
   const gap = 8;
-  const barW = Math.max(6, (w - gap * (barCount - 1)) / barCount);
+  const barW = Math.min(56, Math.max(6, (w - gap * (barCount - 1)) / barCount));
+  const usedW = barCount * barW + gap * (barCount - 1);
+  const startX = x + Math.max(0, (w - usedW) / 2);
   const zeroY = chartY + chartH - ((0 - minVal) / range) * chartH;
 
   // baseline
@@ -599,7 +720,7 @@ function drawBarChart(
   doc.line(x, zeroY, x + w, zeroY);
 
   data.forEach((d, i) => {
-    const bx = x + i * (barW + gap);
+    const bx = startX + i * (barW + gap);
     const val = d.value;
     const barH = Math.abs(val - 0) / range * chartH;
     const by = val >= 0 ? zeroY - barH : zeroY;
@@ -617,11 +738,12 @@ function drawBarChart(
 
     doc.setTextColor(...MUTED);
     doc.setFontSize(7);
-    const lbl = d.label.length > 14 ? d.label.slice(0, 13) + "…" : d.label;
+    const maxChars = Math.max(6, Math.floor(barW / 3.2));
+    const lbl = d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + "…" : d.label;
     doc.text(lbl, bx + barW / 2, chartY + chartH + 12, { align: "center" });
   });
 
-  return y + h + 8;
+  return chartY + chartH + 30;
 }
 
 function fmtDeltaMoney(v: number) {
@@ -640,11 +762,14 @@ function derivePriorities(
 ): { title: string; detail: string }[] {
   const out: { title: string; detail: string }[] = [];
   const seen = new Set<string>();
+  const key = (s: string) => s.trim().toLowerCase();
 
   function push(title: string, detail: string) {
-    if (seen.has(title)) return;
-    seen.add(title);
-    out.push({ title, detail });
+    const d = detail.trim();
+    if (!d || seen.has(key(d))) return;
+    seen.add(key(d));
+    if (title) seen.add(key(title));
+    out.push({ title: title.trim(), detail: d });
   }
 
   const m = report?.metrics;
@@ -675,7 +800,8 @@ function derivePriorities(
   const plan = report?.actionPlan ?? [];
   for (const p of plan) {
     if (out.length >= 3) break;
-    push(p.slice(0, 60), p);
+    // No synthetic title: the diagnostic action text is shown once, in full.
+    push("", p);
   }
 
   // Final fallbacks
@@ -691,24 +817,44 @@ function derivePriorities(
   return out.slice(0, 3);
 }
 
+function priorityLayout(doc: jsPDF, p: { title: string; detail: string }, w: number) {
+  const textW = w - 66;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  const titleLines = p.title ? (doc.splitTextToSize(p.title, textW) as string[]) : [];
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const detailLines = doc.splitTextToSize(p.detail, textW) as string[];
+  const h = Math.max(54, 24 + titleLines.length * 14 + detailLines.length * 12);
+  return { titleLines, detailLines, h, textW };
+}
+
+function measurePriority(doc: jsPDF, p: { title: string; detail: string }, w: number) {
+  return priorityLayout(doc, p, w).h;
+}
+
 function drawPriority(doc: jsPDF, n: number, p: { title: string; detail: string }, x: number, y: number, w: number) {
-  const h = 54;
+  const { titleLines, detailLines, h } = priorityLayout(doc, p, w);
   doc.setFillColor(...LIGHT);
   doc.roundedRect(x, y, w, h, 4, 4, "F");
   doc.setFillColor(...PRIMARY);
-  doc.circle(x + 22, y + 27, 14, "F");
+  doc.circle(x + 22, y + 24, 14, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(String(n), x + 22, y + 32, { align: "center" });
+  doc.text(String(n), x + 22, y + 29, { align: "center" });
 
-  doc.setTextColor(...DARK);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text(p.title, x + 46, y + 20, { maxWidth: w - 60 });
+  let ty = y + 20;
+  if (titleLines.length) {
+    doc.setTextColor(...DARK);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    titleLines.forEach((l, i) => doc.text(l, x + 46, ty + i * 14));
+    ty += titleLines.length * 14 + 2;
+  }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...MUTED);
-  doc.text(p.detail, x + 46, y + 36, { maxWidth: w - 60 });
-  return y + h + 8;
+  detailLines.forEach((l, i) => doc.text(l, x + 46, ty + i * 12));
+  return y + h + 10;
 }

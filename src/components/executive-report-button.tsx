@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,8 +23,17 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
   const getLatest = useServerFn(latestDiagnostic);
   const getScenarios = useServerFn(listScenarios);
   const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   async function run() {
+    if (busy) return;
     setBusy(true);
     try {
       // Prefer cached data — avoid duplicate queries.
@@ -47,6 +56,18 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
         return;
       }
 
+      // Producer identity comes from the profile name only — never the e-mail.
+      let producerName: string | null = null;
+      const uid = userData?.user?.id;
+      if (uid) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", uid)
+          .maybeSingle();
+        producerName = (profile?.name ?? "").trim() || null;
+      }
+
       generateExecutiveReport({
         properties: snap.properties ?? [],
         fields: snap.fields ?? [],
@@ -54,16 +75,14 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
         prices: snap.prices ?? [],
         latestDiagnostic: (latest as never) ?? null,
         scenarios: (scenarios as SimulatedScenarioRow[]) ?? [],
-        producerName:
-          (userData?.user?.user_metadata?.full_name as string | undefined) ||
-          userData?.user?.email ||
-          null,
+        producerName,
       });
       toast.success("Relatório gerado!");
     } catch (e) {
+      console.error("[relatorio-executivo] falha ao gerar", e);
       toast.error("Erro ao gerar relatório", { description: (e as Error).message });
     } finally {
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
 
