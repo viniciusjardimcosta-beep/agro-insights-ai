@@ -424,7 +424,28 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     drawFooter(doc, pageW, pageH, margin, p, total, dateTimeLabel);
   }
 
-  doc.save(`relatorio-executivo-${slug(propertyName)}.pdf`);
+  downloadPdf(doc, `relatorio-executivo-${slug(propertyName)}.pdf`);
+}
+
+/**
+ * Downloads the PDF without touching the React-managed DOM tree.
+ * jsPDF's own `save()` appends/removes an <a> inside document.body, which React
+ * (this app renders <html>/<body> itself) then fails to reconcile — that was the
+ * source of the "insertBefore" runtime error. A detached anchor works in all
+ * modern browsers and never mutates the document.
+ */
+function downloadPdf(doc: jsPDF, filename: string) {
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a"); // never appended to the document
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    a.dispatchEvent(new MouseEvent("click", { bubbles: false, cancelable: true }));
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
 }
 
 // -------------------- drawing helpers --------------------
