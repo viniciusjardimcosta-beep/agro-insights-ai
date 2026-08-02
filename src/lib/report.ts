@@ -223,29 +223,46 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
         }
       },
     });
-    y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 14;
+    y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 18;
 
-    if (y > pageH - 220) {
-      addPage();
-      drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-      y = 90;
+    const fullW = pageW - margin * 2;
+    const half = (fullW - 16) / 2;
+    const penaltyItems = penalties.map((p) => `${p.label} (${p.points})`);
+    const bonusItems = bonuses.map((p) => `+${p.points} · ${p.label}`.replace(/^\+/, "") && `${p.label} (+${p.points})`);
+
+    // Side-by-side only when both columns are short enough to fit together.
+    const penH = measureList(doc, penaltyItems, half);
+    const bonH = measureList(doc, bonusItems, half);
+    const sideBySide =
+      Math.max(penH, bonH) <= 180 && y + Math.max(penH, bonH) <= BOTTOM;
+
+    if (sideBySide) {
+      y = ensure(y, Math.max(penH, bonH));
+      drawList(doc, "Penalidades", penaltyItems, margin, y, half, DANGER);
+      drawList(doc, "Bônus", bonusItems, margin + half + 16, y, half, PRIMARY);
+      y += Math.max(penH, bonH) + 18;
+    } else {
+      const sections: [string, string[], [number, number, number]][] = [
+        ["Penalidades", penaltyItems, DANGER],
+        ["Bônus", bonusItems, PRIMARY],
+      ];
+      for (const [title, items, color] of sections) {
+        const h = measureList(doc, items, fullW);
+        y = ensure(y, Math.min(h, BOTTOM - 90));
+        y = drawList(doc, title, items, margin, y, fullW, color) + 18;
+      }
     }
 
-    const half = (pageW - margin * 2 - 12) / 2;
-    drawList(doc, "Penalidades", penalties.map((p) => `${p.label} (${p.points})`), margin, y, half, DANGER);
-    drawList(doc, "Bônus", bonuses.map((p) => `${p.label} (+${p.points})`), margin + half + 12, y, half, PRIMARY);
-    y += 130;
-
-    if (y > pageH - 200) {
-      addPage();
-      drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-      y = 90;
+    const blocks: [string, string[], [number, number, number]][] = [
+      ["Riscos", report.risks ?? [], DANGER],
+      ["Oportunidades", report.opportunities ?? [], PRIMARY],
+      ["Plano de ação", report.actionPlan ?? [], DARK],
+    ];
+    for (const [title, items, color] of blocks) {
+      const h = measureList(doc, items, fullW);
+      y = ensure(y, Math.min(h, BOTTOM - 90));
+      y = drawList(doc, title, items, margin, y, fullW, color) + 18;
     }
-    drawList(doc, "Riscos", report.risks ?? [], margin, y, pageW - margin * 2, DANGER);
-    y += 24 + Math.max(1, (report.risks ?? []).length) * 16;
-    drawList(doc, "Oportunidades", report.opportunities ?? [], margin, y, pageW - margin * 2, PRIMARY);
-    y += 24 + Math.max(1, (report.opportunities ?? []).length) * 16;
-    drawList(doc, "Plano de ação", report.actionPlan ?? [], margin, y, pageW - margin * 2, DARK);
   }
 
   // Page 4 — Indicadores Visuais (charts as vector bars)
