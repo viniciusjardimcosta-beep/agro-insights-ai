@@ -329,10 +329,35 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
       ["Nota financeira", diag ? String(score) : "-", String(bestScore), diag ? fmtDeltaPoints(bestScore - score) : "-"],
     ];
 
+    const scoreIsBetter = diag ? bestScore > score : true;
     doc.setFontSize(10);
     doc.setTextColor(...MUTED);
-    doc.text(`Melhor cenário salvo: ${bestScenario.name}`, margin, y);
-    y += 12;
+    doc.text(
+      scoreIsBetter
+        ? `Melhor cenário: ${bestScenario.name}`
+        : `Melhor cenário salvo para comparação: ${bestScenario.name}`,
+      margin,
+      y,
+    );
+    y += 16;
+
+    if (!scoreIsBetter) {
+      const warn = doc.splitTextToSize(
+        "Este cenário melhora alguns indicadores financeiros, mas reduz a Nota de Saúde Financeira.",
+        pageW - margin * 2 - 28,
+      ) as string[];
+      const boxH = 16 + warn.length * 12;
+      doc.setFillColor(254, 243, 199);
+      doc.roundedRect(margin, y, pageW - margin * 2, boxH, 4, 4, "F");
+      doc.setFillColor(...WARN);
+      doc.rect(margin, y, 4, boxH, "F");
+      doc.setTextColor(...WARN);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      warn.forEach((l, i) => doc.text(l, margin + 14, y + 14 + i * 12));
+      doc.setFont("helvetica", "normal");
+      y += boxH + 14;
+    }
 
     autoTable(doc, {
       startY: y,
