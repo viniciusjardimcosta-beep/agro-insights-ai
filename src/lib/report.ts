@@ -710,11 +710,14 @@ function derivePriorities(
 ): { title: string; detail: string }[] {
   const out: { title: string; detail: string }[] = [];
   const seen = new Set<string>();
+  const key = (s: string) => s.trim().toLowerCase();
 
   function push(title: string, detail: string) {
-    if (seen.has(title)) return;
-    seen.add(title);
-    out.push({ title, detail });
+    const d = detail.trim();
+    if (!d || seen.has(key(d))) return;
+    seen.add(key(d));
+    if (title) seen.add(key(title));
+    out.push({ title: title.trim(), detail: d });
   }
 
   const m = report?.metrics;
@@ -745,7 +748,11 @@ function derivePriorities(
   const plan = report?.actionPlan ?? [];
   for (const p of plan) {
     if (out.length >= 3) break;
-    push(p.slice(0, 60), p);
+    // Short title only when the text has a natural short lead clause; the full
+    // text always goes to `detail` (never truncated, never duplicated).
+    const lead = p.split(/[:.\u2013\u2014]/)[0]?.trim() ?? "";
+    const title = lead && lead.length <= 48 && lead.length < p.trim().length ? lead : "";
+    push(title, p);
   }
 
   // Final fallbacks
