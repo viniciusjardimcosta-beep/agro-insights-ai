@@ -61,6 +61,15 @@ function slug(s: string) {
     || "propriedade";
 }
 
+/** Percentual em pt-BR: uma casa decimal e vírgula. */
+function PCT(v: number) {
+  return `${(Number.isFinite(v) ? v : 0).toFixed(1).replace(".", ",")}%`;
+}
+function PP(v: number) {
+  const s = (Number.isFinite(v) ? v : 0).toFixed(1).replace(".", ",");
+  return `${v >= 0 ? "+" : ""}${s} p.p.`;
+}
+
 // -------------------- main --------------------
 export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
@@ -72,7 +81,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const propertyName = property.name || "Propriedade sem nome";
   const propertyLoc =
     [property.city, property.state].filter(Boolean).join(" / ") || "-";
-  const producer = (input.producerName ?? "").trim() || "Produtor não informado";
+  const producer = (input.producerName ?? "").trim() || "Não informado";
   const now = new Date();
   const dateLabel = now.toLocaleDateString("pt-BR");
   const dateTimeLabel = now.toLocaleString("pt-BR");
@@ -144,7 +153,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     ["Receita total", BRL.format(farm.totalRevenue)],
     ["Custos totais", BRL.format(farm.totalCost)],
     ["Lucro", BRL.format(farm.totalProfit)],
-    ["Margem líquida", `${margin_pct.toFixed(1)}%`],
+    ["Margem líquida", PCT(margin_pct)],
     ["Lucro por hectare", BRL.format(farm.profitPerHa)],
     ["Área cultivada", `${NUM.format(farm.totalArea)} ha`],
     ["Número de talhões", String(input.fields.length)],
@@ -153,25 +162,23 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   y = drawKpiGrid(doc, summary, margin, y, pageW - margin * 2);
 
   y += 12;
+  const notes: string[] = [];
+  if (!report) notes.push("Diagnóstico financeiro ainda não gerado.");
+  if (!bestScenario) notes.push("Nenhum cenário salvo para comparação.");
+  if (notes.length) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    notes.forEach((n, i) => doc.text(n, margin, y + i * 12));
+    y += notes.length * 12 + 8;
+  }
   y = drawLabelBlock(doc, "Maior risco identificado", topRisk, margin, y, pageW - margin * 2, DANGER);
   y = drawLabelBlock(doc, "Maior oportunidade", topOpp, margin, y, pageW - margin * 2, PRIMARY);
 
-  // Page 3 — Diagnóstico Financeiro
-  addPage();
-  drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-  y = 90;
-  y = drawH1(doc, "Diagnóstico Financeiro", margin, y);
-
-  if (!report) {
-    doc.setTextColor(...MUTED);
-    doc.setFontSize(11);
-    doc.text(
-      "Nenhum diagnóstico gerado ainda. Gere um diagnóstico na tela Diagnóstico para incluí-lo aqui.",
-      margin,
-      y + 10,
-      { maxWidth: pageW - margin * 2 },
-    );
-  } else {
+  // Página — Diagnóstico Financeiro (omitida quando não há diagnóstico)
+  if (report) {
+    y = newContentPage();
+    y = drawH1(doc, "Diagnóstico Financeiro", margin, y);
     // Score panel
     doc.setFillColor(...LIGHT);
     doc.roundedRect(margin, y, pageW - margin * 2, 70, 6, 6, "F");
@@ -265,10 +272,8 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     }
   }
 
-  // Page 4 — Indicadores Visuais (charts as vector bars)
-  addPage();
-  drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-  y = 90;
+  // Página — Indicadores Visuais (gráficos vetoriais)
+  y = newContentPage();
   y = drawH1(doc, "Indicadores Visuais", margin, y);
 
   // Cost by category
@@ -279,38 +284,58 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const costCatEntries = Object.entries(costByCat).sort((a, b) => b[1] - a[1]);
 
   const CHART_H = 170;
+  const chartW = pageW - margin * 2;
+  // Gráfico simples (categorias de custo) — poucas séries por natureza.
   y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v));
+  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, chartW, CHART_H, PRIMARY, (v) => BRL.format(v));
 
-  // Lucro por talhão
-  const profitPerField = farm.perField.map((f) => ({ label: f.field.name, value: f.profit }));
-  y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Lucro por talhão (R$)", profitPerField, margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v), true);
+  // Layout adaptativo por quantidade de talhões.
+  const drawFieldChart = (
+    title: string,
+    data: { label: string; value: number }[],
+    color: [number, number, number],
+    fmt: (v: number) => string,
+  ) => {
+    for (const block of splitFieldSeries(data)) {
+      y = ensure(y, CHART_H + (block.note ? 14 : 0));
+      y = drawBarChart(doc, block.title ? `${title} — ${block.title}` : title, block.data, margin, y, chartW, CHART_H, color, fmt, true);
+      if (block.note) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...MUTED);
+        doc.text(block.note, margin, y);
+        y += 14;
+      }
+      y += 10;
+    }
+  };
 
-  // Margem por talhão (%)
-  const marginPerField = farm.perField.map((f) => ({
-    label: f.field.name,
-    value: f.revenue > 0 ? (f.profit / f.revenue) * 100 : 0,
-  }));
-  y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Margem por talhão (%)", marginPerField, margin, y, pageW - margin * 2, CHART_H, ACCENT, (v) => `${v.toFixed(1)}%`, true);
+  drawFieldChart(
+    "Lucro por talhão (R$)",
+    farm.perField.map((f) => ({ label: f.field.name, value: f.profit })),
+    PRIMARY,
+    (v) => BRL.format(v),
+  );
+  drawFieldChart(
+    "Margem por talhão (%)",
+    farm.perField.map((f) => ({
+      label: f.field.name,
+      value: f.revenue > 0 ? (f.profit / f.revenue) * 100 : 0,
+    })),
+    ACCENT,
+    PCT,
+  );
+  drawFieldChart(
+    "Rentabilidade — Lucro por hectare (R$/ha)",
+    farm.perField.map((f) => ({ label: f.field.name, value: f.profitPerHa })),
+    PRIMARY,
+    (v) => BRL.format(v),
+  );
 
-  // Rentabilidade (lucro/ha)
-  const rentPerField = farm.perField.map((f) => ({ label: f.field.name, value: f.profitPerHa }));
-  y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Rentabilidade — Lucro por hectare (R$/ha)", rentPerField, margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v), true);
-
-  // Page 5 — Comparação de Cenários
-  addPage();
-  drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-  y = 90;
-  y = drawH1(doc, "Comparação de Cenários", margin, y);
-
-  if (!bestScenario) {
-    doc.setTextColor(...MUTED);
-    doc.setFontSize(11);
-    doc.text("Nenhum cenário salvo para comparação.", margin, y + 10);
-  } else {
+  // Página — Comparação de Cenários (omitida quando não há cenário salvo)
+  if (bestScenario) {
+    y = newContentPage();
+    y = drawH1(doc, "Comparação de Cenários", margin, y);
     const bm = (bestScenario.metrics_snapshot as unknown as {
       revenue?: number; costs?: number; profit?: number; margin?: number;
     }) || {};
@@ -324,7 +349,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
       ["Receita", BRL.format(farm.totalRevenue), BRL.format(bestRev), fmtDeltaMoney(bestRev - farm.totalRevenue)],
       ["Custos", BRL.format(farm.totalCost), BRL.format(bestCost), fmtDeltaMoney(bestCost - farm.totalCost)],
       ["Lucro", BRL.format(farm.totalProfit), BRL.format(bestProfit), fmtDeltaMoney(bestProfit - farm.totalProfit)],
-      ["Margem líquida", `${margin_pct.toFixed(1)}%`, `${bestMargin.toFixed(1)}%`, `${(bestMargin - margin_pct >= 0 ? "+" : "")}${(bestMargin - margin_pct).toFixed(1)} p.p.`],
+      ["Margem líquida", PCT(margin_pct), PCT(bestMargin), PP(bestMargin - margin_pct)],
       ["Nota financeira", diag ? String(score) : "-", String(bestScore), diag ? fmtDeltaPoints(bestScore - score) : "-"],
     ];
 
@@ -373,48 +398,47 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     });
   }
 
-  // Page 6 — Plano Estratégico
-  addPage();
-  drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-  y = 90;
-  y = drawH1(doc, "Plano Estratégico", margin, y);
-
-  const priorities = derivePriorities(report, farm);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(...DARK);
-  doc.text("Prioridades", margin, y);
-  y += 18;
-
-  priorities.forEach((p, i) => {
-    const h = measurePriority(doc, p, pageW - margin * 2);
-    y = ensure(y, h + 10);
-    y = drawPriority(doc, i + 1, p, margin, y, pageW - margin * 2);
-  });
-
-  y = ensure(y + 12, 130);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(...DARK);
-  doc.text("Checklist", margin, y);
-  y += 4;
-
-  const checklist = [
-    "Reduzir custos",
-    "Melhorar margem",
-    "Revisar rentabilidade",
-    "Monitorar cultura mais arriscada",
-  ];
-  checklist.forEach((item) => {
-    y += 20;
-    doc.setDrawColor(...DARK);
-    doc.setLineWidth(1);
-    doc.rect(margin, y - 10, 12, 12);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
+  // Página — Plano Estratégico (omitida sem diagnóstico ou sem plano de ação)
+  const priorities = report && (report.actionPlan?.length ?? 0) > 0 ? derivePriorities(report, farm) : [];
+  if (priorities.length > 0) {
+    y = newContentPage();
+    y = drawH1(doc, "Plano Estratégico", margin, y);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
     doc.setTextColor(...DARK);
-    doc.text(item, margin + 20, y);
-  });
+    doc.text("Prioridades", margin, y);
+    y += 18;
+
+    priorities.forEach((p, i) => {
+      const h = measurePriority(doc, p, pageW - margin * 2);
+      y = ensure(y, h + 10);
+      y = drawPriority(doc, i + 1, p, margin, y, pageW - margin * 2);
+    });
+
+    y = ensure(y + 12, 130);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...DARK);
+    doc.text("Checklist", margin, y);
+    y += 4;
+
+    const checklist = [
+      "Reduzir custos",
+      "Melhorar margem",
+      "Revisar rentabilidade",
+      "Monitorar cultura mais arriscada",
+    ];
+    checklist.forEach((item) => {
+      y += 20;
+      doc.setDrawColor(...DARK);
+      doc.setLineWidth(1);
+      doc.rect(margin, y - 10, 12, 12);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(...DARK);
+      doc.text(item, margin + 20, y);
+    });
+  }
 
   // -------- footer/page numbers on every page except cover --------
   const total = doc.getNumberOfPages();
@@ -676,6 +700,50 @@ function drawList(
 }
 
 function drawBarChart(
+  doc: jsPDF,
+  title: string,
+  data: { label: string; value: number }[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: [number, number, number],
+  fmt: (v: number) => string,
+  allowNegative = false,
+) {
+  return drawBarChartImpl(doc, title, data, x, y, w, h, color, fmt, allowNegative);
+}
+
+/**
+ * Layout adaptativo por quantidade de talhões:
+ * - até 10: bloco único;
+ * - 11 a 20: dois blocos;
+ * - acima de 20: 10 maiores e 10 menores resultados (exibição resumida).
+ */
+function splitFieldSeries(
+  data: { label: string; value: number }[],
+): { title?: string; data: { label: string; value: number }[]; note?: string }[] {
+  const n = data.length;
+  if (n <= 10) return [{ data }];
+  if (n <= 20) {
+    const half = Math.ceil(n / 2);
+    return [
+      { title: `talhões 1–${half}`, data: data.slice(0, half) },
+      { title: `talhões ${half + 1}–${n}`, data: data.slice(half) },
+    ];
+  }
+  const sorted = [...data].sort((a, b) => b.value - a.value);
+  return [
+    { title: "10 maiores resultados", data: sorted.slice(0, 10) },
+    {
+      title: "10 menores resultados",
+      data: sorted.slice(-10),
+      note: "Exibição resumida. Consulte o AgroIntel para visualizar todos os talhões.",
+    },
+  ];
+}
+
+function drawBarChartImpl(
   doc: jsPDF,
   title: string,
   data: { label: string; value: number }[],
