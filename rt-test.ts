@@ -1,10 +1,8 @@
 import fs from "fs";
 import jsPDF from "jspdf";
 (globalThis as any).MouseEvent = class { constructor(_t:string,_o?:any){} };
-let out: Buffer[] = [];
-const origOutput = (jsPDF as any).prototype.output;
-(jsPDF as any).prototype.output = function(t:string){ if(t==="blob"){ const s = origOutput.call(this,"arraybuffer"); out.push(Buffer.from(s)); return {}; } return origOutput.call(this,t); };
-(globalThis as any).URL.createObjectURL = () => "blob:x";
+let blobs: any[] = [];
+(globalThis as any).URL.createObjectURL = (b:any) => { blobs.push(b); return "blob:x"; };
 (globalThis as any).URL.revokeObjectURL = () => {};
 (globalThis as any).document = { createElement: () => ({ dispatchEvent: () => true, style:{} }) };
 
@@ -26,5 +24,5 @@ const cases: [string, any][] = [
  ["25-talhoes",{properties:[{name:"F"}],fields:fields(25),costs:costs(fields(25)),prices,latestDiagnostic:diag,scenarios:scen,producerName:""}],
  ["nada",{properties:[{name:"F"}],fields:fields(2),costs:costs(fields(2)),prices,latestDiagnostic:null,scenarios:[],producerName:""}],
 ];
-for(const [name,input] of cases){ out=[]; generateExecutiveReport(input); fs.writeFileSync(`/tmp/rt/${name}.pdf`, out[0]); }
+for(const [name,input] of cases){ blobs=[]; generateExecutiveReport(input); fs.writeFileSync(`/tmp/rt/${name}.pdf`, Buffer.from(await blobs[0].arrayBuffer())); }
 console.log("ok");
