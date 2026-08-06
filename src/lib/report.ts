@@ -81,7 +81,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const propertyName = property.name || "Propriedade sem nome";
   const propertyLoc =
     [property.city, property.state].filter(Boolean).join(" / ") || "-";
-  const producer = (input.producerName ?? "").trim() || "Produtor não informado";
+  const producer = (input.producerName ?? "").trim() || "Não informado";
   const now = new Date();
   const dateLabel = now.toLocaleDateString("pt-BR");
   const dateTimeLabel = now.toLocaleString("pt-BR");
@@ -153,7 +153,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     ["Receita total", BRL.format(farm.totalRevenue)],
     ["Custos totais", BRL.format(farm.totalCost)],
     ["Lucro", BRL.format(farm.totalProfit)],
-    ["Margem líquida", `${margin_pct.toFixed(1)}%`],
+    ["Margem líquida", PCT(margin_pct)],
     ["Lucro por hectare", BRL.format(farm.profitPerHa)],
     ["Área cultivada", `${NUM.format(farm.totalArea)} ha`],
     ["Número de talhões", String(input.fields.length)],
@@ -162,25 +162,23 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   y = drawKpiGrid(doc, summary, margin, y, pageW - margin * 2);
 
   y += 12;
+  const notes: string[] = [];
+  if (!report) notes.push("Diagnóstico financeiro ainda não gerado.");
+  if (!bestScenario) notes.push("Nenhum cenário salvo para comparação.");
+  if (notes.length) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    notes.forEach((n, i) => doc.text(n, margin, y + i * 12));
+    y += notes.length * 12 + 8;
+  }
   y = drawLabelBlock(doc, "Maior risco identificado", topRisk, margin, y, pageW - margin * 2, DANGER);
   y = drawLabelBlock(doc, "Maior oportunidade", topOpp, margin, y, pageW - margin * 2, PRIMARY);
 
-  // Page 3 — Diagnóstico Financeiro
-  addPage();
-  drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-  y = 90;
-  y = drawH1(doc, "Diagnóstico Financeiro", margin, y);
-
-  if (!report) {
-    doc.setTextColor(...MUTED);
-    doc.setFontSize(11);
-    doc.text(
-      "Nenhum diagnóstico gerado ainda. Gere um diagnóstico na tela Diagnóstico para incluí-lo aqui.",
-      margin,
-      y + 10,
-      { maxWidth: pageW - margin * 2 },
-    );
-  } else {
+  // Página — Diagnóstico Financeiro (omitida quando não há diagnóstico)
+  if (report) {
+    y = newContentPage();
+    y = drawH1(doc, "Diagnóstico Financeiro", margin, y);
     // Score panel
     doc.setFillColor(...LIGHT);
     doc.roundedRect(margin, y, pageW - margin * 2, 70, 6, 6, "F");
