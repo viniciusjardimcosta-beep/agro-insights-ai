@@ -710,6 +710,50 @@ function drawBarChart(
   fmt: (v: number) => string,
   allowNegative = false,
 ) {
+  return drawBarChartImpl(doc, title, data, x, y, w, h, color, fmt, allowNegative);
+}
+
+/**
+ * Layout adaptativo por quantidade de talhões:
+ * - até 10: bloco único;
+ * - 11 a 20: dois blocos;
+ * - acima de 20: 10 maiores e 10 menores resultados (exibição resumida).
+ */
+function splitFieldSeries(
+  data: { label: string; value: number }[],
+): { title?: string; data: { label: string; value: number }[]; note?: string }[] {
+  const n = data.length;
+  if (n <= 10) return [{ data }];
+  if (n <= 20) {
+    const half = Math.ceil(n / 2);
+    return [
+      { title: `talhões 1–${half}`, data: data.slice(0, half) },
+      { title: `talhões ${half + 1}–${n}`, data: data.slice(half) },
+    ];
+  }
+  const sorted = [...data].sort((a, b) => b.value - a.value);
+  return [
+    { title: "10 maiores resultados", data: sorted.slice(0, 10) },
+    {
+      title: "10 menores resultados",
+      data: sorted.slice(-10),
+      note: "Exibição resumida. Consulte o AgroIntel para visualizar todos os talhões.",
+    },
+  ];
+}
+
+function drawBarChartImpl(
+  doc: jsPDF,
+  title: string,
+  data: { label: string; value: number }[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: [number, number, number],
+  fmt: (v: number) => string,
+  allowNegative = false,
+) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...DARK);
