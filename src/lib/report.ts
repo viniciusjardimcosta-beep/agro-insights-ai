@@ -306,6 +306,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
         doc.text(block.note, margin, y);
         y += 14;
       }
+      y += 10;
     }
   };
 
