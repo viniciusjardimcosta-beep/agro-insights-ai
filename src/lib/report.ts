@@ -348,7 +348,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
       ["Receita", BRL.format(farm.totalRevenue), BRL.format(bestRev), fmtDeltaMoney(bestRev - farm.totalRevenue)],
       ["Custos", BRL.format(farm.totalCost), BRL.format(bestCost), fmtDeltaMoney(bestCost - farm.totalCost)],
       ["Lucro", BRL.format(farm.totalProfit), BRL.format(bestProfit), fmtDeltaMoney(bestProfit - farm.totalProfit)],
-      ["Margem líquida", `${margin_pct.toFixed(1)}%`, `${bestMargin.toFixed(1)}%`, `${(bestMargin - margin_pct >= 0 ? "+" : "")}${(bestMargin - margin_pct).toFixed(1)} p.p.`],
+      ["Margem líquida", PCT(margin_pct), PCT(bestMargin), PP(bestMargin - margin_pct)],
       ["Nota financeira", diag ? String(score) : "-", String(bestScore), diag ? fmtDeltaPoints(bestScore - score) : "-"],
     ];
 
@@ -397,48 +397,47 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     });
   }
 
-  // Page 6 — Plano Estratégico
-  addPage();
-  drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-  y = 90;
-  y = drawH1(doc, "Plano Estratégico", margin, y);
-
-  const priorities = derivePriorities(report, farm);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(...DARK);
-  doc.text("Prioridades", margin, y);
-  y += 18;
-
-  priorities.forEach((p, i) => {
-    const h = measurePriority(doc, p, pageW - margin * 2);
-    y = ensure(y, h + 10);
-    y = drawPriority(doc, i + 1, p, margin, y, pageW - margin * 2);
-  });
-
-  y = ensure(y + 12, 130);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(...DARK);
-  doc.text("Checklist", margin, y);
-  y += 4;
-
-  const checklist = [
-    "Reduzir custos",
-    "Melhorar margem",
-    "Revisar rentabilidade",
-    "Monitorar cultura mais arriscada",
-  ];
-  checklist.forEach((item) => {
-    y += 20;
-    doc.setDrawColor(...DARK);
-    doc.setLineWidth(1);
-    doc.rect(margin, y - 10, 12, 12);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
+  // Página — Plano Estratégico (omitida sem diagnóstico ou sem plano de ação)
+  const priorities = report && (report.actionPlan?.length ?? 0) > 0 ? derivePriorities(report, farm) : [];
+  if (priorities.length > 0) {
+    y = newContentPage();
+    y = drawH1(doc, "Plano Estratégico", margin, y);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
     doc.setTextColor(...DARK);
-    doc.text(item, margin + 20, y);
-  });
+    doc.text("Prioridades", margin, y);
+    y += 18;
+
+    priorities.forEach((p, i) => {
+      const h = measurePriority(doc, p, pageW - margin * 2);
+      y = ensure(y, h + 10);
+      y = drawPriority(doc, i + 1, p, margin, y, pageW - margin * 2);
+    });
+
+    y = ensure(y + 12, 130);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...DARK);
+    doc.text("Checklist", margin, y);
+    y += 4;
+
+    const checklist = [
+      "Reduzir custos",
+      "Melhorar margem",
+      "Revisar rentabilidade",
+      "Monitorar cultura mais arriscada",
+    ];
+    checklist.forEach((item) => {
+      y += 20;
+      doc.setDrawColor(...DARK);
+      doc.setLineWidth(1);
+      doc.rect(margin, y - 10, 12, 12);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(...DARK);
+      doc.text(item, margin + 20, y);
+    });
+  }
 
   // -------- footer/page numbers on every page except cover --------
   const total = doc.getNumberOfPages();
