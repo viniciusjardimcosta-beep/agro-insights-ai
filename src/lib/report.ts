@@ -272,10 +272,8 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     }
   }
 
-  // Page 4 — Indicadores Visuais (charts as vector bars)
-  addPage();
-  drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-  y = 90;
+  // Página — Indicadores Visuais (gráficos vetoriais)
+  y = newContentPage();
   y = drawH1(doc, "Indicadores Visuais", margin, y);
 
   // Cost by category
@@ -286,38 +284,57 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const costCatEntries = Object.entries(costByCat).sort((a, b) => b[1] - a[1]);
 
   const CHART_H = 170;
+  const chartW = pageW - margin * 2;
+  // Gráfico simples (categorias de custo) — poucas séries por natureza.
   y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v));
+  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, chartW, CHART_H, PRIMARY, (v) => BRL.format(v));
 
-  // Lucro por talhão
-  const profitPerField = farm.perField.map((f) => ({ label: f.field.name, value: f.profit }));
-  y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Lucro por talhão (R$)", profitPerField, margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v), true);
+  // Layout adaptativo por quantidade de talhões.
+  const drawFieldChart = (
+    title: string,
+    data: { label: string; value: number }[],
+    color: [number, number, number],
+    fmt: (v: number) => string,
+  ) => {
+    for (const block of splitFieldSeries(data)) {
+      y = ensure(y, CHART_H + (block.note ? 14 : 0));
+      y = drawBarChart(doc, block.title ? `${title} — ${block.title}` : title, block.data, margin, y, chartW, CHART_H, color, fmt, true);
+      if (block.note) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...MUTED);
+        doc.text(block.note, margin, y);
+        y += 14;
+      }
+    }
+  };
 
-  // Margem por talhão (%)
-  const marginPerField = farm.perField.map((f) => ({
-    label: f.field.name,
-    value: f.revenue > 0 ? (f.profit / f.revenue) * 100 : 0,
-  }));
-  y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Margem por talhão (%)", marginPerField, margin, y, pageW - margin * 2, CHART_H, ACCENT, (v) => `${v.toFixed(1)}%`, true);
+  drawFieldChart(
+    "Lucro por talhão (R$)",
+    farm.perField.map((f) => ({ label: f.field.name, value: f.profit })),
+    PRIMARY,
+    (v) => BRL.format(v),
+  );
+  drawFieldChart(
+    "Margem por talhão (%)",
+    farm.perField.map((f) => ({
+      label: f.field.name,
+      value: f.revenue > 0 ? (f.profit / f.revenue) * 100 : 0,
+    })),
+    ACCENT,
+    PCT,
+  );
+  drawFieldChart(
+    "Rentabilidade — Lucro por hectare (R$/ha)",
+    farm.perField.map((f) => ({ label: f.field.name, value: f.profitPerHa })),
+    PRIMARY,
+    (v) => BRL.format(v),
+  );
 
-  // Rentabilidade (lucro/ha)
-  const rentPerField = farm.perField.map((f) => ({ label: f.field.name, value: f.profitPerHa }));
-  y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Rentabilidade — Lucro por hectare (R$/ha)", rentPerField, margin, y, pageW - margin * 2, CHART_H, PRIMARY, (v) => BRL.format(v), true);
-
-  // Page 5 — Comparação de Cenários
-  addPage();
-  drawPageChrome(doc, pageW, pageH, margin, propertyName, dateLabel);
-  y = 90;
-  y = drawH1(doc, "Comparação de Cenários", margin, y);
-
-  if (!bestScenario) {
-    doc.setTextColor(...MUTED);
-    doc.setFontSize(11);
-    doc.text("Nenhum cenário salvo para comparação.", margin, y + 10);
-  } else {
+  // Página — Comparação de Cenários (omitida quando não há cenário salvo)
+  if (bestScenario) {
+    y = newContentPage();
+    y = drawH1(doc, "Comparação de Cenários", margin, y);
     const bm = (bestScenario.metrics_snapshot as unknown as {
       revenue?: number; costs?: number; profit?: number; margin?: number;
     }) || {};
