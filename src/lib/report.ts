@@ -61,6 +61,15 @@ function slug(s: string) {
     || "propriedade";
 }
 
+/** Percentual em pt-BR: uma casa decimal e vírgula. */
+function PCT(v: number) {
+  return `${(Number.isFinite(v) ? v : 0).toFixed(1).replace(".", ",")}%`;
+}
+function PP(v: number) {
+  const s = (Number.isFinite(v) ? v : 0).toFixed(1).replace(".", ",");
+  return `${v >= 0 ? "+" : ""}${s} p.p.`;
+}
+
 // -------------------- main --------------------
 export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
