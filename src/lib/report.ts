@@ -586,7 +586,7 @@ function drawPageChrome(doc: jsPDF, pageW: number, _pageH: number, margin: numbe
   doc.setFontSize(9);
   const dateW = doc.getTextWidth(`  ·  ${dateLabel}`);
   // Largura livre entre a marca e a data (com folga de 16pt).
-  let avail = pageW - margin * 2 - brandW - dateW - 16;
+  const avail = pageW - margin * 2 - brandW - dateW - 16;
   let nameSize = 9;
   let name = (propertyName || "").trim();
   if (name) {
@@ -600,7 +600,6 @@ function drawPageChrome(doc: jsPDF, pageW: number, _pageH: number, margin: numbe
   doc.setFontSize(nameSize);
   const tail = name ? `${name}  ·  ${dateLabel}` : dateLabel;
   doc.text(tail, pageW - margin, 26, { align: "right", baseline: "alphabetic" });
-  void avail;
 }
 
 /**
