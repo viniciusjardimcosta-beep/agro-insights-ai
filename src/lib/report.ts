@@ -253,16 +253,18 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     const sideBySide =
       Math.max(penH, bonH) <= 180 && y + Math.max(penH, bonH) <= BOTTOM;
 
-    if (sideBySide) {
+    if (penaltyItems.length === 0 && bonusItems.length === 0) {
+      // nada a exibir — sem placeholders
+    } else if (sideBySide) {
       y = ensure(y, Math.max(penH, bonH));
-      drawList(doc, "Penalidades", penaltyItems, margin, y, half, DANGER);
-      drawList(doc, "Bônus", bonusItems, margin + half + 16, y, half, PRIMARY);
+      if (penaltyItems.length) drawList(doc, "Penalidades", penaltyItems, margin, y, half, DANGER);
+      if (bonusItems.length) drawList(doc, "Bônus", bonusItems, margin + half + 16, y, half, PRIMARY);
       y += Math.max(penH, bonH) + 18;
     } else {
       const sections: [string, string[], [number, number, number]][] = [
         ["Penalidades", penaltyItems, DANGER],
         ["Bônus", bonusItems, PRIMARY],
-      ];
+      ].filter((s) => (s[1] as string[]).length > 0) as [string, string[], [number, number, number]][];
       for (const [title, items, color] of sections) {
         const h = measureList(doc, items, fullW);
         y = ensure(y, Math.min(h, BOTTOM - 90));
@@ -274,7 +276,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
       ["Riscos", report.risks ?? [], DANGER],
       ["Oportunidades", report.opportunities ?? [], PRIMARY],
       ["Plano de ação", report.actionPlan ?? [], DARK],
-    ];
+    ].filter((b) => (b[1] as string[]).length > 0) as [string, string[], [number, number, number]][];
     for (const [title, items, color] of blocks) {
       const h = measureList(doc, items, fullW);
       y = ensure(y, Math.min(h, BOTTOM - 90));
