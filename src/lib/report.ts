@@ -577,10 +577,48 @@ function drawPageChrome(doc: jsPDF, pageW: number, _pageH: number, margin: numbe
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("AgroIntel AI · Relatório Executivo", margin, 26);
+  const brand = "AgroIntel AI · Relatório Executivo";
+  doc.text(brand, margin, 26);
+  const brandW = doc.getTextWidth(brand);
+
   doc.setFont("helvetica", "normal");
+  // A data é sempre exibida por inteiro, ancorada à direita.
   doc.setFontSize(9);
-  doc.text(`${propertyName}  ·  ${dateLabel}`, pageW - margin, 26, { align: "right" });
+  const dateW = doc.getTextWidth(`  ·  ${dateLabel}`);
+  // Largura livre entre a marca e a data (com folga de 16pt).
+  let avail = pageW - margin * 2 - brandW - dateW - 16;
+  let nameSize = 9;
+  let name = (propertyName || "").trim();
+  if (name) {
+    // Reduz discretamente a fonte antes de truncar.
+    if (doc.getTextWidth(name) > avail) {
+      nameSize = 8;
+      doc.setFontSize(nameSize);
+    }
+    name = truncateToWidth(doc, name, avail);
+  }
+  doc.setFontSize(nameSize);
+  const tail = name ? `${name}  ·  ${dateLabel}` : dateLabel;
+  doc.text(tail, pageW - margin, 26, { align: "right", baseline: "alphabetic" });
+  void avail;
+}
+
+/**
+ * Trunca com reticências respeitando a largura disponível.
+ * Nunca devolve uma única letra: abaixo de 8 caracteres visíveis, o nome é omitido.
+ */
+function truncateToWidth(doc: jsPDF, text: string, maxW: number): string {
+  if (maxW <= 0) return "";
+  if (doc.getTextWidth(text) <= maxW) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (doc.getTextWidth(text.slice(0, mid) + "…") <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  if (lo < 8) return "";
+  return text.slice(0, lo).trimEnd() + "…";
 }
 
 function drawFooter(doc: jsPDF, pageW: number, pageH: number, margin: number, page: number, total: number, dateTimeLabel: string) {
