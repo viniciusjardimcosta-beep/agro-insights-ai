@@ -145,9 +145,9 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   let y = 90;
   y = drawH1(doc, "Resumo Executivo", margin, y);
 
-  const topCrop = report?.metrics?.topCrop || report?.indicators?.mostProfitableCrop || "-";
-  const topRisk = report?.risks?.[0] || "-";
-  const topOpp = report?.opportunities?.[0] || "-";
+  const topCrop = (report?.metrics?.topCrop || report?.indicators?.mostProfitableCrop || "").trim();
+  const topRisk = (report?.risks?.[0] ?? "").trim();
+  const topOpp = (report?.opportunities?.[0] ?? "").trim();
 
   const summary: [string, string][] = [
     ["Receita total", BRL.format(farm.totalRevenue)],
@@ -157,8 +157,8 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     ["Lucro por hectare", BRL.format(farm.profitPerHa)],
     ["Área cultivada", `${NUM.format(farm.totalArea)} ha`],
     ["Número de talhões", String(input.fields.length)],
-    ["Maior cultura (receita)", topCrop],
   ];
+  if (topCrop && topCrop !== "-") summary.push(["Maior cultura (receita)", topCrop]);
   y = drawKpiGrid(doc, summary, margin, y, pageW - margin * 2);
 
   y += 12;
@@ -172,8 +172,13 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     notes.forEach((n, i) => doc.text(n, margin, y + i * 12));
     y += notes.length * 12 + 8;
   }
-  y = drawLabelBlock(doc, "Maior risco identificado", topRisk, margin, y, pageW - margin * 2, DANGER);
-  y = drawLabelBlock(doc, "Maior oportunidade", topOpp, margin, y, pageW - margin * 2, PRIMARY);
+  // Sem diagnóstico não há risco/oportunidade — nada de placeholders "-".
+  if (report && topRisk && topRisk !== "-") {
+    y = drawLabelBlock(doc, "Maior risco identificado", topRisk, margin, y, pageW - margin * 2, DANGER);
+  }
+  if (report && topOpp && topOpp !== "-") {
+    y = drawLabelBlock(doc, "Maior oportunidade", topOpp, margin, y, pageW - margin * 2, PRIMARY);
+  }
 
   // Página — Diagnóstico Financeiro (omitida quando não há diagnóstico)
   if (report) {
