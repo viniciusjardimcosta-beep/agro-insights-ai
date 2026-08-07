@@ -296,8 +296,23 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const CHART_H = 170;
   const chartW = pageW - margin * 2;
   // Gráfico simples (categorias de custo) — poucas séries por natureza.
-  y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, chartW, CHART_H, PRIMARY, (v) => BRL.format(v));
+  const costSeries = costCatEntries.map(([k, v]) => ({ label: k, value: v }));
+  if (hasUsefulSeries(costSeries)) {
+    y = ensure(y, CHART_H);
+    y = drawBarChart(doc, "Custo por categoria (R$)", costSeries, margin, y, chartW, CHART_H, PRIMARY, (v) => BRL.format(v));
+  } else {
+    y = ensure(y, 34);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...DARK);
+    doc.text("Custo por categoria (R$)", margin, y);
+    y += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    doc.text("Custo por categoria indisponível: nenhum custo lançado até o momento.", margin, y);
+    y += 28;
+  }
 
   // Layout adaptativo por quantidade de talhões.
   const drawFieldChart = (
@@ -867,7 +882,7 @@ function drawBarChartImpl(
     }
     doc.roundedRect(bx, by, barW, Math.max(1, barH), 2, 2, "F");
 
-    doc.setTextColor(...DARK);
+    doc.setTextColor(...(val < 0 ? DANGER : DARK));
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.text(fmt(val), bx + barW / 2, by - 3, { align: "center" });
