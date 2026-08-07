@@ -70,6 +70,11 @@ function PP(v: number) {
   return `${v >= 0 ? "+" : ""}${s} p.p.`;
 }
 
+/** Série útil = pelo menos um valor finito diferente de zero (positivo OU negativo). */
+function hasUsefulSeries(data: { value: number }[]): boolean {
+  return data.some((d) => Number.isFinite(d.value) && d.value !== 0);
+}
+
 // -------------------- main --------------------
 export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
@@ -145,9 +150,9 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   let y = 90;
   y = drawH1(doc, "Resumo Executivo", margin, y);
 
-  const topCrop = report?.metrics?.topCrop || report?.indicators?.mostProfitableCrop || "-";
-  const topRisk = report?.risks?.[0] || "-";
-  const topOpp = report?.opportunities?.[0] || "-";
+  const topCrop = (report?.metrics?.topCrop || report?.indicators?.mostProfitableCrop || "").trim();
+  const topRisk = (report?.risks?.[0] ?? "").trim();
+  const topOpp = (report?.opportunities?.[0] ?? "").trim();
 
   const summary: [string, string][] = [
     ["Receita total", BRL.format(farm.totalRevenue)],
@@ -157,8 +162,8 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     ["Lucro por hectare", BRL.format(farm.profitPerHa)],
     ["Área cultivada", `${NUM.format(farm.totalArea)} ha`],
     ["Número de talhões", String(input.fields.length)],
-    ["Maior cultura (receita)", topCrop],
   ];
+  if (topCrop && topCrop !== "-") summary.push(["Maior cultura (receita)", topCrop]);
   y = drawKpiGrid(doc, summary, margin, y, pageW - margin * 2);
 
   y += 12;
@@ -172,8 +177,13 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     notes.forEach((n, i) => doc.text(n, margin, y + i * 12));
     y += notes.length * 12 + 8;
   }
-  y = drawLabelBlock(doc, "Maior risco identificado", topRisk, margin, y, pageW - margin * 2, DANGER);
-  y = drawLabelBlock(doc, "Maior oportunidade", topOpp, margin, y, pageW - margin * 2, PRIMARY);
+  // Sem diagnóstico não há risco/oportunidade — nada de placeholders "-".
+  if (report && topRisk && topRisk !== "-") {
+    y = drawLabelBlock(doc, "Maior risco identificado", topRisk, margin, y, pageW - margin * 2, DANGER);
+  }
+  if (report && topOpp && topOpp !== "-") {
+    y = drawLabelBlock(doc, "Maior oportunidade", topOpp, margin, y, pageW - margin * 2, PRIMARY);
+  }
 
   // Página — Diagnóstico Financeiro (omitida quando não há diagnóstico)
   if (report) {
@@ -243,16 +253,18 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     const sideBySide =
       Math.max(penH, bonH) <= 180 && y + Math.max(penH, bonH) <= BOTTOM;
 
-    if (sideBySide) {
+    if (penaltyItems.length === 0 && bonusItems.length === 0) {
+      // nada a exibir — sem placeholders
+    } else if (sideBySide) {
       y = ensure(y, Math.max(penH, bonH));
-      drawList(doc, "Penalidades", penaltyItems, margin, y, half, DANGER);
-      drawList(doc, "Bônus", bonusItems, margin + half + 16, y, half, PRIMARY);
+      if (penaltyItems.length) drawList(doc, "Penalidades", penaltyItems, margin, y, half, DANGER);
+      if (bonusItems.length) drawList(doc, "Bônus", bonusItems, margin + half + 16, y, half, PRIMARY);
       y += Math.max(penH, bonH) + 18;
     } else {
       const sections: [string, string[], [number, number, number]][] = [
         ["Penalidades", penaltyItems, DANGER],
         ["Bônus", bonusItems, PRIMARY],
-      ];
+      ].filter((s) => (s[1] as string[]).length > 0) as [string, string[], [number, number, number]][];
       for (const [title, items, color] of sections) {
         const h = measureList(doc, items, fullW);
         y = ensure(y, Math.min(h, BOTTOM - 90));
@@ -264,7 +276,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
       ["Riscos", report.risks ?? [], DANGER],
       ["Oportunidades", report.opportunities ?? [], PRIMARY],
       ["Plano de ação", report.actionPlan ?? [], DARK],
-    ];
+    ].filter((b) => (b[1] as string[]).length > 0) as [string, string[], [number, number, number]][];
     for (const [title, items, color] of blocks) {
       const h = measureList(doc, items, fullW);
       y = ensure(y, Math.min(h, BOTTOM - 90));
@@ -286,8 +298,23 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   const CHART_H = 170;
   const chartW = pageW - margin * 2;
   // Gráfico simples (categorias de custo) — poucas séries por natureza.
-  y = ensure(y, CHART_H);
-  y = drawBarChart(doc, "Custo por categoria (R$)", costCatEntries.map(([k, v]) => ({ label: k, value: v })), margin, y, chartW, CHART_H, PRIMARY, (v) => BRL.format(v));
+  const costSeries = costCatEntries.map(([k, v]) => ({ label: k, value: v }));
+  if (hasUsefulSeries(costSeries)) {
+    y = ensure(y, CHART_H);
+    y = drawBarChart(doc, "Custo por categoria (R$)", costSeries, margin, y, chartW, CHART_H, PRIMARY, (v) => BRL.format(v));
+  } else {
+    y = ensure(y, 34);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...DARK);
+    doc.text("Custo por categoria (R$)", margin, y);
+    y += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    doc.text("Custo por categoria indisponível: nenhum custo lançado até o momento.", margin, y);
+    y += 28;
+  }
 
   // Layout adaptativo por quantidade de talhões.
   const drawFieldChart = (
@@ -295,7 +322,25 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     data: { label: string; value: number }[],
     color: [number, number, number],
     fmt: (v: number) => string,
+    emptyMessage: string,
   ) => {
+    // Sem dados úteis (série vazia ou todos os valores zero/inválidos):
+    // exibe apenas a mensagem, sem gráfico vazio.
+    if (!hasUsefulSeries(data)) {
+      y = ensure(y, 34);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...DARK);
+      doc.text(title, margin, y);
+      y += 14;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...MUTED);
+      const lines = doc.splitTextToSize(emptyMessage, chartW) as string[];
+      lines.forEach((l, i) => doc.text(l, margin, y + i * 12));
+      y += lines.length * 12 + 16;
+      return;
+    }
     for (const block of splitFieldSeries(data)) {
       y = ensure(y, CHART_H + (block.note ? 14 : 0));
       y = drawBarChart(doc, block.title ? `${title} — ${block.title}` : title, block.data, margin, y, chartW, CHART_H, color, fmt, true);
@@ -315,6 +360,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     farm.perField.map((f) => ({ label: f.field.name, value: f.profit })),
     PRIMARY,
     (v) => BRL.format(v),
+    "Lucro por talhão indisponível: os dados financeiros ainda não estão completos.",
   );
   drawFieldChart(
     "Margem por talhão (%)",
@@ -324,12 +370,14 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     })),
     ACCENT,
     PCT,
+    "Margem por talhão indisponível: não há receita ou preço suficiente para o cálculo.",
   );
   drawFieldChart(
     "Rentabilidade — Lucro por hectare (R$/ha)",
     farm.perField.map((f) => ({ label: f.field.name, value: f.profitPerHa })),
     PRIMARY,
     (v) => BRL.format(v),
+    "Rentabilidade por hectare indisponível para os dados atuais.",
   );
 
   // Página — Comparação de Cenários (omitida quando não há cenário salvo)
@@ -572,10 +620,47 @@ function drawPageChrome(doc: jsPDF, pageW: number, _pageH: number, margin: numbe
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("AgroIntel AI · Relatório Executivo", margin, 26);
+  const brand = "AgroIntel AI · Relatório Executivo";
+  doc.text(brand, margin, 26);
+  const brandW = doc.getTextWidth(brand);
+
   doc.setFont("helvetica", "normal");
+  // A data é sempre exibida por inteiro, ancorada à direita.
   doc.setFontSize(9);
-  doc.text(`${propertyName}  ·  ${dateLabel}`, pageW - margin, 26, { align: "right" });
+  const dateW = doc.getTextWidth(`  ·  ${dateLabel}`);
+  // Largura livre entre a marca e a data (com folga de 16pt).
+  const avail = pageW - margin * 2 - brandW - dateW - 16;
+  let nameSize = 9;
+  let name = (propertyName || "").trim();
+  if (name) {
+    // Reduz discretamente a fonte antes de truncar.
+    if (doc.getTextWidth(name) > avail) {
+      nameSize = 8;
+      doc.setFontSize(nameSize);
+    }
+    name = truncateToWidth(doc, name, avail);
+  }
+  doc.setFontSize(nameSize);
+  const tail = name ? `${name}  ·  ${dateLabel}` : dateLabel;
+  doc.text(tail, pageW - margin, 26, { align: "right", baseline: "alphabetic" });
+}
+
+/**
+ * Trunca com reticências respeitando a largura disponível.
+ * Nunca devolve uma única letra: abaixo de 8 caracteres visíveis, o nome é omitido.
+ */
+function truncateToWidth(doc: jsPDF, text: string, maxW: number): string {
+  if (maxW <= 0) return "";
+  if (doc.getTextWidth(text) <= maxW) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (doc.getTextWidth(text.slice(0, mid) + "…") <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  if (lo < 8) return "";
+  return text.slice(0, lo).trimEnd() + "…";
 }
 
 function drawFooter(doc: jsPDF, pageW: number, pageH: number, margin: number, page: number, total: number, dateTimeLabel: string) {
@@ -799,19 +884,20 @@ function drawBarChartImpl(
     }
     doc.roundedRect(bx, by, barW, Math.max(1, barH), 2, 2, "F");
 
-    doc.setTextColor(...DARK);
+    doc.setTextColor(...(val < 0 ? DANGER : DARK));
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.text(fmt(val), bx + barW / 2, by - 3, { align: "center" });
+    // Positivos acima da barra; negativos logo abaixo da barra (sem cruzar a linha zero).
+    doc.text(fmt(val), bx + barW / 2, val < 0 ? by + barH + 8 : by - 3, { align: "center" });
 
     doc.setTextColor(...MUTED);
     doc.setFontSize(7);
     const maxChars = Math.max(6, Math.floor(barW / 3.2));
     const lbl = d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + "…" : d.label;
-    doc.text(lbl, bx + barW / 2, chartY + chartH + 12, { align: "center" });
+    doc.text(lbl, bx + barW / 2, chartY + chartH + 20, { align: "center" });
   });
 
-  return chartY + chartH + 30;
+  return chartY + chartH + 36;
 }
 
 function fmtDeltaMoney(v: number) {
