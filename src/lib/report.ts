@@ -300,7 +300,25 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     data: { label: string; value: number }[],
     color: [number, number, number],
     fmt: (v: number) => string,
+    emptyMessage: string,
   ) => {
+    // Sem dados úteis (série vazia ou todos os valores zero/inválidos):
+    // exibe apenas a mensagem, sem gráfico vazio.
+    if (!hasUsefulSeries(data)) {
+      y = ensure(y, 34);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...DARK);
+      doc.text(title, margin, y);
+      y += 14;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...MUTED);
+      const lines = doc.splitTextToSize(emptyMessage, chartW) as string[];
+      lines.forEach((l, i) => doc.text(l, margin, y + i * 12));
+      y += lines.length * 12 + 16;
+      return;
+    }
     for (const block of splitFieldSeries(data)) {
       y = ensure(y, CHART_H + (block.note ? 14 : 0));
       y = drawBarChart(doc, block.title ? `${title} — ${block.title}` : title, block.data, margin, y, chartW, CHART_H, color, fmt, true);
@@ -320,6 +338,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     farm.perField.map((f) => ({ label: f.field.name, value: f.profit })),
     PRIMARY,
     (v) => BRL.format(v),
+    "Lucro por talhão indisponível: os dados financeiros ainda não estão completos.",
   );
   drawFieldChart(
     "Margem por talhão (%)",
@@ -329,12 +348,14 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     })),
     ACCENT,
     PCT,
+    "Margem por talhão indisponível: não há receita ou preço suficiente para o cálculo.",
   );
   drawFieldChart(
     "Rentabilidade — Lucro por hectare (R$/ha)",
     farm.perField.map((f) => ({ label: f.field.name, value: f.profitPerHa })),
     PRIMARY,
     (v) => BRL.format(v),
+    "Rentabilidade por hectare indisponível para os dados atuais.",
   );
 
   // Página — Comparação de Cenários (omitida quando não há cenário salvo)
