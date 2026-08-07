@@ -885,16 +885,17 @@ function drawBarChartImpl(
     doc.setTextColor(...(val < 0 ? DANGER : DARK));
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.text(fmt(val), bx + barW / 2, by - 3, { align: "center" });
+    // Positivos acima da barra; negativos logo abaixo da barra (sem cruzar a linha zero).
+    doc.text(fmt(val), bx + barW / 2, val < 0 ? by + barH + 8 : by - 3, { align: "center" });
 
     doc.setTextColor(...MUTED);
     doc.setFontSize(7);
     const maxChars = Math.max(6, Math.floor(barW / 3.2));
     const lbl = d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + "…" : d.label;
-    doc.text(lbl, bx + barW / 2, chartY + chartH + 12, { align: "center" });
+    doc.text(lbl, bx + barW / 2, chartY + chartH + 20, { align: "center" });
   });
 
-  return chartY + chartH + 30;
+  return chartY + chartH + 36;
 }
 
 function fmtDeltaMoney(v: number) {
