@@ -17,6 +17,7 @@ import { Route as AuthenticatedSimuladorRouteImport } from './routes/_authentica
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedPropriedadesRouteImport } from './routes/_authenticated/propriedades'
 import { Route as AuthenticatedPrecosRouteImport } from './routes/_authenticated/precos'
+import { Route as AuthenticatedInteligenciaRouteImport } from './routes/_authenticated/inteligencia'
 import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenticated/diagnostico'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
@@ -64,6 +65,12 @@ const AuthenticatedPrecosRoute = AuthenticatedPrecosRouteImport.update({
   path: '/precos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedInteligenciaRoute =
+  AuthenticatedInteligenciaRouteImport.update({
+    id: '/inteligencia',
+    path: '/inteligencia',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDiagnosticoRoute =
   AuthenticatedDiagnosticoRouteImport.update({
     id: '/diagnostico',
@@ -104,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
+  '/inteligencia': typeof AuthenticatedInteligenciaRoute
   '/precos': typeof AuthenticatedPrecosRoute
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -119,6 +127,7 @@ export interface FileRoutesByTo {
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
+  '/inteligencia': typeof AuthenticatedInteligenciaRoute
   '/precos': typeof AuthenticatedPrecosRoute
   '/propriedades': typeof AuthenticatedPropriedadesRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -136,6 +145,7 @@ export interface FileRoutesById {
   '/_authenticated/custos': typeof AuthenticatedCustosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/diagnostico': typeof AuthenticatedDiagnosticoRoute
+  '/_authenticated/inteligencia': typeof AuthenticatedInteligenciaRoute
   '/_authenticated/precos': typeof AuthenticatedPrecosRoute
   '/_authenticated/propriedades': typeof AuthenticatedPropriedadesRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/custos'
     | '/dashboard'
     | '/diagnostico'
+    | '/inteligencia'
     | '/precos'
     | '/propriedades'
     | '/relatorios'
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/custos'
     | '/dashboard'
     | '/diagnostico'
+    | '/inteligencia'
     | '/precos'
     | '/propriedades'
     | '/relatorios'
@@ -184,6 +196,7 @@ export interface FileRouteTypes {
     | '/_authenticated/custos'
     | '/_authenticated/dashboard'
     | '/_authenticated/diagnostico'
+    | '/_authenticated/inteligencia'
     | '/_authenticated/precos'
     | '/_authenticated/propriedades'
     | '/_authenticated/relatorios'
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPrecosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/inteligencia': {
+      id: '/_authenticated/inteligencia'
+      path: '/inteligencia'
+      fullPath: '/inteligencia'
+      preLoaderRoute: typeof AuthenticatedInteligenciaRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/diagnostico': {
       id: '/_authenticated/diagnostico'
       path: '/diagnostico'
@@ -322,6 +342,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCustosRoute: typeof AuthenticatedCustosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDiagnosticoRoute: typeof AuthenticatedDiagnosticoRoute
+  AuthenticatedInteligenciaRoute: typeof AuthenticatedInteligenciaRoute
   AuthenticatedPrecosRoute: typeof AuthenticatedPrecosRoute
   AuthenticatedPropriedadesRoute: typeof AuthenticatedPropriedadesRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -334,6 +355,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCustosRoute: AuthenticatedCustosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDiagnosticoRoute: AuthenticatedDiagnosticoRoute,
+  AuthenticatedInteligenciaRoute: AuthenticatedInteligenciaRoute,
   AuthenticatedPrecosRoute: AuthenticatedPrecosRoute,
   AuthenticatedPropriedadesRoute: AuthenticatedPropriedadesRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,

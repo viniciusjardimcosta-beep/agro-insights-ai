@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical } from "lucide-react";
+import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/inteligencia", label: "Inteligência", icon: Brain },
   { to: "/propriedades", label: "Propriedades", icon: MapPinned },
   { to: "/talhoes", label: "Talhões", icon: Sprout },
   { to: "/custos", label: "Custos", icon: Banknote },
