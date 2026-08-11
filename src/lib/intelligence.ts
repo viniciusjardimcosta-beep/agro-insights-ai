@@ -272,6 +272,7 @@ export function getPrimaryOpportunity(snap: IntelligenceSnapshot): PrimaryOpport
   const problem = getPrimaryProblem(snap);
   if (problem) {
     const relief = snap.scenarios
+      .filter((s) => (s.score_breakdown ?? []).length > 0)
       .map((s) => {
         const pts = (s.score_breakdown ?? [])
           .filter((b) => ruleKeyOf(b.label)?.key === problem.key)

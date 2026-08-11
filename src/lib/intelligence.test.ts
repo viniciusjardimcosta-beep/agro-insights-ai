@@ -107,9 +107,24 @@ describe("intelligence", () => {
     const snap = buildIntelligenceSnapshot(
       base({ costs: [{ field_id: "f1", category: "Diesel", amount: 5_000_000 }] }),
     );
-    const alerts = getPriorityAlerts(snap);
-    expect(alerts.some((a) => a.key === "neg_fields" && a.severity === "critical")).toBe(true);
-    expect(getPriorityLevel(snap, alerts)).toBe("critical");
+    // vira o principal problema (maior penalidade) e por isso não se repete nos alertas
+    expect(getPrimaryProblem(snap)?.key).toBe("neg_fields");
+    expect(getPriorityAlerts(snap).some((a) => a.key === "neg_fields")).toBe(false);
+
+    // quando outra penalidade domina o diagnóstico, o talhão negativo aparece como alerta crítico
+    const snap2 = buildIntelligenceSnapshot(
+      base({
+        costs: [{ field_id: "f1", category: "Diesel", amount: 5_000_000 }],
+        diagnostics: [
+          diag("d1", 10, {
+            scoreBreakdown: [{ label: "Margem líquida -594.4% (abaixo de 10%)", points: -20 }],
+          }, "2026-02-01T00:00:00Z"),
+        ],
+      }),
+    );
+    const alerts2 = getPriorityAlerts(snap2);
+    expect(alerts2.some((a) => a.key === "neg_fields" && a.severity === "critical")).toBe(true);
+    expect(getPriorityLevel(snap2, alerts2)).toBe("critical");
   });
 
   it("margem abaixo de 20% gera alerta", () => {
@@ -154,7 +169,18 @@ describe("intelligence", () => {
     const snap = buildIntelligenceSnapshot(
       base({
         diagnostics: [diag("d1", 100, { scoreBreakdown: [{ label: "Base inicial", points: 100 }] }, "2026-02-01T00:00:00Z")],
-        costs: [{ field_id: "f1", category: "Sementes", amount: 100000 }],
+        fields: [
+          field({ id: "f1", name: "T1" }),
+          field({ id: "f2", name: "T2", crop: "milho" }),
+        ],
+        prices: [
+          { crop: "soja", price_per_bag: 120, date: "2026-01-01" },
+          { crop: "milho", price_per_bag: 120, date: "2026-01-01" },
+        ],
+        costs: [
+          { field_id: "f1", category: "Sementes", amount: 100000 },
+          { field_id: "f2", category: "Sementes", amount: 100000 },
+        ],
       }),
     );
     const alerts = getPriorityAlerts(snap);
