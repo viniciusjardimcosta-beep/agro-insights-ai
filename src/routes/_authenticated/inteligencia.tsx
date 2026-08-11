@@ -116,8 +116,8 @@ function InteligenciaPage() {
     fields: (raw.fields ?? []) as never,
     costs: (raw.costs ?? []) as never,
     prices: (raw.prices ?? []) as never,
-    diagnostics: ((diagQ.data ?? []) as unknown as DiagnosticLite[]) ?? [],
-    scenarios: ((scenQ.data ?? []) as unknown as ScenarioLite[]) ?? [],
+    diagnostics: (diagQ.data ?? []) as unknown as DiagnosticLite[],
+    scenarios: (scenQ.data ?? []) as unknown as ScenarioLite[],
   });
 
   const problem = getPrimaryProblem(snap);
