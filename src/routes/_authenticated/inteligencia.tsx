@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BRL } from "@/lib/calc";
 import { getFarmSnapshot } from "@/lib/data.functions";
+import { listAlerts } from "@/lib/alerts.functions";
 import { listDiagnostics } from "@/lib/diagnostics.functions";
 import { listScenarios } from "@/lib/scenarios.functions";
 import {
@@ -69,6 +70,10 @@ const scenariosQuery = queryOptions({
   queryKey: ["scenarios"],
   queryFn: () => listScenarios(),
 });
+const persistedAlertsQuery = queryOptions({
+  queryKey: ["alerts"],
+  queryFn: () => listAlerts(),
+});
 
 function scoreColor(score: number) {
   if (score >= 75) return "text-primary";
@@ -99,6 +104,10 @@ function InteligenciaPage() {
   const snapQ = useQuery(snapshotQuery);
   const diagQ = useQuery(diagnosticsQuery);
   const scenQ = useQuery(scenariosQuery);
+  const persistedQ = useQuery(persistedAlertsQuery);
+  const activeAlerts = ((persistedQ.data ?? []) as { id: string; status: string; title: string; message: string; severity: string; metric_value: string | null }[])
+    .filter((a) => a.status === "active" || a.status === "acknowledged")
+    .slice(0, 3);
 
   const loading = snapQ.isLoading || diagQ.isLoading || scenQ.isLoading;
 
