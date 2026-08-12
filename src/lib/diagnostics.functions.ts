@@ -315,6 +315,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       .select()
       .single();
     if (insertError) throw new Error(insertError.message);
+    const { resyncAlerts } = await import("@/lib/alerts.server");
+    await resyncAlerts(context.supabase, context.userId);
     return inserted;
-  });
   });
