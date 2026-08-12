@@ -341,6 +341,37 @@ function InteligenciaPage() {
           {/* 6 / 7 */}
           <Card>
             <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-2">
+                Alertas ativos
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/alertas">Ver todos os alertas</Link>
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {activeAlerts.length === 0 ? (
+                <>
+                  <p className="font-medium">Sem alertas prioritários no momento.</p>
+                  <p className="text-muted-foreground">
+                    Continuaremos acompanhando os indicadores da propriedade.
+                  </p>
+                </>
+              ) : (
+                activeAlerts.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                    <div>
+                      <div className="font-medium">{a.title}</div>
+                      <div className="text-muted-foreground">{a.metric_value ?? a.message}</div>
+                    </div>
+                    {severityBadge(a.severity as PriorityAlert["severity"])}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Alertas prioritários
                 {alerts.length > 0 && (
