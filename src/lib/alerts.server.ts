@@ -58,3 +58,12 @@ export async function syncAlertsFor(supabase: DB, userId: string) {
 
   return { created: inserts.length, updated: updates.length };
 }
+
+/** Reavaliação disparada por mudanças de dados — nunca quebra a operação principal. */
+export async function resyncAlerts(supabase: DB, userId: string) {
+  try {
+    await syncAlertsFor(supabase, userId);
+  } catch (err) {
+    console.error("[alertas] falha ao reavaliar alertas", (err as Error).message);
+  }
+}
