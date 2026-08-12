@@ -37,7 +37,7 @@ function AuthLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const queryClient = useQueryClient();
   const alertsQ = useQuery({ queryKey: ["alerts"], queryFn: () => listAlerts(), staleTime: 30_000 });
-  const alertCount = countUnacknowledged((alertsQ.data ?? []) as { status: never }[]);
+  const alertCount = countUnacknowledged((alertsQ.data ?? []) as unknown as { status: "active" | "acknowledged" | "resolved" }[]);
 
   async function logout() {
     await queryClient.cancelQueries();
