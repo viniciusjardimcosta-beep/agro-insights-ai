@@ -317,3 +317,4 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
     if (insertError) throw new Error(insertError.message);
     return inserted;
   });
+  });
