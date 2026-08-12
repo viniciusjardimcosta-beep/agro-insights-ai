@@ -56,7 +56,7 @@ export function buildPersistableAlerts(
   snap: IntelligenceSnapshot,
   propertyId: string | null,
 ): PersistableAlert[] {
-  const alerts: Alert[] = getPriorityAlerts(snap, Number.MAX_SAFE_INTEGER);
+  const alerts: Alert[] = getPriorityAlerts(snap, Number.MAX_SAFE_INTEGER, true);
   return alerts.map((a) => ({
     alert_key: `${a.key}:${propertyId ?? "fazenda"}`,
     property_id: propertyId,
