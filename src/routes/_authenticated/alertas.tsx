@@ -112,7 +112,7 @@ function AlertCard({
       <div className="flex flex-wrap gap-2 pt-1">
         {!resolved && alert.action_route && (
           <Button asChild size="sm" variant="outline">
-            <Link to={alert.action_route}>Ver</Link>
+            <Link to={alert.action_route as never}>Ver</Link>
           </Button>
         )}
         {alert.status === "active" && (
