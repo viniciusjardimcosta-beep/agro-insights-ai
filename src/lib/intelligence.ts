@@ -375,7 +375,11 @@ export function getEvolution(snap: IntelligenceSnapshot): Evolution {
 
 const SEV_ORDER: Record<Alert["severity"], number> = { critical: 0, high: 1, medium: 2 };
 
-export function getPriorityAlerts(snap: IntelligenceSnapshot, max = 3): Alert[] {
+export function getPriorityAlerts(
+  snap: IntelligenceSnapshot,
+  max = 3,
+  includePrimaryProblem = false,
+): Alert[] {
   const alerts: Alert[] = [];
   const farm = snap.farm;
   const m = snap.metrics;
@@ -516,7 +520,9 @@ export function getPriorityAlerts(snap: IntelligenceSnapshot, max = 3): Alert[] 
 
   // Deduplicação: nunca repetir o "Principal problema".
   const problem = getPrimaryProblem(snap);
-  const deduped = alerts.filter((a) => !problem || a.key !== problem.key);
+  const deduped = includePrimaryProblem
+    ? alerts
+    : alerts.filter((a) => !problem || a.key !== problem.key);
 
   deduped.sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity]);
   const seen = new Set<string>();

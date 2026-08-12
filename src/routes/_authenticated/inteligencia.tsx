@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BRL } from "@/lib/calc";
 import { getFarmSnapshot } from "@/lib/data.functions";
+import { listAlerts } from "@/lib/alerts.functions";
 import { listDiagnostics } from "@/lib/diagnostics.functions";
 import { listScenarios } from "@/lib/scenarios.functions";
 import {
@@ -69,6 +70,10 @@ const scenariosQuery = queryOptions({
   queryKey: ["scenarios"],
   queryFn: () => listScenarios(),
 });
+const persistedAlertsQuery = queryOptions({
+  queryKey: ["alerts"],
+  queryFn: () => listAlerts(),
+});
 
 function scoreColor(score: number) {
   if (score >= 75) return "text-primary";
@@ -99,6 +104,10 @@ function InteligenciaPage() {
   const snapQ = useQuery(snapshotQuery);
   const diagQ = useQuery(diagnosticsQuery);
   const scenQ = useQuery(scenariosQuery);
+  const persistedQ = useQuery(persistedAlertsQuery);
+  const activeAlerts = ((persistedQ.data ?? []) as { id: string; status: string; title: string; message: string; severity: string; metric_value: string | null }[])
+    .filter((a) => a.status === "active" || a.status === "acknowledged")
+    .slice(0, 3);
 
   const loading = snapQ.isLoading || diagQ.isLoading || scenQ.isLoading;
 
@@ -330,6 +339,37 @@ function InteligenciaPage() {
           </div>
 
           {/* 6 / 7 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-2">
+                Alertas ativos
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/alertas">Ver todos os alertas</Link>
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {activeAlerts.length === 0 ? (
+                <>
+                  <p className="font-medium">Sem alertas prioritários no momento.</p>
+                  <p className="text-muted-foreground">
+                    Continuaremos acompanhando os indicadores da propriedade.
+                  </p>
+                </>
+              ) : (
+                activeAlerts.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                    <div>
+                      <div className="font-medium">{a.title}</div>
+                      <div className="text-muted-foreground">{a.metric_value ?? a.message}</div>
+                    </div>
+                    {severityBadge(a.severity as PriorityAlert["severity"])}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

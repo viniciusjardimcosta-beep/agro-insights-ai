@@ -1,6 +1,9 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain } from "lucide-react";
+import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { listAlerts } from "@/lib/alerts.functions";
+import { countUnacknowledged } from "@/lib/alerts-rules";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -18,6 +21,7 @@ export const Route = createFileRoute("/_authenticated")({
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/inteligencia", label: "Inteligência", icon: Brain },
+  { to: "/alertas", label: "Alertas", icon: BellRing },
   { to: "/propriedades", label: "Propriedades", icon: MapPinned },
   { to: "/talhoes", label: "Talhões", icon: Sprout },
   { to: "/custos", label: "Custos", icon: Banknote },
@@ -32,6 +36,8 @@ function AuthLayout() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const queryClient = useQueryClient();
+  const alertsQ = useQuery({ queryKey: ["alerts"], queryFn: () => listAlerts(), staleTime: 30_000 });
+  const alertCount = countUnacknowledged((alertsQ.data ?? []) as unknown as { status: "active" | "acknowledged" | "resolved" }[]);
 
   async function logout() {
     await queryClient.cancelQueries();
@@ -66,6 +72,11 @@ function AuthLayout() {
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
+                {item.to === "/alertas" && alertCount > 0 && (
+                  <span className="ml-auto rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-destructive-foreground">
+                    {alertCount}
+                  </span>
+                )}
               </Link>
             );
           })}
