@@ -191,6 +191,80 @@ export type Database = {
           },
         ]
       }
+      intelligence_alerts: {
+        Row: {
+          action_label: string | null
+          action_route: string | null
+          alert_key: string
+          created_at: string
+          first_seen_at: string
+          id: string
+          impact: string | null
+          last_seen_at: string
+          message: string
+          metric_name: string | null
+          metric_value: string | null
+          previous_value: string | null
+          property_id: string | null
+          resolved_at: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_label?: string | null
+          action_route?: string | null
+          alert_key: string
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          impact?: string | null
+          last_seen_at?: string
+          message?: string
+          metric_name?: string | null
+          metric_value?: string | null
+          previous_value?: string | null
+          property_id?: string | null
+          resolved_at?: string | null
+          severity: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_label?: string | null
+          action_route?: string | null
+          alert_key?: string
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          impact?: string | null
+          last_seen_at?: string
+          message?: string
+          metric_name?: string | null
+          metric_value?: string | null
+          previous_value?: string | null
+          property_id?: string | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intelligence_alerts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prices: {
         Row: {
           created_at: string
