@@ -245,7 +245,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
     // Limite atômico apenas para a parte que gera custo (chamada externa de IA).
     const limit = await checkRateLimit(context.supabase, "diagnostic_ai_generation");
     if (!limit.allowed) {
-      throw new Response(DIAGNOSTIC_RATE_LIMIT_MESSAGE, { status: 429 });
+      throw new Error(DIAGNOSTIC_RATE_LIMIT_MESSAGE);
     }
 
     const summary = [
