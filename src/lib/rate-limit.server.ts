@@ -91,3 +91,26 @@ export async function getUsageStatus(
     day: rows.length,
   };
 }
+
+/**
+ * Espelho puro da regra aplicada dentro de `public.consume_rate_limit`.
+ * Existe para testes determinísticos — a decisão real acontece no banco.
+ */
+export function evaluateLimit(
+  hourUsed: number,
+  dayUsed: number,
+  limits: { hour: number; day: number },
+): RateLimitResult {
+  if (limits.hour > 0 && hourUsed >= limits.hour) return { allowed: false, scope: "hour" };
+  if (limits.day > 0 && dayUsed >= limits.day) return { allowed: false, scope: "day" };
+  return { allowed: true, scope: null };
+}
+
+/** Contexto efetivamente enviado ao modelo (histórico persistido não é alterado). */
+export function trimContext<T>(messages: T[], max = CHAT_LIMITS.maxContextMessages): T[] {
+  return messages.slice(-max);
+}
+
+export function isMessageTooLong(text: string): boolean {
+  return text.length > CHAT_LIMITS.maxUserMessageChars;
+}
