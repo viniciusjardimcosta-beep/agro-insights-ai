@@ -3,6 +3,20 @@ import { createClient } from "@supabase/supabase-js";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { aggregateFarm, BRL, NUM, latestPriceByCrop } from "@/lib/calc";
+import {
+  AI_TIMEOUT_MESSAGE,
+  CHAT_LIMITS,
+  RATE_LIMIT_MESSAGE,
+  TOO_LONG_MESSAGE,
+  checkRateLimit,
+  recordUsage,
+} from "@/lib/rate-limit.server";
+
+function messageText(m: UIMessage): string {
+  return (m.parts ?? [])
+    .map((p) => (p.type === "text" ? (p as { text: string }).text : ""))
+    .join("");
+}
 
 type Body = { messages?: unknown; threadId?: string };
 
@@ -40,6 +54,20 @@ export const Route = createFileRoute("/api/public/chat")({
         const { data: claims } = await supabase.auth.getClaims(token);
         const userId = claims?.claims?.sub;
         if (!userId) return new Response("Token inválido", { status: 401 });
+
+        const uiMessages = messages as UIMessage[];
+
+        // Tamanho máximo da mensagem do usuário — validado antes de qualquer custo.
+        const lastUser = [...uiMessages].reverse().find((m) => m.role === "user");
+        if (lastUser && messageText(lastUser).length > CHAT_LIMITS.maxUserMessageChars) {
+          return new Response(TOO_LONG_MESSAGE, { status: 413 });
+        }
+
+        // Rate limit atômico (30/h, 120/dia). Se excedido, o modelo NÃO é chamado.
+        const limit = await checkRateLimit(supabase, "ai_message");
+        if (!limit.allowed) {
+          return new Response(RATE_LIMIT_MESSAGE, { status: 429 });
+        }
 
         // Verify thread ownership
         const { data: thread } = await supabase
@@ -120,15 +148,35 @@ ${summary}`;
         const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
         const model = gateway("google/gemini-3-flash-preview");
 
+        // Contexto limitado: system prompt + snapshot financeiro atual +
+        // as N mensagens mais recentes. O histórico persistido não é alterado.
+        const contextMessages = uiMessages.slice(-CHAT_LIMITS.maxContextMessages);
+
+        const abort = new AbortController();
+        const timer = setTimeout(() => abort.abort(), CHAT_LIMITS.timeoutMs);
+
         const result = streamText({
           model,
           system,
-          messages: await convertToModelMessages(messages as UIMessage[]),
+          messages: await convertToModelMessages(contextMessages),
+          abortSignal: abort.signal,
+          onError: ({ error }) => {
+            console.error("[chat] erro no modelo", (error as Error)?.message);
+          },
         });
 
         return result.toUIMessageStreamResponse({
-          originalMessages: messages as UIMessage[],
+          originalMessages: uiMessages,
+          onError: (error) => {
+            clearTimeout(timer);
+            if (abort.signal.aborted) {
+              void recordUsage(supabase, "ai_timeout");
+              return AI_TIMEOUT_MESSAGE;
+            }
+            return (error as Error)?.message ?? "Erro ao consultar o Consultor IA.";
+          },
           onFinish: async ({ messages: finalMessages }) => {
+            clearTimeout(timer);
             try {
               // Persist any new messages not yet stored
               const { data: existing } = await supabase

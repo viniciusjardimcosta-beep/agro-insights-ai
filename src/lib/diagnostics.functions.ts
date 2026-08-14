@@ -220,6 +220,10 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
     const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
+    const { checkRateLimit, DIAGNOSTIC_RATE_LIMIT_MESSAGE } = await import(
+      "@/lib/rate-limit.server"
+    );
+
     const [props, fields, costs, prices] = await Promise.all([
       context.supabase.from("properties").select("name, city, state, total_area"),
       context.supabase.from("fields").select("*"),
@@ -236,6 +240,12 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 
     if (farm.perField.length === 0) {
       throw new Error("Cadastre propriedades, talhões, custos e preços antes de gerar o diagnóstico.");
+    }
+
+    // Limite atômico apenas para a parte que gera custo (chamada externa de IA).
+    const limit = await checkRateLimit(context.supabase, "diagnostic_ai_generation");
+    if (!limit.allowed) {
+      throw new Error(DIAGNOSTIC_RATE_LIMIT_MESSAGE);
     }
 
     const summary = [

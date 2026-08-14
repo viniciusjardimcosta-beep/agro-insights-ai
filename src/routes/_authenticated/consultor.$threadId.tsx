@@ -162,11 +162,16 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
           </div>
         )}
 
-        {error && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            Erro: {error.message}
-          </div>
-        )}
+        {error && (() => {
+          const raw = (error.message ?? "").trim();
+          const friendly =
+            /limite temporário de mensagens|muito longa|demorando mais que o esperado/i.test(raw);
+          return (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-foreground">
+              {friendly ? raw : `Erro: ${raw || "Não foi possível responder agora."}`}
+            </div>
+          );
+        })()}
       </div>
 
       <form

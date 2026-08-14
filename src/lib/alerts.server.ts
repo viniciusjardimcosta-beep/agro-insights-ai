@@ -14,7 +14,24 @@ import {
 
 type DB = SupabaseClient<Database>;
 
-export async function syncAlertsFor(supabase: DB, userId: string) {
+/**
+ * Evita sincronizações concorrentes/duplicadas para o mesmo usuário:
+ * chamadas simultâneas compartilham a mesma promise em vez de disparar
+ * cascatas de resync. Não há polling — a sincronização segue orientada a eventos.
+ */
+const inFlight = new Map<string, Promise<{ created: number; updated: number }>>();
+
+export function syncAlertsFor(supabase: DB, userId: string) {
+  const running = inFlight.get(userId);
+  if (running) return running;
+  const p = runSync(supabase, userId).finally(() => {
+    inFlight.delete(userId);
+  });
+  inFlight.set(userId, p);
+  return p;
+}
+
+async function runSync(supabase: DB, userId: string) {
   const [properties, fields, costs, prices, diagnostics, scenarios, existing] = await Promise.all([
     supabase.from("properties").select("*").order("created_at", { ascending: true }),
     supabase.from("fields").select("*"),

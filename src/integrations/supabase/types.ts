@@ -387,12 +387,37 @@ export type Database = {
           },
         ]
       }
+      usage_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      consume_rate_limit: {
+        Args: { _day_limit: number; _event_type: string; _hour_limit: number }
+        Returns: Json
+      }
+      record_usage_event: { Args: { _event_type: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
