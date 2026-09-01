@@ -73,6 +73,53 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_events: {
+        Row: {
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          metadata: Json
+          property_id: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+          property_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+          property_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       costs: {
         Row: {
           amount: number
@@ -416,6 +463,18 @@ export type Database = {
       consume_rate_limit: {
         Args: { _day_limit: number; _event_type: string; _hour_limit: number }
         Returns: Json
+      }
+      record_audit_event: {
+        Args: {
+          _correlation_id?: string
+          _entity_id?: string
+          _entity_type?: string
+          _event_type: string
+          _metadata?: Json
+          _property_id?: string
+          _status?: string
+        }
+        Returns: string
       }
       record_usage_event: { Args: { _event_type: string }; Returns: undefined }
     }
