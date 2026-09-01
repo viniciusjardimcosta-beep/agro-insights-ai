@@ -2,6 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateText } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  createCorrelationId,
+  recordAuditEvent,
+  startTimer,
+} from "@/lib/audit.server";
+import { AppError, ERROR_CODES } from "@/lib/errors";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { aggregateFarm, BRL, NUM, latestPriceByCrop } from "@/lib/calc";
 import {
@@ -217,6 +223,16 @@ export const latestDiagnostic = createServerFn({ method: "GET" })
 export const generateDiagnostic = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    // Um único correlation_id liga started → (rate_limited|failed) → completed.
+    const correlationId = createCorrelationId();
+    const elapsed = startTimer();
+    await recordAuditEvent(context.supabase, {
+      eventType: "diagnostic_started",
+      status: "started",
+      entityType: "diagnostic",
+      correlationId,
+    });
+
     const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
@@ -245,7 +261,19 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
     // Limite atômico apenas para a parte que gera custo (chamada externa de IA).
     const limit = await checkRateLimit(context.supabase, "diagnostic_ai_generation");
     if (!limit.allowed) {
-      throw new Error(DIAGNOSTIC_RATE_LIMIT_MESSAGE);
+      await recordAuditEvent(context.supabase, {
+        eventType: "diagnostic_rate_limited",
+        status: "blocked",
+        entityType: "diagnostic",
+        correlationId,
+        metadata: { error_code: ERROR_CODES.DIAGNOSTIC_RATE_LIMITED, scope: limit.scope ?? "day" },
+      });
+      throw new AppError({
+        code: ERROR_CODES.DIAGNOSTIC_RATE_LIMITED,
+        status: 429,
+        correlationId,
+        userMessage: DIAGNOSTIC_RATE_LIMIT_MESSAGE,
+      });
     }
 
     const summary = [
@@ -274,6 +302,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 
     let report: DiagnosticReport | null = null;
     let rawResponse = "";
+    let aiFallbackUsed = false;
     try {
       const { text } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
@@ -284,22 +313,32 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       const parsed = extractJson(text);
       const result = ReportSchema.safeParse(parsed);
       if (!result.success) {
+        // Nunca logar `parsed` / texto do modelo: é conteúdo gerado sobre a
+        // fazenda do usuário. Apenas os caminhos e códigos de validação.
         console.error("[diagnostico] schema mismatch", {
-          expected: schemaShape,
-          received: parsed,
-          issues: result.error.issues.map((i) => ({
-            path: i.path.join("."),
-            code: i.code,
-            message: i.message,
-          })),
+          issues: result.error.issues.map((i) => ({ path: i.path.join("."), code: i.code })),
         });
         throw new Error("schema_mismatch");
       }
       report = normalize(result.data);
     } catch (err) {
+      // `rawResponse` (resposta da IA) NÃO é logado — conteúdo sensível.
       console.error("[diagnostico] geração estruturada falhou — usando fallback", {
-        error: (err as Error).message,
-        raw: rawResponse.slice(0, 2000),
+        error_code: (err as Error).message === "schema_mismatch" ? "SCHEMA_MISMATCH" : "AI_FAILED",
+        correlation_id: correlationId,
+      });
+      aiFallbackUsed = true;
+      await recordAuditEvent(context.supabase, {
+        eventType: "diagnostic_failed",
+        status: "failure",
+        entityType: "diagnostic",
+        correlationId,
+        metadata: {
+          error_code:
+            (err as Error).message === "schema_mismatch" ? "SCHEMA_MISMATCH" : ERROR_CODES.AI_FAILED,
+          fallback_used: true,
+          duration_ms: elapsed(),
+        },
       });
       report = fallbackReport(farm, rawResponse);
     }
@@ -324,7 +363,28 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       })
       .select()
       .single();
-    if (insertError) throw new Error(insertError.message);
+    if (insertError) {
+      await recordAuditEvent(context.supabase, {
+        eventType: "diagnostic_failed",
+        status: "failure",
+        entityType: "diagnostic",
+        correlationId,
+        metadata: { error_code: "PERSIST_FAILED", duration_ms: elapsed() },
+      });
+      throw new AppError({
+        code: ERROR_CODES.DIAGNOSTIC_FAILED,
+        correlationId,
+        userMessage: "Não foi possível salvar o diagnóstico. Tente novamente.",
+        cause: insertError,
+      });
+    }
+    await recordAuditEvent(context.supabase, {
+      eventType: "diagnostic_completed",
+      entityType: "diagnostic",
+      entityId: (inserted as { id?: string })?.id ?? null,
+      correlationId,
+      metadata: { duration_ms: elapsed(), fallback_used: aiFallbackUsed },
+    });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return inserted;
