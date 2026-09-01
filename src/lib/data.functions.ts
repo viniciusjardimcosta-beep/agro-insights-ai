@@ -53,6 +53,11 @@ export const upsertProperty = createServerFn({ method: "POST" })
     }
     const { error } = await context.supabase.from("properties").upsert(row);
     if (error) throw new Error(error.message);
+    await audit(context, data.id ? "property_updated" : "property_created", {
+      entityType: "property",
+      entityId: data.id ?? null,
+      propertyId: data.id ?? null,
+    });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
@@ -64,6 +69,7 @@ export const deleteProperty = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.from("properties").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await audit(context, "property_deleted", { entityType: "property", entityId: data.id });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
@@ -108,6 +114,11 @@ export const upsertField = createServerFn({ method: "POST" })
     const row = { ...data, user_id: context.userId };
     const { error } = await context.supabase.from("fields").upsert(row);
     if (error) throw new Error(error.message);
+    await audit(context, data.id ? "field_updated" : "field_created", {
+      entityType: "field",
+      entityId: data.id ?? null,
+      propertyId: data.property_id,
+    });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
@@ -119,6 +130,7 @@ export const deleteField = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.from("fields").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await audit(context, "field_deleted", { entityType: "field", entityId: data.id });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
@@ -161,6 +173,11 @@ export const upsertCost = createServerFn({ method: "POST" })
     const row = { ...data, user_id: context.userId };
     const { error } = await context.supabase.from("costs").upsert(row);
     if (error) throw new Error(error.message);
+    await audit(context, data.id ? "cost_updated" : "cost_created", {
+      entityType: "cost",
+      entityId: data.id ?? null,
+      propertyId: null,
+    });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
@@ -172,6 +189,7 @@ export const deleteCost = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.from("costs").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await audit(context, "cost_deleted", { entityType: "cost", entityId: data.id });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
@@ -203,6 +221,11 @@ export const upsertPrice = createServerFn({ method: "POST" })
     const row = { ...data, user_id: context.userId };
     const { error } = await context.supabase.from("prices").upsert(row);
     if (error) throw new Error(error.message);
+    await audit(context, data.id ? "price_updated" : "price_created", {
+      entityType: "price",
+      entityId: data.id ?? null,
+      propertyId: null,
+    });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
@@ -214,6 +237,7 @@ export const deletePrice = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.from("prices").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await audit(context, "price_deleted", { entityType: "price", entityId: data.id });
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
