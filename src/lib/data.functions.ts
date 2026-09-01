@@ -1,8 +1,25 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { recordAuditEvent, type AuditEventType } from "@/lib/audit.server";
 
 const NOT_FOUND = "Recurso não encontrado";
+
+// Auditoria: apenas ação + entidade. Nenhum valor financeiro, descrição ou nome.
+type Ctx = { supabase: any; userId: string };
+async function audit(
+  context: Ctx,
+  eventType: AuditEventType,
+  opts: { entityType: string; entityId?: string | null; propertyId?: string | null; durationMs?: number },
+) {
+  await recordAuditEvent(context.supabase, {
+    eventType,
+    entityType: opts.entityType,
+    entityId: opts.entityId ?? null,
+    propertyId: opts.propertyId ?? null,
+    metadata: opts.durationMs !== undefined ? { duration_ms: opts.durationMs } : {},
+  });
+}
 
 // ---------------- Properties ----------------
 export const listProperties = createServerFn({ method: "GET" })
