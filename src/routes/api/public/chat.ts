@@ -11,6 +11,8 @@ import {
   checkRateLimit,
   recordUsage,
 } from "@/lib/rate-limit.server";
+import { createCorrelationId, recordAuditEvent, startTimer } from "@/lib/audit.server";
+import { ERROR_CODES } from "@/lib/errors";
 
 function messageText(m: UIMessage): string {
   return (m.parts ?? [])
@@ -57,15 +59,47 @@ export const Route = createFileRoute("/api/public/chat")({
 
         const uiMessages = messages as UIMessage[];
 
+        // Correlaciona started → (rate_limited | timeout | failed) → completed.
+        const correlationId = createCorrelationId();
+        const elapsed = startTimer();
+        await recordAuditEvent(supabase, {
+          eventType: "ai_request_started",
+          status: "started",
+          entityType: "ai_thread",
+          entityId: threadId,
+          correlationId,
+          metadata: { source: "consultor" },
+        });
+
         // Tamanho máximo da mensagem do usuário — validado antes de qualquer custo.
         const lastUser = [...uiMessages].reverse().find((m) => m.role === "user");
         if (lastUser && messageText(lastUser).length > CHAT_LIMITS.maxUserMessageChars) {
+          await recordAuditEvent(supabase, {
+            eventType: "ai_request_failed",
+            status: "failure",
+            entityType: "ai_thread",
+            entityId: threadId,
+            correlationId,
+            metadata: { error_code: ERROR_CODES.AI_MESSAGE_TOO_LONG, http_status: 413 },
+          });
           return new Response(TOO_LONG_MESSAGE, { status: 413 });
         }
 
         // Rate limit atômico (30/h, 120/dia). Se excedido, o modelo NÃO é chamado.
         const limit = await checkRateLimit(supabase, "ai_message");
         if (!limit.allowed) {
+          await recordAuditEvent(supabase, {
+            eventType: "ai_rate_limited",
+            status: "blocked",
+            entityType: "ai_thread",
+            entityId: threadId,
+            correlationId,
+            metadata: {
+              error_code: ERROR_CODES.AI_RATE_LIMITED,
+              http_status: 429,
+              scope: limit.scope ?? "hour",
+            },
+          });
           return new Response(RATE_LIMIT_MESSAGE, { status: 429 });
         }
 
@@ -161,7 +195,12 @@ ${summary}`;
           messages: await convertToModelMessages(contextMessages),
           abortSignal: abort.signal,
           onError: ({ error }) => {
-            console.error("[chat] erro no modelo", (error as Error)?.message);
+            // Somente o código técnico — nunca o prompt ou a resposta do modelo.
+            console.error("[chat] erro no modelo", {
+              error_code: ERROR_CODES.AI_FAILED,
+              correlation_id: correlationId,
+              detail: (error as Error)?.message?.slice(0, 200),
+            });
           },
         });
 
@@ -171,9 +210,26 @@ ${summary}`;
             clearTimeout(timer);
             if (abort.signal.aborted) {
               void recordUsage(supabase, "ai_timeout");
+              void recordAuditEvent(supabase, {
+                eventType: "ai_request_timeout",
+                status: "failure",
+                entityType: "ai_thread",
+                entityId: threadId,
+                correlationId,
+                metadata: { error_code: ERROR_CODES.AI_TIMEOUT, duration_ms: elapsed() },
+              });
               return AI_TIMEOUT_MESSAGE;
             }
-            return (error as Error)?.message ?? "Erro ao consultar o Consultor IA.";
+            void recordAuditEvent(supabase, {
+              eventType: "ai_request_failed",
+              status: "failure",
+              entityType: "ai_thread",
+              entityId: threadId,
+              correlationId,
+              metadata: { error_code: ERROR_CODES.AI_FAILED, duration_ms: elapsed() },
+            });
+            // Mensagem do usuário: sem stack trace, sem detalhe de infraestrutura.
+            return "Não foi possível concluir a resposta do Consultor. Tente novamente.";
           },
           onFinish: async ({ messages: finalMessages }) => {
             clearTimeout(timer);
@@ -222,8 +278,19 @@ ${summary}`;
                   .update({ updated_at: new Date().toISOString() })
                   .eq("id", threadId);
               }
+              await recordAuditEvent(supabase, {
+                eventType: "ai_request_completed",
+                entityType: "ai_thread",
+                entityId: threadId,
+                correlationId,
+                metadata: { duration_ms: elapsed(), http_status: 200 },
+              });
             } catch (e) {
-              console.error("[chat onFinish] persist error", e);
+              console.error("[chat onFinish] persist error", {
+                error_code: "PERSIST_FAILED",
+                correlation_id: correlationId,
+                detail: (e as Error)?.message?.slice(0, 200),
+              });
             }
           },
         });
