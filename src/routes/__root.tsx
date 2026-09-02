@@ -10,7 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { captureError, installBrowserMonitoring, setMonitoringUser, clearMonitoringUser } from "@/lib/monitoring";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -37,10 +37,14 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    // Erro capturado no boundary: apenas código/rota vão ao monitoramento.
+    // O stack trace NUNCA é renderizado para o usuário.
+    captureError(error, {
+      route: typeof window !== "undefined" ? window.location.pathname : undefined,
+      source: "tanstack_root_error_component",
+    });
   }, [error]);
 
   return (
@@ -125,13 +129,22 @@ function RootComponent() {
 
   const router = useRouter();
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    installBrowserMonitoring();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setMonitoringUser({ id: data.user.id });
+    });
+  }, []);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // Only react to real identity transitions. TOKEN_REFRESHED (~hourly + focus)
       // and INITIAL_SESSION (every mount) otherwise thrash the router/cache.
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       if (event === "SIGNED_OUT") {
+        clearMonitoringUser();
         queryClient.clear();
       } else {
+        if (session?.user) setMonitoringUser({ id: session.user.id });
         queryClient.invalidateQueries();
       }
       router.invalidate();

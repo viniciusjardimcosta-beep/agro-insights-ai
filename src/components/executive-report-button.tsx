@@ -10,6 +10,9 @@ import { latestDiagnostic } from "@/lib/diagnostics.functions";
 import { listScenarios, type SimulatedScenarioRow } from "@/lib/scenarios.functions";
 import { generateExecutiveReport } from "@/lib/report";
 import type { CostRow, FieldRow, PriceRow } from "@/lib/calc";
+import { logClientAuditEvent } from "@/lib/audit.functions";
+import { captureError } from "@/lib/monitoring";
+import { ERROR_CODES, toUserMessage } from "@/lib/errors";
 
 type Props = {
   size?: "sm" | "default" | "lg";
@@ -35,6 +38,8 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
   async function run() {
     if (busy) return;
     setBusy(true);
+    const correlationId = crypto.randomUUID();
+    const startedAt = Date.now();
     try {
       // Prefer cached data — avoid duplicate queries.
       const [snapshot, latest, scenarios, { data: userData }] = await Promise.all([
