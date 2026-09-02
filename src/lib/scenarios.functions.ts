@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { recordAuditEvent } from "@/lib/audit.server";
 
 export type Json =
   | string
@@ -68,6 +69,14 @@ export const createScenario = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    // Auditoria: apenas a ação. Nenhum número simulado ou snapshot é gravado.
+    await recordAuditEvent(context.supabase, {
+      eventType: "scenario_created",
+      entityType: "scenario",
+      entityId: (inserted as { id?: string })?.id ?? null,
+      propertyId: data.property_id ?? null,
+      metadata: { source: "simulador" },
+    });
     return inserted as unknown as SimulatedScenarioRow;
   });
 
@@ -80,5 +89,11 @@ export const deleteScenario = createServerFn({ method: "POST" })
       .delete()
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await recordAuditEvent(context.supabase, {
+      eventType: "scenario_deleted",
+      entityType: "scenario",
+      entityId: data.id,
+      metadata: { source: "simulador" },
+    });
     return { ok: true };
   });
