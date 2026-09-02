@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { logClientAuditEvent } from "@/lib/audit.functions";
+import { captureMessage, setMonitoringUser } from "@/lib/monitoring";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -46,8 +48,16 @@ function AuthPage() {
       password: String(fd.get("password")),
     });
     setLoading(false);
-    if (error) toast.error("Não foi possível entrar", { description: error.message });
-    else toast.success("Bem-vindo de volta!");
+    if (error) {
+      // login_failure: apenas o código do erro. Nunca e-mail, senha ou token.
+      captureMessage("login_failure", { errorCode: "AUTH_SIGN_IN_FAILED", route: "/auth" });
+      toast.error("Não foi possível entrar", { description: error.message });
+      return;
+    }
+    const { data: sessionData } = await supabase.auth.getUser();
+    if (sessionData.user) setMonitoringUser({ id: sessionData.user.id });
+    void logClientAuditEvent({ data: { eventType: "login_success", source: "auth" } }).catch(() => {});
+    toast.success("Bem-vindo de volta!");
   }
 
   async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {

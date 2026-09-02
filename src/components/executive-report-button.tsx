@@ -10,6 +10,9 @@ import { latestDiagnostic } from "@/lib/diagnostics.functions";
 import { listScenarios, type SimulatedScenarioRow } from "@/lib/scenarios.functions";
 import { generateExecutiveReport } from "@/lib/report";
 import type { CostRow, FieldRow, PriceRow } from "@/lib/calc";
+import { logClientAuditEvent } from "@/lib/audit.functions";
+import { captureError } from "@/lib/monitoring";
+import { ERROR_CODES, toUserMessage } from "@/lib/errors";
 
 type Props = {
   size?: "sm" | "default" | "lg";
@@ -35,6 +38,8 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
   async function run() {
     if (busy) return;
     setBusy(true);
+    const correlationId = crypto.randomUUID();
+    const startedAt = Date.now();
     try {
       // Prefer cached data — avoid duplicate queries.
       const [snapshot, latest, scenarios, { data: userData }] = await Promise.all([
@@ -77,10 +82,32 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
         scenarios: (scenarios as SimulatedScenarioRow[]) ?? [],
         producerName,
       });
+      void logClientAuditEvent({
+        data: {
+          eventType: "executive_report_generated",
+          source: "relatorio",
+          correlationId,
+          metadata: { duration_ms: Date.now() - startedAt },
+        },
+      }).catch(() => {});
       toast.success("Relatório gerado!");
     } catch (e) {
-      console.error("[relatorio-executivo] falha ao gerar", e);
-      toast.error("Erro ao gerar relatório", { description: (e as Error).message });
+      captureError(e, {
+        errorCode: ERROR_CODES.REPORT_FAILED,
+        route: "/relatorios",
+        correlationId,
+        source: "relatorio",
+      });
+      void logClientAuditEvent({
+        data: {
+          eventType: "executive_report_failed",
+          status: "failure",
+          source: "relatorio",
+          correlationId,
+          metadata: { error_code: ERROR_CODES.REPORT_FAILED, duration_ms: Date.now() - startedAt },
+        },
+      }).catch(() => {});
+      toast.error("Erro ao gerar relatório", { description: toUserMessage(e) });
     } finally {
       if (mounted.current) setBusy(false);
     }
