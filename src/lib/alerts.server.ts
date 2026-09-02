@@ -11,6 +11,7 @@ import {
   reconcileAlerts,
   type ExistingAlert,
 } from "@/lib/alerts-rules";
+import { recordAuditEvent } from "@/lib/audit.server";
 
 type DB = SupabaseClient<Database>;
 
@@ -71,6 +72,23 @@ async function runSync(supabase: DB, userId: string) {
       .update(u.patch as never)
       .eq("id", u.id);
     if (error) throw new Error(error.message);
+    // Auditoria de transições relevantes (sem conteúdo do alerta).
+    const nextStatus = u.patch['status'] as string | undefined;
+    if (nextStatus === "resolved") {
+      await recordAuditEvent(supabase, {
+        eventType: "alert_resolved_automatically",
+        entityType: "alert",
+        entityId: u.id,
+        metadata: { source: "alerts_sync" },
+      });
+    } else if (nextStatus === "active") {
+      await recordAuditEvent(supabase, {
+        eventType: "alert_reactivated",
+        entityType: "alert",
+        entityId: u.id,
+        metadata: { source: "alerts_sync" },
+      });
+    }
   }
 
   return { created: inserts.length, updated: updates.length };
