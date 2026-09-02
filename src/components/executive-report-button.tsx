@@ -77,10 +77,32 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
         scenarios: (scenarios as SimulatedScenarioRow[]) ?? [],
         producerName,
       });
+      void logClientAuditEvent({
+        data: {
+          eventType: "executive_report_generated",
+          source: "relatorio",
+          correlationId,
+          metadata: { duration_ms: Date.now() - startedAt },
+        },
+      }).catch(() => {});
       toast.success("Relatório gerado!");
     } catch (e) {
-      console.error("[relatorio-executivo] falha ao gerar", e);
-      toast.error("Erro ao gerar relatório", { description: (e as Error).message });
+      captureError(e, {
+        errorCode: ERROR_CODES.REPORT_FAILED,
+        route: "/relatorios",
+        correlationId,
+        source: "relatorio",
+      });
+      void logClientAuditEvent({
+        data: {
+          eventType: "executive_report_failed",
+          status: "failure",
+          source: "relatorio",
+          correlationId,
+          metadata: { error_code: ERROR_CODES.REPORT_FAILED, duration_ms: Date.now() - startedAt },
+        },
+      }).catch(() => {});
+      toast.error("Erro ao gerar relatório", { description: toUserMessage(e) });
     } finally {
       if (mounted.current) setBusy(false);
     }

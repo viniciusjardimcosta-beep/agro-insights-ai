@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { listAlerts } from "@/lib/alerts.functions";
 import { countUnacknowledged } from "@/lib/alerts-rules";
 import { supabase } from "@/integrations/supabase/client";
+import { logClientAuditEvent } from "@/lib/audit.functions";
+import { clearMonitoringUser } from "@/lib/monitoring";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -40,6 +42,9 @@ function AuthLayout() {
   const alertCount = countUnacknowledged((alertsQ.data ?? []) as unknown as { status: "active" | "acknowledged" | "resolved" }[]);
 
   async function logout() {
+    // Auditoria antes do signOut: depois o token deixa de existir.
+    await logClientAuditEvent({ data: { eventType: "logout", source: "sidebar" } }).catch(() => {});
+    clearMonitoringUser();
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
