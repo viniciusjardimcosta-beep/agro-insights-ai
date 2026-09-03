@@ -22,6 +22,7 @@ import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
 import { Route as AuthenticatedConsultorRouteImport } from './routes/_authenticated/consultor'
+import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
 import { Route as ApiPublicChatRouteImport } from './routes/api/public/chat'
 import { Route as AuthenticatedConsultorThreadIdRouteImport } from './routes/_authenticated/consultor.$threadId'
@@ -93,6 +94,12 @@ const AuthenticatedConsultorRoute = AuthenticatedConsultorRouteImport.update({
   path: '/consultor',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedConfiguracoesRoute =
+  AuthenticatedConfiguracoesRouteImport.update({
+    id: '/configuracoes',
+    path: '/configuracoes',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAlertasRoute = AuthenticatedAlertasRouteImport.update({
   id: '/alertas',
   path: '/alertas',
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/alertas': typeof AuthenticatedAlertasRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -131,6 +139,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/alertas': typeof AuthenticatedAlertasRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -150,6 +159,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
+  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/_authenticated/custos': typeof AuthenticatedCustosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/alertas'
+    | '/configuracoes'
     | '/consultor'
     | '/custos'
     | '/dashboard'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/alertas'
+    | '/configuracoes'
     | '/consultor'
     | '/custos'
     | '/dashboard'
@@ -204,6 +216,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/alertas'
+    | '/_authenticated/configuracoes'
     | '/_authenticated/consultor'
     | '/_authenticated/custos'
     | '/_authenticated/dashboard'
@@ -318,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConsultorRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/alertas': {
       id: '/_authenticated/alertas'
       path: '/alertas'
@@ -358,6 +378,7 @@ const AuthenticatedConsultorRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
+  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedConsultorRoute: typeof AuthenticatedConsultorRouteWithChildren
   AuthenticatedCustosRoute: typeof AuthenticatedCustosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -372,6 +393,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAlertasRoute: AuthenticatedAlertasRoute,
+  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedConsultorRoute: AuthenticatedConsultorRouteWithChildren,
   AuthenticatedCustosRoute: AuthenticatedCustosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
