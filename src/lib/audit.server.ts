@@ -53,6 +53,15 @@ export const AUDIT_EVENTS = [
   "alert_acknowledged",
   "alert_resolved_automatically",
   "alert_reactivated",
+  // LGPD / conta
+  "data_export_started",
+  "data_export_completed",
+  "data_export_failed",
+  "account_deletion_started",
+  "account_deletion_completed",
+  "account_deletion_failed",
+  "terms_accepted",
+  "privacy_accepted",
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENTS)[number];
