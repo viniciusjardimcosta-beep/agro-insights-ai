@@ -9,6 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { logClientAuditEvent } from "@/lib/audit.functions";
 import { captureMessage, setMonitoringUser } from "@/lib/monitoring";
+import { Checkbox } from "@/components/ui/checkbox";
+import { acceptLegalTerms } from "@/lib/account.functions";
+import { PRIVACY_VERSION, TERMS_VERSION } from "@/lib/privacy";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -24,6 +27,8 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  // Checkbox NUNCA pré-marcado: o aceite é ação explícita do usuário.
+  const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -57,14 +62,26 @@ function AuthPage() {
     const { data: sessionData } = await supabase.auth.getUser();
     if (sessionData.user) setMonitoringUser({ id: sessionData.user.id });
     void logClientAuditEvent({ data: { eventType: "login_success", source: "auth" } }).catch(() => {});
+    if (window.localStorage.getItem("agrointel.pending_terms_accept")) {
+      window.localStorage.removeItem("agrointel.pending_terms_accept");
+      void acceptLegalTerms({
+        data: { termsVersion: TERMS_VERSION, privacyVersion: PRIVACY_VERSION },
+      }).catch(() => {});
+    }
     toast.success("Bem-vindo de volta!");
   }
 
   async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    if (!accepted) {
+      toast.error("Aceite necessário", {
+        description: "É preciso concordar com os Termos de Uso e a Política de Privacidade.",
+      });
+      return;
+    }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: String(fd.get("email")),
       password: String(fd.get("password")),
       options: {
@@ -73,8 +90,20 @@ function AuthPage() {
       },
     });
     setLoading(false);
-    if (error) toast.error("Não foi possível criar a conta", { description: error.message });
-    else toast.success("Conta criada!", { description: "Faça login para continuar." });
+    if (error) {
+      toast.error("Não foi possível criar a conta", { description: error.message });
+      return;
+    }
+    // Quando a sessão já vem no cadastro, o aceite é gravado imediatamente.
+    if (signUpData.session) {
+      await acceptLegalTerms({
+        data: { termsVersion: TERMS_VERSION, privacyVersion: PRIVACY_VERSION },
+      }).catch(() => {});
+    } else {
+      // Sem sessão (confirmação por e-mail): grava no primeiro login.
+      window.localStorage.setItem("agrointel.pending_terms_accept", "1");
+    }
+    toast.success("Conta criada!", { description: "Faça login para continuar." });
   }
 
   return (
@@ -139,7 +168,25 @@ function AuthPage() {
                   <Label htmlFor="su-password">Senha</Label>
                   <Input id="su-password" name="password" type="password" minLength={6} required autoComplete="new-password" />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="su-terms"
+                    checked={accepted}
+                    onCheckedChange={(v) => setAccepted(v === true)}
+                  />
+                  <Label htmlFor="su-terms" className="text-sm font-normal leading-snug">
+                    Li e concordo com os{" "}
+                    <a href="/termos" target="_blank" rel="noreferrer" className="text-primary underline">
+                      Termos de Uso
+                    </a>{" "}
+                    e a{" "}
+                    <a href="/privacidade" target="_blank" rel="noreferrer" className="text-primary underline">
+                      Política de Privacidade
+                    </a>
+                    .
+                  </Label>
+                </div>
+                <Button type="submit" className="w-full" disabled={loading || !accepted}>
                   {loading ? "Criando..." : "Criar conta"}
                 </Button>
               </form>
