@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing } from "lucide-react";
+import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing, Settings } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { listAlerts } from "@/lib/alerts.functions";
 import { countUnacknowledged } from "@/lib/alerts-rules";
@@ -32,6 +32,7 @@ const NAV = [
   { to: "/diagnostico", label: "Diagnóstico", icon: Activity },
   { to: "/simulador", label: "Simulador", icon: FlaskConical },
   { to: "/consultor", label: "Consultor IA", icon: Bot },
+  { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
 function AuthLayout() {
