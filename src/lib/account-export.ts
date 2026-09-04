@@ -26,7 +26,8 @@ export const FORBIDDEN_EXPORT_KEYS = [
 
 const FORBIDDEN = new Set<string>(FORBIDDEN_EXPORT_KEYS as readonly string[]);
 
-type Row = Record<string, unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 
 export function stripForbidden<T extends Row>(row: T): Row {
   const out: Row = {};
