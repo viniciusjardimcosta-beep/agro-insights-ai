@@ -50,6 +50,10 @@ export const createScenario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => createInput.parse(input))
   .handler(async ({ context, data }) => {
+    const { requireEntitlement } = await import("@/lib/subscription.server");
+    const { FEATURES } = await import("@/lib/entitlements");
+    await requireEntitlement(context.supabase, FEATURES.SIMULATOR);
+
     if (data.property_id) {
       const { data: prop } = await context.supabase
         .from("properties").select("id").eq("id", data.property_id).maybeSingle();

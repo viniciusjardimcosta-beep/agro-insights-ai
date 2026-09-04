@@ -233,6 +233,12 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       correlationId,
     });
 
+    // Ordem obrigatória: autenticação -> entitlement -> validação -> rate limit -> IA.
+    // Sem entitlement, NENHUMA quota de IA é consumida.
+    const { requireEntitlement } = await import("@/lib/subscription.server");
+    const { FEATURES } = await import("@/lib/entitlements");
+    await requireEntitlement(context.supabase, FEATURES.DIAGNOSTIC, correlationId);
+
     const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 

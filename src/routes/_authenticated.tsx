@@ -9,6 +9,7 @@ import { logClientAuditEvent } from "@/lib/audit.functions";
 import { clearMonitoringUser } from "@/lib/monitoring";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useSubscription } from "@/hooks/use-subscription";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -113,6 +114,7 @@ function AuthLayout() {
 
       <main className="md:ml-64">
         <div className="container mx-auto max-w-7xl px-4 py-6 pb-24 md:px-8 md:pb-10">
+          <SubscriptionBanner />
           <Outlet />
         </div>
       </main>
@@ -146,4 +148,40 @@ function AuthLayout() {
       </nav>
     </div>
   );
+}
+/**
+ * Aviso de assinatura. Apenas UX: a autorização real é server-side e usa os
+ * timestamps do servidor (`serverNow`), nunca o relógio do navegador.
+ */
+function SubscriptionBanner() {
+  const { access } = useSubscription();
+  if (!access) return null;
+
+  if (access.accessLevel !== "full") {
+    return (
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+        <p className="text-sm font-medium">
+          Seu teste terminou. Os recursos premium estão bloqueados — seus dados continuam disponíveis.
+        </p>
+        <Button size="sm" asChild>
+          <Link to="/configuracoes/assinatura">Ver assinatura</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (access.isTrial && access.trialDaysRemaining <= 3) {
+    return (
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/50 p-4">
+        <p className="text-sm font-medium">
+          Teste gratuito: {access.trialDaysRemaining === 1 ? "1 dia restante" : `${access.trialDaysRemaining} dias restantes`}.
+        </p>
+        <Button size="sm" variant="outline" asChild>
+          <Link to="/configuracoes/assinatura">Ver assinatura</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return null;
 }

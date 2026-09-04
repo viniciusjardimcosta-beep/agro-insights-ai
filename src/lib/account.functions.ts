@@ -29,7 +29,7 @@ export const exportMyData = createServerFn({ method: "POST" })
     });
 
     try {
-      const [profile, properties, fields, costs, prices, diagnostics, scenarios, alerts, threads, messages] =
+      const [profile, properties, fields, costs, prices, diagnostics, scenarios, alerts, threads, messages, subscription] =
         await Promise.all([
           sb.from("profiles").select("*").eq("id", context.userId).maybeSingle(),
           sb.from("properties").select("*").order("created_at", { ascending: true }),
@@ -41,6 +41,7 @@ export const exportMyData = createServerFn({ method: "POST" })
           sb.from("intelligence_alerts").select("*").order("created_at", { ascending: true }),
           sb.from("ai_threads").select("*").order("created_at", { ascending: true }),
           sb.from("ai_messages").select("*").order("created_at", { ascending: true }),
+          sb.from("subscriptions").select("*").maybeSingle(),
         ]);
 
       const src: ExportSource = {
@@ -54,6 +55,7 @@ export const exportMyData = createServerFn({ method: "POST" })
         alerts: alerts.data as ExportSource["alerts"],
         threads: threads.data as ExportSource["threads"],
         messages: messages.data as ExportSource["messages"],
+        subscription: (subscription.data ?? null) as ExportSource["subscription"],
       };
 
       const payload = buildExportPayload(src);

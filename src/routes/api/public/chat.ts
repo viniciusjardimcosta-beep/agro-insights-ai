@@ -71,6 +71,31 @@ export const Route = createFileRoute("/api/public/chat")({
           metadata: { source: "consultor" },
         });
 
+        // Entitlement comercial ANTES de qualquer custo ou consumo de quota.
+        {
+          const { getSubscriptionAccess } = await import("@/lib/subscription.server");
+          const { hasEntitlement, blockedMessage, blockedReason, FEATURES } = await import(
+            "@/lib/entitlements"
+          );
+          const access = await getSubscriptionAccess(supabase);
+          if (!hasEntitlement(access, FEATURES.AI_CONSULTANT)) {
+            await recordAuditEvent(supabase, {
+              eventType: "subscription_access_denied",
+              status: "blocked",
+              entityType: "ai_thread",
+              entityId: threadId,
+              correlationId,
+              metadata: {
+                error_code: blockedReason(access),
+                http_status: 402,
+                operation: FEATURES.AI_CONSULTANT,
+              },
+            });
+            // 402 é distinto de 429 (rate limit) — nenhuma quota foi consumida.
+            return new Response(blockedMessage(access), { status: 402 });
+          }
+        }
+
         // Tamanho máximo da mensagem do usuário — validado antes de qualquer custo.
         const lastUser = [...uiMessages].reverse().find((m) => m.role === "user");
         if (lastUser && messageText(lastUser).length > CHAT_LIMITS.maxUserMessageChars) {
