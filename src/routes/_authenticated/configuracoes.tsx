@@ -13,6 +13,8 @@ import { exportFileName } from "@/lib/account-export";
 import { clearMonitoringUser } from "@/lib/monitoring";
 import { toUserMessage } from "@/lib/errors";
 import { LEGAL_DISCLAIMER, PRIVACY_CONTACT } from "@/lib/privacy";
+import { useSubscription } from "@/hooks/use-subscription";
+import { CreditCard } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -88,6 +90,8 @@ function SettingsPage() {
         <p className="text-muted-foreground">Portabilidade, privacidade e encerramento da conta.</p>
       </div>
 
+      <SubscriptionSummaryCard />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -154,5 +158,33 @@ function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Resumo do acesso; o detalhe fica em /configuracoes/assinatura. */
+function SubscriptionSummaryCard() {
+  const { access, isLoading } = useSubscription();
+  const label = !access
+    ? "Carregando…"
+    : access.isTrial
+      ? `Teste gratuito — ${access.trialDaysRemaining === 1 ? "1 dia restante" : `${access.trialDaysRemaining} dias restantes`}`
+      : access.accessLevel === "full"
+        ? "Plano Pro — ativo"
+        : "Sem acesso premium";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5" /> Assinatura
+        </CardTitle>
+        <CardDescription>{isLoading ? "Carregando seu status…" : label}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant="outline" asChild>
+          <Link to="/configuracoes/assinatura">Ver assinatura</Link>
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

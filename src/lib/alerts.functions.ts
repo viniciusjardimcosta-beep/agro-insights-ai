@@ -19,6 +19,10 @@ export const listAlerts = createServerFn({ method: "GET" })
 export const syncAlerts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { requireEntitlement } = await import("@/lib/subscription.server");
+    const { FEATURES } = await import("@/lib/entitlements");
+    await requireEntitlement(context.supabase, FEATURES.ALERTS);
+
     const { syncAlertsFor } = await import("@/lib/alerts.server");
     return syncAlertsFor(context.supabase, context.userId);
   });

@@ -61,6 +61,10 @@ export const AUDIT_EVENTS = [
   "account_deletion_completed",
   "account_deletion_failed",
   "terms_accepted",
+  // Assinatura / entitlements
+  "trial_started",
+  "trial_expired",
+  "subscription_access_denied",
   "privacy_accepted",
 ] as const;
 

@@ -22,6 +22,10 @@ export const FORBIDDEN_EXPORT_KEYS = [
   "password",
   "senha",
   "secret",
+  // Identificadores internos de gateway não interessam ao titular.
+  "provider",
+  "provider_customer_id",
+  "provider_subscription_id",
 ] as const;
 
 const FORBIDDEN = new Set<string>(FORBIDDEN_EXPORT_KEYS as readonly string[]);
@@ -51,6 +55,8 @@ export type ExportSource = {
   alerts: Row[] | null;
   threads: Row[] | null;
   messages: Row[] | null;
+  /** Assinatura do titular — sem identificadores internos de gateway. */
+  subscription?: Row | null;
 };
 
 export type ExportPayload = {
@@ -65,6 +71,7 @@ export type ExportPayload = {
   scenarios: Row[];
   alerts: Row[];
   ai_threads: Row[];
+  subscription: Row | null;
 };
 
 /** Monta o JSON estruturado e versionado entregue ao usuário. */
@@ -97,6 +104,7 @@ export function buildExportPayload(src: ExportSource, generatedAt = new Date().t
     scenarios: clean(src.scenarios),
     alerts: clean(src.alerts),
     ai_threads: threads,
+    subscription: src.subscription ? stripForbidden(src.subscription) : null,
   };
 }
 
