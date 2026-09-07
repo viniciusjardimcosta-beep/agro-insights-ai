@@ -9,6 +9,9 @@ import { getFarmSnapshot } from "@/lib/data.functions";
 import { latestDiagnostic } from "@/lib/diagnostics.functions";
 import { listScenarios, type SimulatedScenarioRow } from "@/lib/scenarios.functions";
 import { generateExecutiveReport } from "@/lib/report";
+import { getMySubscription } from "@/lib/subscription.functions";
+import { FEATURES } from "@/lib/entitlements";
+import { assertEntitlement } from "@/lib/premium-guard";
 import type { CostRow, FieldRow, PriceRow } from "@/lib/calc";
 import { logClientAuditEvent } from "@/lib/audit.functions";
 import { captureError } from "@/lib/monitoring";
@@ -25,6 +28,7 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
   const getSnapshot = useServerFn(getFarmSnapshot);
   const getLatest = useServerFn(latestDiagnostic);
   const getScenarios = useServerFn(listScenarios);
+  const getSubscription = useServerFn(getMySubscription);
   const [busy, setBusy] = useState(false);
   const mounted = useRef(true);
 
@@ -41,6 +45,10 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
     const correlationId = crypto.randomUUID();
     const startedAt = Date.now();
     try {
+      // Entitlement primeiro: estado vindo do servidor, no momento do clique.
+      const access = await getSubscription();
+      assertEntitlement(access, FEATURES.EXECUTIVE_REPORT);
+
       // Prefer cached data — avoid duplicate queries.
       const [snapshot, latest, scenarios, { data: userData }] = await Promise.all([
         qc.ensureQueryData({ queryKey: ["farm-snapshot"], queryFn: () => getSnapshot() }),
@@ -81,6 +89,7 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
         latestDiagnostic: (latest as never) ?? null,
         scenarios: (scenarios as SimulatedScenarioRow[]) ?? [],
         producerName,
+        access,
       });
       void logClientAuditEvent({
         data: {

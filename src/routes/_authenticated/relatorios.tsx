@@ -4,12 +4,18 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getFarmSnapshot } from "@/lib/data.functions";
 import { aggregateFarm, BRL, NUM } from "@/lib/calc";
+import { PremiumRouteGuard } from "@/components/premium-route-guard";
+import { FEATURES } from "@/lib/entitlements";
 
 const q = queryOptions({ queryKey: ["farm-snapshot"], queryFn: () => getFarmSnapshot() });
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   head: () => ({ meta: [{ title: "Relatórios — AgroIntel AI" }] }),
-  component: Page,
+  component: () => (
+    <PremiumRouteGuard feature={FEATURES.EXECUTIVE_REPORT}>
+      <Page />
+    </PremiumRouteGuard>
+  ),
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
 

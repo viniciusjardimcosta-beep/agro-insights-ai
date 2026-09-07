@@ -6,12 +6,18 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createThread, deleteThread, listThreads } from "@/lib/threads.functions";
+import { PremiumRouteGuard } from "@/components/premium-route-guard";
+import { FEATURES } from "@/lib/entitlements";
 
 const q = queryOptions({ queryKey: ["threads"], queryFn: () => listThreads() });
 
 export const Route = createFileRoute("/_authenticated/consultor")({
   head: () => ({ meta: [{ title: "Consultor IA — AgroIntel AI" }] }),
-  component: Page,
+  component: () => (
+    <PremiumRouteGuard feature={FEATURES.AI_CONSULTANT}>
+      <Page />
+    </PremiumRouteGuard>
+  ),
   errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
 });
 

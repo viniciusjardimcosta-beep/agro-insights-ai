@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { acknowledgeAlert, listAlerts, syncAlerts } from "@/lib/alerts.functions";
 import { durationLabel, type AlertStatus } from "@/lib/alerts-rules";
+import { PremiumRouteGuard } from "@/components/premium-route-guard";
+import { FEATURES } from "@/lib/entitlements";
 
 export const Route = createFileRoute("/_authenticated/alertas")({
   head: () => ({
@@ -28,7 +30,11 @@ export const Route = createFileRoute("/_authenticated/alertas")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: AlertasPage,
+  component: () => (
+    <PremiumRouteGuard feature={FEATURES.ALERTS}>
+      <AlertasPage />
+    </PremiumRouteGuard>
+  ),
   errorComponent: ({ error }) => (
     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
       Erro: {error.message}

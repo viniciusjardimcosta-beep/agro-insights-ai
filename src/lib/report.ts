@@ -8,6 +8,8 @@ import autoTable from "jspdf-autotable";
 import { BRL, NUM, aggregateFarm, type CostRow, type FieldRow, type PriceRow } from "@/lib/calc";
 import type { DiagnosticReport } from "@/lib/diagnostics.functions";
 import type { SimulatedScenarioRow } from "@/lib/scenarios.functions";
+import { FEATURES, type SubscriptionAccess } from "@/lib/entitlements";
+import { assertEntitlement } from "@/lib/premium-guard";
 
 export const REPORT_VERSION = "1.0";
 
@@ -33,6 +35,11 @@ export type ExecutiveReportInput = {
   latestDiagnostic?: DiagnosticRow | null;
   scenarios?: SimulatedScenarioRow[];
   producerName?: string | null;
+  /**
+   * Estado da assinatura vindo do servidor. Obrigatório: qualquer chamada
+   * programática deste gerador passa pelo mesmo guard comercial do botão.
+   */
+  access: SubscriptionAccess | null;
 };
 
 // -------------------- helpers --------------------
@@ -77,6 +84,10 @@ function hasUsefulSeries(data: { value: number }[]): boolean {
 
 // -------------------- main --------------------
 export function generateExecutiveReport(input: ExecutiveReportInput): void {
+  // Guard comercial ANTES de qualquer trabalho: sem entitlement não há PDF,
+  // mesmo que alguém chame esta função direto pelo console.
+  assertEntitlement(input.access, FEATURES.EXECUTIVE_REPORT);
+
   const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();

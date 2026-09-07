@@ -21,10 +21,16 @@ import {
   type DiagnosticReport,
 } from "@/lib/diagnostics.functions";
 import { ExecutiveReportButton } from "@/components/executive-report-button";
+import { PremiumRouteGuard } from "@/components/premium-route-guard";
+import { FEATURES } from "@/lib/entitlements";
 
 export const Route = createFileRoute("/_authenticated/diagnostico")({
   head: () => ({ meta: [{ title: "Diagnóstico — AgroIntel AI" }] }),
-  component: DiagnosticoPage,
+  component: () => (
+    <PremiumRouteGuard feature={FEATURES.DIAGNOSTIC}>
+      <DiagnosticoPage />
+    </PremiumRouteGuard>
+  ),
   errorComponent: ({ error }) => (
     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
       Erro: {error.message}
