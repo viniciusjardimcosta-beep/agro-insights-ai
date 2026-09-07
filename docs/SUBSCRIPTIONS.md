@@ -131,3 +131,31 @@ nenhum payload.
 3. Checkout a partir do CTA "Ver planos".
 4. Eventos `subscription_activated`, `subscription_renewed`,
    `subscription_canceled`, `payment_failed`.
+
+## Hardening final (pré-pagamentos)
+
+| Recurso | Proteção UI | Proteção server-side | Natureza da operação |
+| --- | --- | --- | --- |
+| Diagnóstico por IA | `PremiumRouteGuard` em `/diagnostico` | `requireEntitlement` em `generateDiagnostic` | server function + IA paga |
+| Consultor IA | `PremiumRouteGuard` em `/consultor` (cobre `/consultor/$threadId`) | guard 402 em `POST /api/public/chat` | rota HTTP + IA paga |
+| Simulador | `PremiumRouteGuard` em `/simulador` | `requireEntitlement` em `createScenario` | cálculo client-side + gravação server-side |
+| Alertas inteligentes | `PremiumRouteGuard` em `/alertas` | `requireEntitlement` em `syncAlerts` | geração/gravação server-side |
+| Central de Inteligência | `PremiumRouteGuard` em `/inteligencia` | não aplicável (sem operação server-side própria) | agregação client-side de dados já acessíveis |
+| Relatório Executivo PDF | `PremiumRouteGuard` em `/relatorios` | `getMySubscription()` (servidor) + `assertEntitlement` dentro de `generateExecutiveReport` | geração client-side com estado de assinatura obrigatório |
+
+**Não existe recurso premium executável que dependa somente de esconder botão.**
+
+- `acknowledgeAlert`, `listAlerts`, `listScenarios`, `deleteScenario`,
+  `listDiagnostics`/`latestDiagnostic` e todo o CRUD da fazenda permanecem
+  livres: são leitura/gestão de dados do próprio usuário.
+- Central de Inteligência: a proteção é de produto/UX, porque os dados-base
+  (talhões, custos, preços, diagnósticos salvos) continuam legitimamente
+  acessíveis pelas telas gratuitas. Nenhuma API artificial foi criada só para
+  bloquear; o guard evita montar a tela e disparar as consultas dela.
+- `PremiumRouteGuard` (`src/components/premium-route-guard.tsx`) é a estratégia
+  central: mostra carregamento enquanto valida, libera trial/ativa e exibe
+  paywall consistente para vencida/cancelada/pendente.
+- Fonte de verdade única: `subscriptions` + entitlement engine. Sem
+  localStorage, cookie, flag em `profiles` ou novo status comercial.
+- Ao trocar de conta o cache é limpo (`queryClient.clear()` no logout,
+  `invalidateQueries()` no login), então estados de assinatura não se misturam.

@@ -32,10 +32,16 @@ import {
   type SimulatedScenarioRow,
 } from "@/lib/scenarios.functions";
 import { ExecutiveReportButton } from "@/components/executive-report-button";
+import { PremiumRouteGuard } from "@/components/premium-route-guard";
+import { FEATURES } from "@/lib/entitlements";
 
 export const Route = createFileRoute("/_authenticated/simulador")({
   head: () => ({ meta: [{ title: "Simulador — AgroIntel AI" }] }),
-  component: SimuladorPage,
+  component: () => (
+    <PremiumRouteGuard feature={FEATURES.SIMULATOR}>
+      <SimuladorPage />
+    </PremiumRouteGuard>
+  ),
   errorComponent: ({ error }) => (
     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
       Erro: {error.message}

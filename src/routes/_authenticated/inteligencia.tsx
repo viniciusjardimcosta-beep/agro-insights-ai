@@ -31,6 +31,8 @@ import {
   type DiagnosticLite,
   type ScenarioLite,
 } from "@/lib/intelligence";
+import { PremiumRouteGuard } from "@/components/premium-route-guard";
+import { FEATURES } from "@/lib/entitlements";
 
 export const Route = createFileRoute("/_authenticated/inteligencia")({
   head: () => ({
@@ -50,7 +52,11 @@ export const Route = createFileRoute("/_authenticated/inteligencia")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: InteligenciaPage,
+  component: () => (
+    <PremiumRouteGuard feature={FEATURES.INTELLIGENCE}>
+      <InteligenciaPage />
+    </PremiumRouteGuard>
+  ),
   errorComponent: ({ error }) => (
     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
       Erro: {error.message}
