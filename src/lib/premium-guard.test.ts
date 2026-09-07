@@ -127,7 +127,7 @@ describe("guard server-side vem antes do rate limit", () => {
   async function fakeSupabase(sub: SubscriptionRow | null) {
     return {
       from: () => ({ select: () => ({ maybeSingle: async () => ({ data: sub, error: null }) }) }),
-      rpc: vi.fn(async () => ({ data: null, error: null })),
+      rpc: vi.fn(async (..._args: unknown[]) => ({ data: null, error: null })),
     };
   }
 
@@ -138,7 +138,7 @@ describe("guard server-side vem antes do rate limit", () => {
       requireEntitlement(sb as never, FEATURES.SIMULATOR),
     ).rejects.toMatchObject({ status: 402 });
     // a única RPC usada aqui é a de auditoria; consume_rate_limit nunca é chamada
-    const calls = sb.rpc.mock.calls.map((c) => c[0]);
+    const calls = sb.rpc.mock.calls.map((c: unknown[]) => c[0]);
     expect(calls).not.toContain("consume_rate_limit");
   });
 
