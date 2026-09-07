@@ -19,8 +19,6 @@ import { listAlerts } from "@/lib/alerts.functions";
 import { listDiagnostics } from "@/lib/diagnostics.functions";
 import { listScenarios } from "@/lib/scenarios.functions";
 import {
-import { PremiumRouteGuard } from "@/components/premium-route-guard";
-import { FEATURES } from "@/lib/entitlements";
   buildIntelligenceSnapshot,
   getEvolution,
   getNextAction,
@@ -33,6 +31,8 @@ import { FEATURES } from "@/lib/entitlements";
   type DiagnosticLite,
   type ScenarioLite,
 } from "@/lib/intelligence";
+import { PremiumRouteGuard } from "@/components/premium-route-guard";
+import { FEATURES } from "@/lib/entitlements";
 
 export const Route = createFileRoute("/_authenticated/inteligencia")({
   head: () => ({
