@@ -120,6 +120,39 @@ export type Database = {
           },
         ]
       }
+      billing_events: {
+        Row: {
+          created_at: string
+          error_code: string | null
+          event_type: string
+          id: string
+          processed_at: string | null
+          provider: string
+          provider_event_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_code?: string | null
+          event_type: string
+          id?: string
+          processed_at?: string | null
+          provider: string
+          provider_event_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_code?: string | null
+          event_type?: string
+          id?: string
+          processed_at?: string | null
+          provider?: string
+          provider_event_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       costs: {
         Row: {
           amount: number

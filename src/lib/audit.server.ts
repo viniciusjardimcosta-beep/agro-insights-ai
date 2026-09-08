@@ -66,6 +66,18 @@ export const AUDIT_EVENTS = [
   "trial_expired",
   "subscription_access_denied",
   "privacy_accepted",
+  // Cobrança (Sprint 3.4B) — nunca com valores, cartão ou payload do gateway
+  "checkout_started",
+  "checkout_failed",
+  "subscription_activated",
+  "subscription_renewed",
+  "subscription_cancel_scheduled",
+  "subscription_canceled",
+  "subscription_expired",
+  "payment_failed",
+  "billing_portal_opened",
+  "webhook_invalid_signature",
+  "webhook_processing_failed",
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENTS)[number];
