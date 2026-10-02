@@ -22,7 +22,7 @@ const SUGGESTIONS = [
 export const Route = createFileRoute("/_authenticated/consultor/$threadId")({
   head: () => ({ meta: [{ title: "Consultor IA — AgroIntel AI" }] }),
   component: ThreadPage,
-  errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
 function ThreadPage() {
@@ -43,7 +43,7 @@ function ThreadPage() {
   }
 
   if (initial.error) {
-    return <p className="text-sm text-destructive">{initial.error.message}</p>;
+    return <p className="text-sm text-destructive">{(initial.error as Error).message}</p>;
   }
 
   // Map DB rows to UIMessage shape
@@ -163,7 +163,7 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
         )}
 
         {error && (() => {
-          const raw = (error.message ?? "").trim();
+          const raw = ((error as Error).message ?? "").trim();
           const friendly =
             /limite temporário de mensagens|muito longa|demorando mais que o esperado/i.test(raw);
           return (

@@ -19,7 +19,7 @@ const qProps = queryOptions({ queryKey: ["properties"], queryFn: () => listPrope
 export const Route = createFileRoute("/_authenticated/talhoes")({
   head: () => ({ meta: [{ title: "Talhões — AgroIntel AI" }] }),
   component: Page,
-  errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
 type Field = {
