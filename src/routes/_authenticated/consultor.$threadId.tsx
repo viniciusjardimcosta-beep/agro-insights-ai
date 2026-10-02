@@ -43,7 +43,7 @@ function ThreadPage() {
   }
 
   if (initial.error) {
-    return <p className="text-sm text-destructive">{initial.(error as Error).message}</p>;
+    return <p className="text-sm text-destructive">{(initial.error as Error).message}</p>;
   }
 
   // Map DB rows to UIMessage shape
