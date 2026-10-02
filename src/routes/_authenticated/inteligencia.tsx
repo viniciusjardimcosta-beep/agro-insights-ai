@@ -59,7 +59,7 @@ export const Route = createFileRoute("/_authenticated/inteligencia")({
   ),
   errorComponent: ({ error }) => (
     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-      Erro: {error.message}
+      Erro: {(error as Error).message}
     </div>
   ),
 });

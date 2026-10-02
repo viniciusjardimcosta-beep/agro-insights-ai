@@ -16,14 +16,14 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
       <Page />
     </PremiumRouteGuard>
   ),
-  errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
 function Page() {
   const { data, isLoading, error } = useQuery(q);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando relatórios...</p>;
-  if (error) return <p className="text-sm text-destructive">{error.message}</p>;
+  if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>;
 
   const snapshot = data ?? { fields: [], costs: [], prices: [], properties: [] };
   const farm = aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never);

@@ -19,7 +19,7 @@ const q = queryOptions({ queryKey: ["prices"], queryFn: () => listPrices() });
 export const Route = createFileRoute("/_authenticated/precos")({
   head: () => ({ meta: [{ title: "Preços — AgroIntel AI" }] }),
   component: Page,
-  errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
 type Price = { id: string; crop: string; price_per_bag: number; date: string };
@@ -37,7 +37,7 @@ function Page() {
   function openEdit(p: Price) { setEditing(p); setCrop(p.crop); setOpen(true); }
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando preços...</p>;
-  if (error) return <p className="text-sm text-destructive">{error.message}</p>;
+  if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

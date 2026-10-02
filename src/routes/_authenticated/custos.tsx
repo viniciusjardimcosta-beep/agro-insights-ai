@@ -21,7 +21,7 @@ const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields()
 export const Route = createFileRoute("/_authenticated/custos")({
   head: () => ({ meta: [{ title: "Custos — AgroIntel AI" }] }),
   component: Page,
-  errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
 type Cost = { id: string; field_id: string; category: string; description: string | null; amount: number; date: string; notes: string | null; fields?: { name: string; crop: string } | null };

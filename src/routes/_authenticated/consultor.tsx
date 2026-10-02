@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/consultor")({
       <Page />
     </PremiumRouteGuard>
   ),
-  errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
 function Page() {
@@ -34,7 +34,7 @@ function Page() {
   if (isChild) return <Outlet />;
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando conversas...</p>;
-  if (error) return <p className="text-sm text-destructive">{error.message}</p>;
+  if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>;
 
   async function newThread() {
     try {

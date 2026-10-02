@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
   errorComponent: ({ error }) => (
     <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-      Erro ao carregar painel: {error.message}
+      Erro ao carregar painel: {(error as Error).message}
     </div>
   ),
 });
@@ -46,7 +46,7 @@ function Dashboard() {
   const [seeding, setSeeding] = useState(false);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando painel...</p>;
-  if (error) return <p className="text-sm text-destructive">Erro ao carregar painel: {error.message}</p>;
+  if (error) return <p className="text-sm text-destructive">Erro ao carregar painel: {(error as Error).message}</p>;
 
   const snapshot = data ?? { fields: [], costs: [], prices: [], properties: [] };
   const farm = aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never);

@@ -17,7 +17,7 @@ const q = queryOptions({ queryKey: ["properties"], queryFn: () => listProperties
 export const Route = createFileRoute("/_authenticated/propriedades")({
   head: () => ({ meta: [{ title: "Propriedades — AgroIntel AI" }] }),
   component: Page,
-  errorComponent: ({ error }) => <p className="text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
 type Prop = { id: string; name: string; city: string | null; state: string | null; total_area: number };
@@ -34,7 +34,7 @@ function Page() {
   function openEdit(p: Prop) { setEditing(p); setOpen(true); }
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando propriedades...</p>;
-  if (error) return <p className="text-sm text-destructive">{error.message}</p>;
+  if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
