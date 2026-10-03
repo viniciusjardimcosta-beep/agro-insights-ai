@@ -120,6 +120,72 @@ export type Database = {
           },
         ]
       }
+      billing_checkouts: {
+        Row: {
+          checkout_url: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          plan_code: string
+          provider: string
+          provider_checkout_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checkout_url?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          plan_code: string
+          provider: string
+          provider_checkout_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checkout_url?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          plan_code?: string
+          provider?: string
+          provider_checkout_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      billing_eligibility: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          founder_eligible: boolean
+          granted_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          founder_eligible?: boolean
+          granted_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          founder_eligible?: boolean
+          granted_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       billing_events: {
         Row: {
           created_at: string
