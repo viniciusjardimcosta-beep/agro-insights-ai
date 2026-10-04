@@ -29,6 +29,9 @@ import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticate
 import { Route as ApiPublicChatRouteImport } from './routes/api/public/chat'
 import { Route as AuthenticatedConsultorThreadIdRouteImport } from './routes/_authenticated/consultor.$threadId'
 import { Route as AuthenticatedConfiguracoesAssinaturaRouteImport } from './routes/_authenticated/configuracoes.assinatura'
+import { Route as AuthenticatedAssinaturaSucessoRouteImport } from './routes/_authenticated/assinatura.sucesso'
+import { Route as AuthenticatedAssinaturaCanceladoRouteImport } from './routes/_authenticated/assinatura.cancelado'
+import { Route as ApiPublicBillingAsaasRouteImport } from './routes/api/public/billing/asaas'
 
 const TermosRoute = TermosRouteImport.update({
   id: '/termos',
@@ -135,6 +138,23 @@ const AuthenticatedConfiguracoesAssinaturaRoute =
     path: '/assinatura',
     getParentRoute: () => AuthenticatedConfiguracoesRoute,
   } as any)
+const AuthenticatedAssinaturaSucessoRoute =
+  AuthenticatedAssinaturaSucessoRouteImport.update({
+    id: '/assinatura/sucesso',
+    path: '/assinatura/sucesso',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAssinaturaCanceladoRoute =
+  AuthenticatedAssinaturaCanceladoRouteImport.update({
+    id: '/assinatura/cancelado',
+    path: '/assinatura/cancelado',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiPublicBillingAsaasRoute = ApiPublicBillingAsaasRouteImport.update({
+  id: '/api/public/billing/asaas',
+  path: '/api/public/billing/asaas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -153,9 +173,12 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/simulador': typeof AuthenticatedSimuladorRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
+  '/assinatura/cancelado': typeof AuthenticatedAssinaturaCanceladoRoute
+  '/assinatura/sucesso': typeof AuthenticatedAssinaturaSucessoRoute
   '/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
+  '/api/public/billing/asaas': typeof ApiPublicBillingAsaasRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -174,9 +197,12 @@ export interface FileRoutesByTo {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/simulador': typeof AuthenticatedSimuladorRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
+  '/assinatura/cancelado': typeof AuthenticatedAssinaturaCanceladoRoute
+  '/assinatura/sucesso': typeof AuthenticatedAssinaturaSucessoRoute
   '/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
+  '/api/public/billing/asaas': typeof ApiPublicBillingAsaasRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -197,9 +223,12 @@ export interface FileRoutesById {
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/simulador': typeof AuthenticatedSimuladorRoute
   '/_authenticated/talhoes': typeof AuthenticatedTalhoesRoute
+  '/_authenticated/assinatura/cancelado': typeof AuthenticatedAssinaturaCanceladoRoute
+  '/_authenticated/assinatura/sucesso': typeof AuthenticatedAssinaturaSucessoRoute
   '/_authenticated/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/_authenticated/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
+  '/api/public/billing/asaas': typeof ApiPublicBillingAsaasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -220,9 +249,12 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/simulador'
     | '/talhoes'
+    | '/assinatura/cancelado'
+    | '/assinatura/sucesso'
     | '/configuracoes/assinatura'
     | '/consultor/$threadId'
     | '/api/public/chat'
+    | '/api/public/billing/asaas'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -241,9 +273,12 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/simulador'
     | '/talhoes'
+    | '/assinatura/cancelado'
+    | '/assinatura/sucesso'
     | '/configuracoes/assinatura'
     | '/consultor/$threadId'
     | '/api/public/chat'
+    | '/api/public/billing/asaas'
   id:
     | '__root__'
     | '/'
@@ -263,9 +298,12 @@ export interface FileRouteTypes {
     | '/_authenticated/relatorios'
     | '/_authenticated/simulador'
     | '/_authenticated/talhoes'
+    | '/_authenticated/assinatura/cancelado'
+    | '/_authenticated/assinatura/sucesso'
     | '/_authenticated/configuracoes/assinatura'
     | '/_authenticated/consultor/$threadId'
     | '/api/public/chat'
+    | '/api/public/billing/asaas'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -275,6 +313,7 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiPublicChatRoute: typeof ApiPublicChatRoute
+  ApiPublicBillingAsaasRoute: typeof ApiPublicBillingAsaasRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -419,6 +458,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesAssinaturaRouteImport
       parentRoute: typeof AuthenticatedConfiguracoesRoute
     }
+    '/_authenticated/assinatura/sucesso': {
+      id: '/_authenticated/assinatura/sucesso'
+      path: '/assinatura/sucesso'
+      fullPath: '/assinatura/sucesso'
+      preLoaderRoute: typeof AuthenticatedAssinaturaSucessoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/assinatura/cancelado': {
+      id: '/_authenticated/assinatura/cancelado'
+      path: '/assinatura/cancelado'
+      fullPath: '/assinatura/cancelado'
+      preLoaderRoute: typeof AuthenticatedAssinaturaCanceladoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/billing/asaas': {
+      id: '/api/public/billing/asaas'
+      path: '/api/public/billing/asaas'
+      fullPath: '/api/public/billing/asaas'
+      preLoaderRoute: typeof ApiPublicBillingAsaasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -464,6 +524,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedSimuladorRoute: typeof AuthenticatedSimuladorRoute
   AuthenticatedTalhoesRoute: typeof AuthenticatedTalhoesRoute
+  AuthenticatedAssinaturaCanceladoRoute: typeof AuthenticatedAssinaturaCanceladoRoute
+  AuthenticatedAssinaturaSucessoRoute: typeof AuthenticatedAssinaturaSucessoRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -479,6 +541,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedSimuladorRoute: AuthenticatedSimuladorRoute,
   AuthenticatedTalhoesRoute: AuthenticatedTalhoesRoute,
+  AuthenticatedAssinaturaCanceladoRoute: AuthenticatedAssinaturaCanceladoRoute,
+  AuthenticatedAssinaturaSucessoRoute: AuthenticatedAssinaturaSucessoRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -492,6 +556,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiPublicChatRoute: ApiPublicChatRoute,
+  ApiPublicBillingAsaasRoute: ApiPublicBillingAsaasRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

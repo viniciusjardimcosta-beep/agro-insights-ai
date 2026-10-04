@@ -1,9 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarClock, CreditCard, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { createFileRoute } from "@tanstack/react-router";
+import { CalendarClock, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSubscription } from "@/hooks/use-subscription";
+import { BillingActions } from "@/components/billing-actions";
 import { PREMIUM_FEATURES, SUBSCRIPTION_STATUS, TRIAL_DAYS } from "@/lib/entitlements";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/assinatura")({
@@ -42,8 +42,8 @@ function SubscriptionPage() {
   const title = (() => {
     if (!access) return "Assinatura";
     if (access.isTrial) return "Teste gratuito";
-    if (access.effectiveStatus === SUBSCRIPTION_STATUS.ACTIVE) return "Plano Pro";
-    if (access.status === SUBSCRIPTION_STATUS.CANCELED) return "Assinatura cancelada";
+    if (access.effectiveStatus === SUBSCRIPTION_STATUS.ACTIVE) return access.cancelAtPeriodEnd ? "Cancelamento agendado" : "Plano ativo";
+    if (access.status === SUBSCRIPTION_STATUS.CANCELED) return access.accessLevel === "full" ? "Cancelamento agendado" : "Assinatura encerrada";
     if (access.status === SUBSCRIPTION_STATUS.PAST_DUE) return "Pagamento pendente";
     return "Seu teste terminou";
   })();
@@ -60,7 +60,7 @@ function SubscriptionPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Assinatura</h1>
         <p className="text-muted-foreground">
-          Acompanhe seu acesso ao AgroIntel AI. Nenhuma cobrança está ativa nesta etapa.
+          Acompanhe seu acesso ao AgroIntel AI e escolha seu plano.
         </p>
       </div>
 
@@ -88,6 +88,7 @@ function SubscriptionPage() {
               <CalendarClock className="h-5 w-5 text-primary" />
               <div>
                 <p className="font-semibold">
+                  Teste gratuito —{" "}
                   {access.trialDaysRemaining === 1
                     ? "1 dia restante"
                     : `${access.trialDaysRemaining} dias restantes`}
@@ -101,8 +102,9 @@ function SubscriptionPage() {
 
           {access && !access.isTrial && access.accessLevel === "full" && (
             <p className="text-sm text-muted-foreground">
-              Período atual válido até {fmtDate(access.currentPeriodEndsAt)}.
-              {access.cancelAtPeriodEnd ? " O cancelamento já está agendado para o fim do período." : ""}
+              {access.cancelAtPeriodEnd
+                ? `Acesso garantido até ${fmtDate(access.currentPeriodEndsAt)}. Nenhuma nova cobrança será feita.`
+                : `Próxima renovação em ${fmtDate(access.currentPeriodEndsAt)}.`}
             </p>
           )}
 
@@ -113,17 +115,7 @@ function SubscriptionPage() {
             </p>
           )}
 
-          <div className="flex flex-wrap gap-2">
-            <Button disabled title="Os planos comerciais ainda não estão disponíveis.">
-              <Sparkles className="mr-2 h-4 w-4" /> Ver planos
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/configuracoes">Voltar às configurações</Link>
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Nenhum meio de pagamento está conectado nesta etapa e nenhum dado de cartão é armazenado.
-          </p>
+          <BillingActions />
         </CardContent>
       </Card>
 
