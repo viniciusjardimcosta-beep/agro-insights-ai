@@ -9,40 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
-import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
-import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
-import { Route as AuthenticatedConsultorRouteImport } from './routes/_authenticated/consultor'
-import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenticated/diagnostico'
-import { Route as AuthenticatedInteligenciaRouteImport } from './routes/_authenticated/inteligencia'
-import { Route as AuthenticatedPrecosRouteImport } from './routes/_authenticated/precos'
-import { Route as AuthenticatedPropriedadesRouteImport } from './routes/_authenticated/propriedades'
-import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
-import { Route as AuthenticatedSimuladorRouteImport } from './routes/_authenticated/simulador'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTalhoesRouteImport } from './routes/_authenticated/talhoes'
-import { Route as AuthenticatedConfiguracoesAssinaturaRouteImport } from './routes/_authenticated/configuracoes.assinatura'
-import { Route as AuthenticatedConsultorThreadIdRouteImport } from './routes/_authenticated/consultor.$threadId'
+import { Route as AuthenticatedSimuladorRouteImport } from './routes/_authenticated/simulador'
+import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedPropriedadesRouteImport } from './routes/_authenticated/propriedades'
+import { Route as AuthenticatedPrecosRouteImport } from './routes/_authenticated/precos'
+import { Route as AuthenticatedInteligenciaRouteImport } from './routes/_authenticated/inteligencia'
+import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenticated/diagnostico'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
+import { Route as AuthenticatedConsultorRouteImport } from './routes/_authenticated/consultor'
+import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
 import { Route as ApiPublicChatRouteImport } from './routes/api/public/chat'
+import { Route as AuthenticatedConsultorThreadIdRouteImport } from './routes/_authenticated/consultor.$threadId'
+import { Route as AuthenticatedConfiguracoesAssinaturaRouteImport } from './routes/_authenticated/configuracoes.assinatura'
+import { Route as AuthenticatedAssinaturaSucessoRouteImport } from './routes/_authenticated/assinatura.sucesso'
+import { Route as AuthenticatedAssinaturaCanceladoRouteImport } from './routes/_authenticated/assinatura.cancelado'
 import { Route as ApiPublicBillingAsaasRouteImport } from './routes/api/public/billing/asaas'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
@@ -50,52 +43,33 @@ const PrivacidadeRoute = PrivacidadeRouteImport.update({
   path: '/privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TermosRoute = TermosRouteImport.update({
-  id: '/termos',
-  path: '/termos',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAlertasRoute = AuthenticatedAlertasRouteImport.update({
-  id: '/alertas',
-  path: '/alertas',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTalhoesRoute = AuthenticatedTalhoesRouteImport.update({
+  id: '/talhoes',
+  path: '/talhoes',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedConfiguracoesRoute =
-  AuthenticatedConfiguracoesRouteImport.update({
-    id: '/configuracoes',
-    path: '/configuracoes',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedConsultorRoute = AuthenticatedConsultorRouteImport.update({
-  id: '/consultor',
-  path: '/consultor',
+const AuthenticatedSimuladorRoute = AuthenticatedSimuladorRouteImport.update({
+  id: '/simulador',
+  path: '/simulador',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCustosRoute = AuthenticatedCustosRouteImport.update({
-  id: '/custos',
-  path: '/custos',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedDiagnosticoRoute =
-  AuthenticatedDiagnosticoRouteImport.update({
-    id: '/diagnostico',
-    path: '/diagnostico',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedInteligenciaRoute =
-  AuthenticatedInteligenciaRouteImport.update({
-    id: '/inteligencia',
-    path: '/inteligencia',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedPrecosRoute = AuthenticatedPrecosRouteImport.update({
-  id: '/precos',
-  path: '/precos',
+const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedPropriedadesRoute =
@@ -104,38 +78,78 @@ const AuthenticatedPropriedadesRoute =
     path: '/propriedades',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
-  id: '/relatorios',
-  path: '/relatorios',
+const AuthenticatedPrecosRoute = AuthenticatedPrecosRouteImport.update({
+  id: '/precos',
+  path: '/precos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSimuladorRoute = AuthenticatedSimuladorRouteImport.update({
-  id: '/simulador',
-  path: '/simulador',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedTalhoesRoute = AuthenticatedTalhoesRouteImport.update({
-  id: '/talhoes',
-  path: '/talhoes',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedConfiguracoesAssinaturaRoute =
-  AuthenticatedConfiguracoesAssinaturaRouteImport.update({
-    id: '/assinatura',
-    path: '/assinatura',
-    getParentRoute: () => AuthenticatedConfiguracoesRoute,
+const AuthenticatedInteligenciaRoute =
+  AuthenticatedInteligenciaRouteImport.update({
+    id: '/inteligencia',
+    path: '/inteligencia',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedDiagnosticoRoute =
+  AuthenticatedDiagnosticoRouteImport.update({
+    id: '/diagnostico',
+    path: '/diagnostico',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCustosRoute = AuthenticatedCustosRouteImport.update({
+  id: '/custos',
+  path: '/custos',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedConsultorRoute = AuthenticatedConsultorRouteImport.update({
+  id: '/consultor',
+  path: '/consultor',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedConfiguracoesRoute =
+  AuthenticatedConfiguracoesRouteImport.update({
+    id: '/configuracoes',
+    path: '/configuracoes',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAlertasRoute = AuthenticatedAlertasRouteImport.update({
+  id: '/alertas',
+  path: '/alertas',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiPublicChatRoute = ApiPublicChatRouteImport.update({
+  id: '/api/public/chat',
+  path: '/api/public/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedConsultorThreadIdRoute =
   AuthenticatedConsultorThreadIdRouteImport.update({
     id: '/$threadId',
     path: '/$threadId',
     getParentRoute: () => AuthenticatedConsultorRoute,
   } as any)
-const ApiPublicChatRoute = ApiPublicChatRouteImport.update({
-  id: '/api/public/chat',
-  path: '/api/public/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedConfiguracoesAssinaturaRoute =
+  AuthenticatedConfiguracoesAssinaturaRouteImport.update({
+    id: '/assinatura',
+    path: '/assinatura',
+    getParentRoute: () => AuthenticatedConfiguracoesRoute,
+  } as any)
+const AuthenticatedAssinaturaSucessoRoute =
+  AuthenticatedAssinaturaSucessoRouteImport.update({
+    id: '/assinatura/sucesso',
+    path: '/assinatura/sucesso',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAssinaturaCanceladoRoute =
+  AuthenticatedAssinaturaCanceladoRouteImport.update({
+    id: '/assinatura/cancelado',
+    path: '/assinatura/cancelado',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicBillingAsaasRoute = ApiPublicBillingAsaasRouteImport.update({
   id: '/api/public/billing/asaas',
   path: '/api/public/billing/asaas',
@@ -159,6 +173,8 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/simulador': typeof AuthenticatedSimuladorRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
+  '/assinatura/cancelado': typeof AuthenticatedAssinaturaCanceladoRoute
+  '/assinatura/sucesso': typeof AuthenticatedAssinaturaSucessoRoute
   '/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
@@ -181,6 +197,8 @@ export interface FileRoutesByTo {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/simulador': typeof AuthenticatedSimuladorRoute
   '/talhoes': typeof AuthenticatedTalhoesRoute
+  '/assinatura/cancelado': typeof AuthenticatedAssinaturaCanceladoRoute
+  '/assinatura/sucesso': typeof AuthenticatedAssinaturaSucessoRoute
   '/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
@@ -205,6 +223,8 @@ export interface FileRoutesById {
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/simulador': typeof AuthenticatedSimuladorRoute
   '/_authenticated/talhoes': typeof AuthenticatedTalhoesRoute
+  '/_authenticated/assinatura/cancelado': typeof AuthenticatedAssinaturaCanceladoRoute
+  '/_authenticated/assinatura/sucesso': typeof AuthenticatedAssinaturaSucessoRoute
   '/_authenticated/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/_authenticated/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
@@ -229,6 +249,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/simulador'
     | '/talhoes'
+    | '/assinatura/cancelado'
+    | '/assinatura/sucesso'
     | '/configuracoes/assinatura'
     | '/consultor/$threadId'
     | '/api/public/chat'
@@ -251,6 +273,8 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/simulador'
     | '/talhoes'
+    | '/assinatura/cancelado'
+    | '/assinatura/sucesso'
     | '/configuracoes/assinatura'
     | '/consultor/$threadId'
     | '/api/public/chat'
@@ -274,6 +298,8 @@ export interface FileRouteTypes {
     | '/_authenticated/relatorios'
     | '/_authenticated/simulador'
     | '/_authenticated/talhoes'
+    | '/_authenticated/assinatura/cancelado'
+    | '/_authenticated/assinatura/sucesso'
     | '/_authenticated/configuracoes/assinatura'
     | '/_authenticated/consultor/$threadId'
     | '/api/public/chat'
@@ -292,25 +318,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacidade': {
@@ -320,81 +332,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/termos': {
-      id: '/termos'
-      path: '/termos'
-      fullPath: '/termos'
-      preLoaderRoute: typeof TermosRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/alertas': {
-      id: '/_authenticated/alertas'
-      path: '/alertas'
-      fullPath: '/alertas'
-      preLoaderRoute: typeof AuthenticatedAlertasRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/configuracoes': {
-      id: '/_authenticated/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/consultor': {
-      id: '/_authenticated/consultor'
-      path: '/consultor'
-      fullPath: '/consultor'
-      preLoaderRoute: typeof AuthenticatedConsultorRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/custos': {
-      id: '/_authenticated/custos'
-      path: '/custos'
-      fullPath: '/custos'
-      preLoaderRoute: typeof AuthenticatedCustosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/diagnostico': {
-      id: '/_authenticated/diagnostico'
-      path: '/diagnostico'
-      fullPath: '/diagnostico'
-      preLoaderRoute: typeof AuthenticatedDiagnosticoRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/inteligencia': {
-      id: '/_authenticated/inteligencia'
-      path: '/inteligencia'
-      fullPath: '/inteligencia'
-      preLoaderRoute: typeof AuthenticatedInteligenciaRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/precos': {
-      id: '/_authenticated/precos'
-      path: '/precos'
-      fullPath: '/precos'
-      preLoaderRoute: typeof AuthenticatedPrecosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/propriedades': {
-      id: '/_authenticated/propriedades'
-      path: '/propriedades'
-      fullPath: '/propriedades'
-      preLoaderRoute: typeof AuthenticatedPropriedadesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/relatorios': {
-      id: '/_authenticated/relatorios'
-      path: '/relatorios'
-      fullPath: '/relatorios'
-      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
+    '/_authenticated/talhoes': {
+      id: '/_authenticated/talhoes'
+      path: '/talhoes'
+      fullPath: '/talhoes'
+      preLoaderRoute: typeof AuthenticatedTalhoesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/simulador': {
@@ -404,19 +367,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSimuladorRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/talhoes': {
-      id: '/_authenticated/talhoes'
-      path: '/talhoes'
-      fullPath: '/talhoes'
-      preLoaderRoute: typeof AuthenticatedTalhoesRouteImport
+    '/_authenticated/relatorios': {
+      id: '/_authenticated/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/configuracoes/assinatura': {
-      id: '/_authenticated/configuracoes/assinatura'
-      path: '/assinatura'
-      fullPath: '/configuracoes/assinatura'
-      preLoaderRoute: typeof AuthenticatedConfiguracoesAssinaturaRouteImport
-      parentRoute: typeof AuthenticatedConfiguracoesRoute
+    '/_authenticated/propriedades': {
+      id: '/_authenticated/propriedades'
+      path: '/propriedades'
+      fullPath: '/propriedades'
+      preLoaderRoute: typeof AuthenticatedPropriedadesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/precos': {
+      id: '/_authenticated/precos'
+      path: '/precos'
+      fullPath: '/precos'
+      preLoaderRoute: typeof AuthenticatedPrecosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inteligencia': {
+      id: '/_authenticated/inteligencia'
+      path: '/inteligencia'
+      fullPath: '/inteligencia'
+      preLoaderRoute: typeof AuthenticatedInteligenciaRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/diagnostico': {
+      id: '/_authenticated/diagnostico'
+      path: '/diagnostico'
+      fullPath: '/diagnostico'
+      preLoaderRoute: typeof AuthenticatedDiagnosticoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/custos': {
+      id: '/_authenticated/custos'
+      path: '/custos'
+      fullPath: '/custos'
+      preLoaderRoute: typeof AuthenticatedCustosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/consultor': {
+      id: '/_authenticated/consultor'
+      path: '/consultor'
+      fullPath: '/consultor'
+      preLoaderRoute: typeof AuthenticatedConsultorRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/alertas': {
+      id: '/_authenticated/alertas'
+      path: '/alertas'
+      fullPath: '/alertas'
+      preLoaderRoute: typeof AuthenticatedAlertasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/chat': {
+      id: '/api/public/chat'
+      path: '/api/public/chat'
+      fullPath: '/api/public/chat'
+      preLoaderRoute: typeof ApiPublicChatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/consultor/$threadId': {
       id: '/_authenticated/consultor/$threadId'
@@ -425,12 +451,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConsultorThreadIdRouteImport
       parentRoute: typeof AuthenticatedConsultorRoute
     }
-    '/api/public/chat': {
-      id: '/api/public/chat'
-      path: '/api/public/chat'
-      fullPath: '/api/public/chat'
-      preLoaderRoute: typeof ApiPublicChatRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/configuracoes/assinatura': {
+      id: '/_authenticated/configuracoes/assinatura'
+      path: '/assinatura'
+      fullPath: '/configuracoes/assinatura'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesAssinaturaRouteImport
+      parentRoute: typeof AuthenticatedConfiguracoesRoute
+    }
+    '/_authenticated/assinatura/sucesso': {
+      id: '/_authenticated/assinatura/sucesso'
+      path: '/assinatura/sucesso'
+      fullPath: '/assinatura/sucesso'
+      preLoaderRoute: typeof AuthenticatedAssinaturaSucessoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/assinatura/cancelado': {
+      id: '/_authenticated/assinatura/cancelado'
+      path: '/assinatura/cancelado'
+      fullPath: '/assinatura/cancelado'
+      preLoaderRoute: typeof AuthenticatedAssinaturaCanceladoRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/api/public/billing/asaas': {
       id: '/api/public/billing/asaas'
@@ -484,6 +524,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedSimuladorRoute: typeof AuthenticatedSimuladorRoute
   AuthenticatedTalhoesRoute: typeof AuthenticatedTalhoesRoute
+  AuthenticatedAssinaturaCanceladoRoute: typeof AuthenticatedAssinaturaCanceladoRoute
+  AuthenticatedAssinaturaSucessoRoute: typeof AuthenticatedAssinaturaSucessoRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -499,6 +541,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedSimuladorRoute: AuthenticatedSimuladorRoute,
   AuthenticatedTalhoesRoute: AuthenticatedTalhoesRoute,
+  AuthenticatedAssinaturaCanceladoRoute: AuthenticatedAssinaturaCanceladoRoute,
+  AuthenticatedAssinaturaSucessoRoute: AuthenticatedAssinaturaSucessoRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
