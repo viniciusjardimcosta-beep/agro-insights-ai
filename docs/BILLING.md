@@ -1,78 +1,94 @@
-# Cobrança (Sprint 3.4B) — arquitetura provider-agnostic
+# Cobrança — Asaas (SANDBOX)
 
-**Estado:** nenhum gateway de pagamento está definido nem configurado. Nenhum SDK
-instalado, nenhum checkout real, nenhum webhook público, nenhuma cobrança.
+**Estado:** adapter Asaas implementado, **somente sandbox** (fail-closed). Nenhuma cobrança real.
 
-## Auditoria inicial
-- Dependências de pagamento: nenhuma.
-- Secrets de pagamento: nenhum (existentes: LOVABLE_API_KEY, SUPABASE_*).
-- Checkout: não existe. Webhook: não existe. Tabelas de pagamento: não existiam.
-- Referências a Stripe/Mercado Pago/Pagar.me/Asaas/Nexano/PagSeguro: nenhuma.
+## Documentação oficial consultada (out/2026)
+- Checkout hospedado: https://docs.asaas.com/docs/asaas-checkout e /docs/checkout-com-assinatura-recorrente
+- Eventos de Checkout: https://docs.asaas.com/docs/eventos-para-checkout
+- Eventos de assinatura: https://docs.asaas.com/docs/eventos-para-assinaturas
+- Webhooks / token / idempotência: /docs/receba-eventos-do-asaas-no-seu-endpoint-de-webhook, /docs/faq-de-webhooks
 
-## Fluxo de autoridade
-Gateway → webhook com assinatura validada → `subscriptions` → entitlement engine → recursos premium.
-O redirect de sucesso do checkout NUNCA ativa assinatura. O frontend nunca grava status.
+## Endpoints Asaas usados (base `https://api-sandbox.asaas.com/v3`, header `access_token`)
+| Uso | Endpoint |
+|---|---|
+| Criar checkout recorrente | `POST /checkouts` (`billingTypes:[CREDIT_CARD]`, `chargeTypes:[RECURRENT]`, `subscription.cycle`, `subscription.nextDueDate`) |
+| Localizar assinatura do cliente | `GET /subscriptions?customer=…&status=ACTIVE` |
+| Cancelar recorrência | `DELETE /subscriptions/{id}` |
 
-## Módulos
-- `src/lib/billing/types.ts` — contratos (`BillingProvider`, `PlanVariant`, eventos normalizados).
-- `src/lib/billing/plans.ts` — `PLAN_CATALOG` (`pro_monthly`, `pro_yearly`) **sem preço e sem price ID**; `available: false`.
-- `src/lib/billing/status.ts` — `mapProviderStatus()` e `shouldApplyUpdate()` (ordem dos eventos).
-- `src/lib/billing/provider.server.ts` — registro do adapter; hoje `resolveProvider()` = `null` → `BILLING_NOT_CONFIGURED`.
-- `src/lib/billing/webhook.server.ts` — idempotência (`claimWebhookEvent`) e localização por IDs persistidos.
-- `src/lib/billing/billing.functions.ts` — `getBillingStatus`, `createCheckout`, `openBillingPortal`, `cancelMySubscription` (autenticadas; hoje bloqueiam).
+Webhook recebido em `POST /api/public/billing/asaas`. Eventos tratados:
+`CHECKOUT_PAID`, `CHECKOUT_CANCELED`, `CHECKOUT_EXPIRED`, `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`,
+`PAYMENT_OVERDUE`, `PAYMENT_CREDIT_CARD_CAPTURE_REFUSED`, `SUBSCRIPTION_DELETED`, `SUBSCRIPTION_INACTIVATED`. Demais → ignorados.
 
-## Checkout (quando houver gateway)
-1. `requireSupabaseAuth` → `context.userId`. 2. Carregar subscription server-side.
-3. Localizar/criar customer; persistir `provider_customer_id` server-side. 4. Resolver variante só pelo catálogo.
-5. Criar sessão e devolver apenas a URL. O cliente envia só `planKey`; preço, moeda, desconto, trial, status e IDs são ignorados.
-Sem segundo trial no gateway: o trial de 7 dias interno é a única fonte.
+## Configuração
+| Nome | Tipo |
+|---|---|
+| `BILLING_PROVIDER` | `asaas` |
+| `ASAAS_ENVIRONMENT` | `sandbox` (qualquer outro valor desliga a cobrança) |
+| `ASAAS_API_KEY` | chave da conta **sandbox** (sandbox.asaas.com → Integrações → Chaves de API) |
+| `ASAAS_WEBHOOK_TOKEN` | token forte (≥ 32 caracteres) cadastrado também no webhook do Asaas |
 
-## Webhook (quando houver gateway)
-Rota `src/routes/api/public/billing/<provider>.ts`: valida assinatura com secret server-side **antes** de tocar no banco
-(inválida → 401 + `webhook_invalid_signature`), reserva o evento em `billing_events`, localiza a assinatura por
-`provider_subscription_id`/`provider_customer_id` (metadata nunca é prova isolada), aplica com service role apenas se
-`shouldApplyUpdate` permitir, finaliza o evento e audita.
+Nenhum com `VITE_`. O código não contém URL de produção do Asaas.
 
-## Idempotência
-`billing_events` com `UNIQUE(provider, provider_event_id)`. Repetição → violação única → ignorado sem efeito.
-Não guarda payload, apenas tipo, status e código de erro curto.
+Configurar no painel sandbox do Asaas → Integrações → Webhooks: URL
+`https://project--997eb3bd-6a18-4733-81ce-d1f75d24208f-dev.lovable.app/api/public/billing/asaas`, API v3,
+**envio sequencial**, token = `ASAAS_WEBHOOK_TOKEN`, eventos listados acima.
+
+## Planos (server-side)
+| plan_code | Valor | Ciclo |
+|---|---|---|
+| pro_monthly | R$ 99,90 | mensal |
+| pro_yearly | R$ 999,00 | anual (economia exata R$ 199,80 vs 12× mensal) |
+| pro_founder_monthly | R$ 69,90 | mensal, exige elegibilidade |
+
+## Fundador
+- Tabela `billing_eligibility` (`founder_eligible`, `granted_at`, `consumed_at`). Usuário só lê; concessão apenas por servidor/admin (SQL ou service role).
+- `createCheckout("pro_founder_monthly")` sem elegibilidade → `FOUNDER_PLAN_NOT_ELIGIBLE`.
+- Na primeira ativação a elegibilidade é **consumida**. Renovações dependem só do `plan_code` gravado na assinatura (preço fixado no Asaas). Após encerramento, nova assinatura não recebe o preço fundador.
+- LGPD: removida em cascata na exclusão; não é dado sensível.
+
+## Trial e momento da cobrança
+O trial interno (7 dias) é a única fonte. O checkout cria a assinatura no Asaas com `nextDueDate` = data de fim do trial (fuso de Brasília) — o cartão é registrado e a 1ª cobrança ocorre no fim do teste. Sem trial do gateway. Trial já vencido → 1ª cobrança hoje.
+
+## Fluxo de checkout
+1. `requireSupabaseAuth` → `context.userId`; cliente envia **só** `planCode` (demais campos descartados).
+2. Valida plano e elegibilidade; bloqueia se já houver recorrência ativa.
+3. Cria `billing_checkouts` (pendente, 30 min; índice único parcial: uma pendente por usuário — impede checkouts concorrentes).
+4. Cria o Checkout no Asaas com `externalReference` = id interno opaco; devolve somente o link.
+O Asaas coleta CPF/cartão na própria página → **o AgroIntel nunca recebe dados de cartão** (escopo PCI inalterado). Customer é criado pelo Asaas no checkout e vinculado via `CHECKOUT_PAID`.
+
+## Webhook
+1. Valida `asaas-access-token` (comparação em tempo constante) **antes de qualquer escrita**; inválido → 401 + `webhook_invalid_signature`.
+2. Reserva `billing_events (provider, provider_event_id)` UNIQUE; repetido → 200 sem efeito.
+3. Reconcilia (`reconcile.ts`, puro): identidade só por `billing_checkouts.provider_checkout_id` (criado por nós), `provider_customer_id` e `provider_subscription_id`. `metadata.user_id` é ignorado. Um customer nunca é vinculado a dois usuários.
+4. Atualização com concorrência otimista (`updated_at`).
+5. Cobrança que chega antes do `CHECKOUT_PAID` → reserva liberada + 503 (Asaas retenta). Use envio sequencial.
 
 ## Eventos fora de ordem
-Evento cujo `current_period_ends_at` é anterior ao já conhecido é descartado; evento sem período e mais antigo
-que o último `updated_at` também.
+Período = `dueDate` da cobrança + ciclo do plano. Evento cujo fim de período ≤ ao já conhecido é descartado; cobrança de outra `provider_subscription_id` é ignorada.
 
-## Mapeamento de status
-| Provedor | Interno |
-|---|---|
-| trialing, in_trial | trialing |
-| active, authorized, paid, approved | active |
-| past_due, unpaid, payment_failed, overdue, suspended | past_due |
-| canceled, cancelled, ended | canceled |
-| expired | expired |
-| incomplete, pending, desconhecido | incomplete |
+## Status
+| Evento | Interno | Auditoria |
+|---|---|---|
+| PAYMENT_CONFIRMED/RECEIVED (1ª) | active | subscription_activated |
+| PAYMENT_CONFIRMED/RECEIVED (seguinte) | active, período avança | subscription_renewed |
+| PAYMENT_OVERDUE / CAPTURE_REFUSED | past_due (sem grace period) | payment_failed |
+| SUBSCRIPTION_DELETED/INACTIVATED | canceled, mantém fim do período | subscription_canceled |
 
-Falha de pagamento → `past_due` + `payment_failed`, sem grace period inventado (o engine já mantém acesso até o fim do período pago).
+## Cancelamento
+O Asaas **não tem cancelamento no fim do período**. `cancelMySubscription` faz `DELETE /subscriptions/{id}` (nenhuma cobrança futura) e grava `status=canceled`, `cancel_at_period_end=true` mantendo `current_period_ends_at`: o entitlement engine preserva o acesso até lá. Durante o trial, o trial interno continua.
 
-## Cancelamento e portal
-Preferência `cancel_at_period_end = true`; acesso até `current_period_ends_at`. Portal oficial do gateway para cartão/faturas — sem tela própria de cartão.
+## Portal do cliente
+O Asaas não oferece portal hospedado de assinatura. Não há tela de cartão no AgroIntel: o usuário vê o status e pode cancelar; troca de cartão = cancelar e assinar de novo.
+
+## Exclusão de conta
+`deleteMyAccount` cancela a recorrência no Asaas antes de excluir. Falha/indeterminado → exclusão abortada com:
+"Não foi possível confirmar o cancelamento da assinatura. Sua conta não foi excluída para evitar uma cobrança futura."
 
 ## RLS
-`subscriptions`: cliente só lê a própria linha. `billing_events`: nenhum acesso do cliente (sem GRANT para anon/authenticated); só service role.
+`subscriptions`: só leitura própria. `billing_events`, `billing_checkouts`: nenhum acesso do cliente. `billing_eligibility`: leitura própria.
 
-## LGPD
-Exportação já remove `provider`, `provider_customer_id`, `provider_subscription_id`; `billing_events` não é exportado.
-Exclusão de conta (quando houver gateway): cancelar a recorrência no gateway antes de excluir; se o cancelamento não puder ser confirmado, a exclusão é **interrompida** com mensagem ao usuário — nunca deixar cobrança órfã. Hoje não há recorrência possível, então a exclusão segue inalterada.
+## Pendências que dependem do sandbox
+Validar com chave real: formato aceito de `nextDueDate`/imagem do item; se `CHECKOUT_PAID` é emitido quando a 1ª cobrança é futura; ciclo completo (ativação, renovação, falha, cancelamento) para mensal, anual e fundador.
 
-## Erros
-`BILLING_NOT_CONFIGURED`, `INVALID_PLAN`, `CHECKOUT_FAILED`, `WEBHOOK_INVALID`, `PAYMENT_PENDING`, `SUBSCRIPTION_PAST_DUE` — mensagens PT-BR, nunca erro cru do SDK.
-
-## Secrets necessários (futuros, só nomes)
-`BILLING_PROVIDER` + do provedor escolhido, por exemplo:
-- Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
-- Mercado Pago: `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`
-- Pagar.me: `PAGARME_SECRET_KEY`, `PAGARME_WEBHOOK_SECRET`
-- Asaas: `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`
-Nunca com prefixo `VITE_`.
-
-## Sandbox
-Ciclo completo (checkout → webhook → active → renovação → falha → cancelamento) só será testado no ambiente de teste do gateway escolhido.
+## Futuro: Pix Automático / boleto
+Adicionar `PIX` em `billingTypes` e mapear eventos equivalentes no adapter; o restante da arquitetura não muda.
