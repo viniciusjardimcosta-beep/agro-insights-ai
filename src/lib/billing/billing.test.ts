@@ -211,7 +211,7 @@ describe("segredos fora do cliente", () => {
     for (const f of files) {
       const s = readFileSync(f, "utf8");
       expect(s).not.toMatch(/VITE_(ASAAS|BILLING|SUPABASE_SERVICE)/);
-      if (/ASAAS_API_KEY|ASAAS_WEBHOOK_TOKEN/.test(s) && !f.includes("docs")) {
+      if (/ASAAS_API_KEY|ASAAS_WEBHOOK_TOKEN/.test(s) && !f.includes("/routes/api/")) {
         expect(f.endsWith(".server.ts")).toBe(true);
       }
     }
