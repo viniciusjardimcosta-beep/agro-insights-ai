@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing, Settings } from "lucide-react";
+import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing, Settings, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { listAlerts } from "@/lib/alerts.functions";
 import { countUnacknowledged } from "@/lib/alerts-rules";
@@ -10,6 +10,7 @@ import { clearMonitoringUser } from "@/lib/monitoring";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/use-subscription";
+import { amIAdmin } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -41,6 +42,8 @@ function AuthLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const queryClient = useQueryClient();
   const alertsQ = useQuery({ queryKey: ["alerts"], queryFn: () => listAlerts(), staleTime: 30_000 });
+  // Apenas UX: a autorização real é feita no servidor em cada função admin.
+  const adminQ = useQuery({ queryKey: ["admin", "me"], queryFn: () => amIAdmin(), staleTime: 300_000 });
   const alertCount = countUnacknowledged((alertsQ.data ?? []) as unknown as { status: "active" | "acknowledged" | "resolved" }[]);
 
   async function logout() {
@@ -87,6 +90,19 @@ function AuthLayout() {
               </Link>
             );
           })}
+          {adminQ.data?.isAdmin && (
+            <Link
+              to="/admin"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                pathname.startsWith("/admin")
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+              }`}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Administração
+            </Link>
+          )}
         </nav>
         <div className="border-t border-sidebar-border p-3">
           <Button
