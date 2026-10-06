@@ -78,6 +78,9 @@ export const AUDIT_EVENTS = [
   "billing_portal_opened",
   "webhook_invalid_signature",
   "webhook_processing_failed",
+  // Administração
+  "admin_founder_granted",
+  "admin_founder_revoked",
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENTS)[number];
