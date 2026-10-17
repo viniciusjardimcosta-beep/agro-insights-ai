@@ -16,6 +16,11 @@ dist-ssr
 .nitro
 *.local
 
+# Arquivos de ambiente adicionais (o .env gerenciado pelo Lovable fica versionado:
+# contém só URL e chave pública do Supabase). Segredos nunca entram no git.
+.env.*
+!.env.example
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
