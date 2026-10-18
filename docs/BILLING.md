@@ -92,3 +92,51 @@ Validar com chave real: formato aceito de `nextDueDate`/imagem do item; se `CHEC
 
 ## Futuro: Pix Automático / boleto
 Adicionar `PIX` em `billingTypes` e mapear eventos equivalentes no adapter; o restante da arquitetura não muda.
+
+---
+
+# Stripe (provedor alternativo)
+
+O provedor é escolhido por `BILLING_PROVIDER` (`asaas` ou `stripe`). Os dois adapters implementam a mesma interface (`types.ts`); planos, trial, entitlements, reconciliação e tabelas são compartilhados. O código do Asaas permanece intacto.
+
+## Configuração (somente no servidor — nunca com prefixo `VITE_`)
+| Nome | Valor |
+|---|---|
+| `BILLING_PROVIDER` | `stripe` |
+| `STRIPE_ENVIRONMENT` | `test` ou `live` (qualquer outro valor desliga a cobrança) |
+| `STRIPE_SECRET_KEY` | `sk_test_…`/`rk_test_…` com `test`; `sk_live_…`/`rk_live_…` com `live` |
+| `STRIPE_WEBHOOK_SECRET` | segredo de assinatura do endpoint, `whsec_…` |
+
+**Fail-closed:** falta de qualquer item, ou chave que não combine com o ambiente declarado (ex.: chave `live` com `STRIPE_ENVIRONMENT=test`), desliga a cobrança (`BILLING_NOT_CONFIGURED`). Cobrança real só existe com `live` **e** chave `live`.
+
+## Como funciona
+- **Checkout hospedado** (`POST /v1/checkout/sessions`, `mode=subscription`): só cartão, `locale=pt-BR`, sessão expira conforme o checkout interno (mín. 31 min). O preço vai inline (`price_data`): **não é preciso criar produtos nem preços no painel do Stripe**. Valor, ciclo e nome vêm sempre do catálogo do servidor (`plans.ts`).
+- O AgroIntel nunca recebe dados de cartão (escopo PCI inalterado). Sem SDK: chamadas REST com `fetch` e assinatura por Web Crypto (compatível com Cloudflare Workers).
+- **Trial:** se restarem 48 h + 5 min ou mais do trial interno, o fim exato é repassado como `subscription_data[trial_end]` (cartão registrado agora, 1ª cobrança no fim do teste). Com menos que isso, ou sem trial em curso, a cobrança começa imediatamente.
+- **Cancelamento:** `DELETE /v1/subscriptions/{id}` (nenhuma cobrança futura); o app mantém o acesso até o fim do período pago, como no Asaas. 404 = já cancelada, tratado como sucesso.
+- **Portal do cliente:** ainda não integrado. Troca de cartão = cancelar e assinar de novo.
+
+## Webhook
+URL: `https://<domínio publicado do app>/api/public/billing/stripe`
+
+1. Valida `Stripe-Signature` (HMAC-SHA256 de `t.corpoBruto`, tolerância de 5 min) **antes de qualquer escrita**; inválido → 401 + `webhook_invalid_signature`.
+2. Idempotência pelo id do evento (`evt_…`) em `billing_events`; repetido → 200 sem efeito.
+3. Reconciliação idêntica à do Asaas (`reconcile.ts`): a identidade vem do checkout criado por nós, nunca de metadados.
+
+Eventos a assinalar no endpoint do Stripe:
+| Evento | Efeito interno |
+|---|---|
+| `checkout.session.completed` | vincula cliente e assinatura ao usuário (vale para trial e para cobrança imediata) |
+| `checkout.session.expired` | fecha o checkout pendente |
+| `invoice.paid` | `active`; renovações avançam o período |
+| `invoice.payment_failed` | `past_due` |
+| `customer.subscription.deleted` | `canceled`, mantendo o fim do período pago |
+
+Faturas de **R$ 0** (início do trial) são ignoradas: nunca ativam a assinatura. O adapter lê os dois formatos de fatura do Stripe (`parent.subscription_details` e o legado `subscription`), pois a versão da API do endpoint é definida no painel.
+
+## Pendências que dependem do modo de teste do Stripe
+Estes pontos foram implementados a partir da documentação, **mas não foram executados contra o Stripe real**:
+- prazo mínimo de `trial_end` no Checkout (o adapter assume 48 h);
+- ciclo completo com cartões de teste: ativação, renovação, falha, cancelamento, para mensal, anual e fundador;
+- confirmação de que a conta Stripe aceita cobrar em BRL com cartão;
+- Pix e boleto não estão habilitados (somente cartão).

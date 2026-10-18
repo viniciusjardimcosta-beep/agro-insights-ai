@@ -103,7 +103,7 @@ export const createCheckout = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ url: string }> => {
     const { requireProvider } = await import("./provider.server");
     const { findPlanVariant, isFounderEligible } = await import("./plans");
-    const { hasLiveRecurrence, firstChargeDate } = await import("./billing.server");
+    const { hasLiveRecurrence, firstChargeDate, activeTrialEndsAt } = await import("./billing.server");
     const { ensureSubscription } = await import("@/lib/subscription.server");
     const { recordAuditEvent } = await import("@/lib/audit.server");
     const { AppError, ERROR_CODES } = await import("@/lib/errors");
@@ -136,7 +136,7 @@ export const createCheckout = createServerFn({ method: "POST" })
       }
     }
 
-    const provider = requireProvider(); // fail-closed (sandbox obrigatório)
+    const provider = requireProvider(); // fail-closed (configuração completa obrigatória)
     await ensureSubscription(context.supabase);
     const { data: sub } = await context.supabase
       .from("subscriptions")
@@ -190,6 +190,7 @@ export const createCheckout = createServerFn({ method: "POST" })
         variant,
         externalReference: row.id,
         firstChargeDate: firstChargeDate(sub),
+        trialEndsAt: activeTrialEndsAt(sub),
         successUrl: `${origin}/assinatura/sucesso`,
         cancelUrl: `${origin}/assinatura/cancelado`,
         expiredUrl: `${origin}/assinatura/cancelado`,
@@ -212,7 +213,7 @@ export const createCheckout = createServerFn({ method: "POST" })
     }
   });
 
-/** Asaas não oferece portal hospedado de assinatura — documentado em docs/BILLING.md. */
+/** Portal hospedado de assinatura ainda não integrado (Asaas não oferece; Stripe: ver docs/BILLING.md). */
 export const openBillingPortal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async (): Promise<{ url: string }> => {

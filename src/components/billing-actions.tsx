@@ -124,7 +124,7 @@ export function BillingActions() {
     <div className="space-y-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-primary">AgroIntel Pro</p>
-        <p className="text-sm text-muted-foreground">Pagamento por cartão de crédito em ambiente seguro do Asaas.</p>
+        <p className="text-sm text-muted-foreground">Pagamento por cartão de crédito em ambiente seguro.</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {billing.plans.map((p) => (
