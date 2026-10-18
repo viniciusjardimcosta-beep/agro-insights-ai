@@ -56,6 +56,16 @@ export async function cancelRecurrence(
   if (error) throw error;
 }
 
+/** Instante (ISO) em que o trial interno termina, se ainda estiver em curso; senão null. */
+export function activeTrialEndsAt(
+  row: { status: string; trial_ends_at: string | null },
+  now = new Date(),
+): string | null {
+  if (row.status !== SUBSCRIPTION_STATUS.TRIALING || !row.trial_ends_at) return null;
+  const end = new Date(row.trial_ends_at);
+  return end.getTime() > now.getTime() ? end.toISOString() : null;
+}
+
 /** Data (YYYY-MM-DD, America/Sao_Paulo) da 1ª cobrança: fim do trial interno, ou hoje. */
 export function firstChargeDate(row: { status: string; trial_ends_at: string | null }, now = new Date()): string {
   const fmt = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);

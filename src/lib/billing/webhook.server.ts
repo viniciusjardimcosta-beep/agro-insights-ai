@@ -134,11 +134,15 @@ export async function applyBillingEvent(
       .maybeSingle();
     if (other) throw new Error("customer_already_bound");
 
-    let subscriptionId: string | null = null;
-    try {
-      subscriptionId = await provider.findActiveSubscriptionId({ providerCustomerId: event.providerCustomerId });
-    } catch {
-      subscriptionId = null; // será obtido no primeiro evento de cobrança
+    // Se o gateway já informou a assinatura no próprio evento (Stripe), usa-a;
+    // senão procura pelo cliente (Asaas).
+    let subscriptionId: string | null = event.providerSubscriptionId ?? null;
+    if (!subscriptionId) {
+      try {
+        subscriptionId = await provider.findActiveSubscriptionId({ providerCustomerId: event.providerCustomerId });
+      } catch {
+        subscriptionId = null; // será obtido no primeiro evento de cobrança
+      }
     }
 
     await admin

@@ -19,12 +19,12 @@ O copiloto inteligente do produtor rural. SaaS web para pequenos e médios produ
 
 **Conta, cobrança e governança**
 - Login por e-mail e senha; cada usuário acessa só os próprios dados (RLS no banco).
-- Teste gratuito de 7 dias e planos Pro (mensal e anual) via Asaas — hoje **somente em sandbox**.
+- Teste gratuito de 7 dias e planos Pro (mensal, anual e fundador), com cobrança por **Stripe** ou **Asaas** (escolhida por configuração). Ainda **não validado com pagamentos reais**: ver `docs/BILLING.md`.
 - Painel de administração, trilha de auditoria, limites de uso da IA, exportação e exclusão de conta (LGPD), termos e política de privacidade.
 
 ## Tecnologias
 
-TanStack Start + React 19, Vite, Tailwind CSS 4, shadcn/ui (Radix), Recharts, Supabase (Postgres + autenticação), Vercel AI SDK com Lovable AI Gateway (Gemini), Asaas (cobrança), jsPDF e Vitest.
+TanStack Start + React 19, Vite, Tailwind CSS 4, shadcn/ui (Radix), Recharts, Supabase (Postgres + autenticação), Vercel AI SDK com Lovable AI Gateway (Gemini), Stripe e Asaas (cobrança), jsPDF e Vitest.
 
 ## Como rodar localmente
 
@@ -70,7 +70,7 @@ docs/                   documentação técnica
 
 ## Pendências conhecidas
 
-- **Cobrança real:** o adaptador do Asaas está implementado apenas para sandbox e desliga a cobrança em qualquer outro ambiente. Falta liberar o ambiente de produção (ver `docs/BILLING.md`).
+- **Cobrança real:** o adaptador do Stripe funciona em modo de teste ou live, com chave e ambiente que precisam combinar; o do Asaas só opera em sandbox. Falta rodar o ciclo completo no modo de teste do Stripe antes de cobrar de verdade (ver `docs/BILLING.md`).
 - **Testes automatizados:** existem testes (Vitest) para alertas, cobrança, auditoria, limites de uso, permissões por plano, inteligência, monitoramento, administração e exportação de conta. Os cálculos financeiros (`src/lib/calc.ts`) ainda não têm testes próprios.
 
 ## Desenvolvimento com Lovable

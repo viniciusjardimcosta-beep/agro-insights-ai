@@ -6,9 +6,10 @@
 //   gateway → webhook autenticado → subscriptions → entitlement engine.
 // - O frontend nunca ativa assinatura; o redirect de sucesso não é prova de pagamento.
 
-/** Provedores com adapter. Nesta fase, somente Asaas em SANDBOX. */
+/** Provedores com adapter. Asaas (somente SANDBOX) e Stripe (modo teste ou live explícito). */
 export const BILLING_PROVIDERS = {
   ASAAS: "asaas",
+  STRIPE: "stripe",
 } as const;
 
 export type BillingProviderId = (typeof BILLING_PROVIDERS)[keyof typeof BILLING_PROVIDERS];
@@ -40,7 +41,14 @@ export type CheckoutSession = { url: string; providerCheckoutId: string };
  * Datas em ISO 8601.
  */
 export type BillingEvent =
-  | { kind: "checkout_paid"; providerCheckoutId: string; providerCustomerId: string | null; occurredAt: string }
+  | {
+      kind: "checkout_paid";
+      providerCheckoutId: string;
+      providerCustomerId: string | null;
+      /** Quando o gateway já informa a assinatura criada pelo checkout (ex.: Stripe). */
+      providerSubscriptionId?: string | null;
+      occurredAt: string;
+    }
   | {
       kind: "checkout_closed";
       providerCheckoutId: string;
@@ -83,6 +91,11 @@ export type BillingProvider = {
     externalReference: string;
     /** Data (YYYY-MM-DD) da primeira cobrança — preserva o trial interno. */
     firstChargeDate: string;
+    /**
+     * Instante exato (ISO 8601) em que o trial interno termina, quando ainda em curso.
+     * Gateways com trial nativo (Stripe) usam este valor; o Asaas usa `firstChargeDate`.
+     */
+    trialEndsAt?: string | null;
     successUrl: string;
     cancelUrl: string;
     expiredUrl: string;
