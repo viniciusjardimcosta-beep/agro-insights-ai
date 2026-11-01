@@ -6,17 +6,14 @@
 //   gateway → webhook autenticado → subscriptions → entitlement engine.
 // - O frontend nunca ativa assinatura; o redirect de sucesso não é prova de pagamento.
 
-/** Provedores com adapter. Nesta fase, somente Asaas em SANDBOX. */
+/** Provedores com adapter. Nesta fase, somente Stripe em TEST MODE. */
 export const BILLING_PROVIDERS = {
-  ASAAS: "asaas",
+  STRIPE: "stripe",
 } as const;
 
 export type BillingProviderId = (typeof BILLING_PROVIDERS)[keyof typeof BILLING_PROVIDERS];
 
 export type BillingInterval = "month" | "year";
-
-/** Métodos de pagamento. Primeira versão: somente cartão recorrente. */
-export type BillingMethod = "credit_card";
 
 /**
  * Variante comercial. `planCode` é o valor gravado em `subscriptions.plan_code`.
@@ -35,65 +32,58 @@ export type PlanVariant = {
 
 export type CheckoutSession = { url: string; providerCheckoutId: string };
 
-/**
- * Evento normalizado — o resto da aplicação nunca vê nomes de eventos do gateway.
- * Datas em ISO 8601.
- */
-export type BillingEvent =
-  | { kind: "checkout_paid"; providerCheckoutId: string; providerCustomerId: string | null; occurredAt: string }
-  | {
-      kind: "checkout_closed";
-      providerCheckoutId: string;
-      status: "canceled" | "expired";
-      occurredAt: string;
-    }
-  | {
-      kind: "payment_confirmed";
-      providerCustomerId: string | null;
-      providerSubscriptionId: string | null;
-      /** Data de vencimento da cobrança paga — início do período coberto. */
-      periodStart: string;
-      occurredAt: string;
-    }
-  | {
-      kind: "payment_failed";
-      providerCustomerId: string | null;
-      providerSubscriptionId: string | null;
-      periodStart: string;
-      occurredAt: string;
-    }
-  | {
-      kind: "subscription_ended";
-      providerCustomerId: string | null;
-      providerSubscriptionId: string | null;
-      occurredAt: string;
-    }
-  | { kind: "ignored"; occurredAt: string };
+/** Estado autoritativo de uma assinatura, buscado no gateway pelo ID persistido. */
+export type SubscriptionSnapshot = {
+  providerSubscriptionId: string;
+  providerCustomerId: string;
+  /** Status bruto do gateway (ex.: trialing, active, past_due, canceled). */
+  providerStatus: string;
+  /** plan_code resolvido pelo Price ID autorizado (null = preço desconhecido). */
+  planCode: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+  livemode: boolean;
+};
 
 export type WebhookVerification =
-  | { ok: false; reason: "invalid_signature" | "malformed" }
-  | { ok: true; providerEventId: string; eventType: string; event: BillingEvent };
+  | { ok: false; reason: "invalid_signature" | "malformed" | "live_mode" }
+  | {
+      ok: true;
+      providerEventId: string;
+      eventType: string;
+      checkoutSessionId: string | null;
+      subscriptionId: string | null;
+      customerId: string | null;
+    };
 
 /** Adapter do provedor. SOMENTE ele conhece a API externa. */
 export type BillingProvider = {
   id: BillingProviderId;
+  hasCustomerPortal: boolean;
+  /** Cria o Customer no gateway (idempotente por usuário). */
+  createCustomer(args: { userId: string; email: string | null }): Promise<string>;
+  /** Valida o Price configurado contra o catálogo e devolve o Price ID autorizado. */
+  resolvePrice(variant: PlanVariant): Promise<string>;
+  planCodeForPrice(priceId: string): string | null;
   createCheckoutSession(args: {
     variant: PlanVariant;
+    priceId: string;
+    customerId: string;
     /** Referência interna opaca (id de `billing_checkouts`), nunca o user_id. */
-    externalReference: string;
-    /** Data (YYYY-MM-DD) da primeira cobrança — preserva o trial interno. */
-    firstChargeDate: string;
+    checkoutRef: string;
+    /** Fim do trial interno (unix) quando deve ser preservado; null = cobra já. */
+    trialEnd: number | null;
     successUrl: string;
     cancelUrl: string;
-    expiredUrl: string;
-    minutesToExpire: number;
   }): Promise<CheckoutSession>;
-  /** Cancela a recorrência no gateway (cobranças futuras deixam de existir). */
-  cancelSubscription(args: { providerSubscriptionId: string }): Promise<void>;
-  /** Localiza a assinatura ativa de um cliente (necessário quando o checkout não a informa). */
-  findActiveSubscriptionId(args: { providerCustomerId: string }): Promise<string | null>;
-  /** Autentica o webhook e normaliza o evento. */
+  createPortalSession(args: { customerId: string; returnUrl: string }): Promise<string>;
+  /** Agenda (true) ou desfaz (false) o cancelamento no fim do período. */
+  setCancelAtPeriodEnd(args: { providerSubscriptionId: string; cancel: boolean }): Promise<SubscriptionSnapshot>;
+  /** Encerra IMEDIATAMENTE todas as recorrências do customer (exclusão de conta). Lança se não confirmar. */
+  cancelAllImmediately(args: { providerCustomerId: string }): Promise<void>;
+  fetchSubscription(providerSubscriptionId: string): Promise<SubscriptionSnapshot | null>;
+  /** Autentica o webhook sobre o raw body e extrai somente referências. */
   verifyWebhook(args: { rawBody: string; headers: Headers }): Promise<WebhookVerification>;
-  /** O gateway oferece portal hospedado para cartão/faturas? */
-  hasCustomerPortal: boolean;
 };
