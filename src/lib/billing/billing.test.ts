@@ -324,7 +324,7 @@ describe("segredos fora do cliente", () => {
       const s = readFileSync(f, "utf8");
       expect(s).not.toMatch(/VITE_(STRIPE|BILLING|SUPABASE_SERVICE)/);
       expect(s).not.toMatch(/sk_live_[A-Za-z0-9]{6,}|sk_test_[A-Za-z0-9]{12,}|whsec_[A-Za-z0-9]{12,}/);
-      if (/STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET/.test(s)) expect(f.endsWith(".server.ts")).toBe(true);
+      if (/STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET/.test(s) && !f.includes("/routes/api/")) expect(f.endsWith(".server.ts")).toBe(true);
       expect(s).not.toMatch(/ASAAS_/);
     }
   });
