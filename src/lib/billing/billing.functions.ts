@@ -265,14 +265,14 @@ export const openBillingPortal = createServerFn({ method: "POST" })
     }
   });
 
-async function setCancel(context: { supabase: Parameters<typeof import("@/lib/audit.server").recordAuditEvent>[0]; userId: string }, cancel: boolean) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function setCancel(context: { supabase: any; userId: string }, cancel: boolean) {
   const { requireProvider } = await import("./provider.server");
   const { hasOpenSubscription, persistCancelFlag } = await import("./billing.server");
   const { recordAuditEvent } = await import("@/lib/audit.server");
   const { AppError, ERROR_CODES } = await import("@/lib/errors");
   const provider = requireProvider();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sub } = await (context.supabase as any).from("subscriptions").select(SUB_SELECT).maybeSingle();
+  const { data: sub } = await context.supabase.from("subscriptions").select(SUB_SELECT).maybeSingle();
   if (!hasOpenSubscription(sub ?? null) || (cancel && sub.cancel_at_period_end) || (!cancel && !sub.cancel_at_period_end)) {
     throw new AppError({
       code: ERROR_CODES.VALIDATION,

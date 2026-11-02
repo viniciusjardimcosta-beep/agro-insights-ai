@@ -140,19 +140,19 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
     // 0) Cobrança recorrente: cancelar no gateway ANTES de excluir.
     //    Se não for possível confirmar, a exclusão é abortada (nunca cobrança órfã).
     {
-      const { hasLiveRecurrence, cancelRecurrence } = await import("@/lib/billing/billing.server");
+      const { hasOpenSubscription, cancelForAccountDeletion } = await import("@/lib/billing/billing.server");
       const { data: sub } = await context.supabase
         .from("subscriptions")
         .select("status, plan_code, provider_customer_id, provider_subscription_id, cancel_at_period_end, trial_ends_at")
         .maybeSingle();
-      if (hasLiveRecurrence(sub ?? null)) {
+      // Qualquer customer com assinatura (mesmo com cancelamento agendado) é encerrado JÁ.
+      if (hasOpenSubscription(sub ?? null) || !!sub?.provider_customer_id) {
         const { resolveProvider } = await import("@/lib/billing/provider.server");
         const provider = resolveProvider();
         let confirmed = false;
         if (provider) {
           try {
-            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-            await cancelRecurrence(supabaseAdmin, provider, userId, sub!);
+            await cancelForAccountDeletion(provider, sub ?? null);
             confirmed = true;
           } catch {
             confirmed = false;
