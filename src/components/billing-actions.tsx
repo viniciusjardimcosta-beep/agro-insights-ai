@@ -25,6 +25,7 @@ import {
   resumeMySubscription,
 } from "@/lib/billing/billing.functions";
 import { annualSavingsCents, formatBRL } from "@/lib/billing/plans";
+import { cancelScheduledMessage } from "@/lib/billing/copy";
 import { toUserMessage } from "@/lib/errors";
 import { useSubscription } from "@/hooks/use-subscription";
 
@@ -115,10 +116,7 @@ export function BillingActions() {
     return (
       <div className="space-y-3">
         {billing.cancelScheduled ? (
-          <p className="text-sm text-muted-foreground">
-            Cancelamento agendado{endLabel ? ` para ${endLabel}` : ""}. Você mantém o acesso até lá e nenhuma nova
-            cobrança será feita.
-          </p>
+          <p className="text-sm text-muted-foreground">{cancelScheduledMessage(endLabel)}</p>
         ) : billing.recurrenceScheduled ? (
           <p className="text-sm text-muted-foreground">
             Assinatura contratada. A primeira cobrança acontece ao fim do teste gratuito.
