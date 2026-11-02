@@ -1,12 +1,13 @@
 // Processamento de webhooks — server-only (service role).
 //
-// Ordem: autenticar → reservar evento (idempotência) → reconciliar → finalizar.
+// Ordem: autenticar (raw body) → reservar evento (idempotência) → buscar estado
+// autoritativo na Stripe pelo ID → reconciliar → finalizar.
 // Identidade: SEMPRE pelos IDs persistidos server-side (checkout criado por nós,
-// provider_customer_id / provider_subscription_id). Metadata do payload nunca
-// é autoridade.
+// provider_customer_id criado por nós antes do checkout, provider_subscription_id).
+// Metadata do payload nunca é autoridade.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sanitizeAuditMetadata, type AuditEventType } from "@/lib/audit.server";
-import type { BillingEvent, BillingProvider } from "./types";
+import type { BillingProvider, WebhookVerification } from "./types";
 import { reconcile, type SubState } from "./reconcile";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,129 +73,106 @@ const SUB_COLS =
 
 type SubRow = SubState & { user_id: string };
 
-export async function findSubscriptionByProviderIds(
-  admin: AnySupabase,
-  args: { providerSubscriptionId: string | null; providerCustomerId: string | null },
-): Promise<SubRow | null> {
-  if (args.providerSubscriptionId) {
-    const { data } = await admin
-      .from("subscriptions")
-      .select(SUB_COLS)
-      .eq("provider_subscription_id", args.providerSubscriptionId)
-      .maybeSingle();
-    if (data) return data as SubRow;
-  }
-  if (args.providerCustomerId) {
-    const { data } = await admin
-      .from("subscriptions")
-      .select(SUB_COLS)
-      .eq("provider_customer_id", args.providerCustomerId)
-      .maybeSingle();
-    if (data) return data as SubRow;
-  }
-  return null;
+async function findRow(admin: AnySupabase, col: string, value: string): Promise<SubRow | null> {
+  const { data } = await admin.from("subscriptions").select(SUB_COLS).eq(col, value).maybeSingle();
+  return (data as SubRow | null) ?? null;
 }
 
-/** Aplica um evento normalizado. Retorna "processed" | "ignored". */
-export async function applyBillingEvent(
+/** Busca o estado atual da assinatura na Stripe e aplica em `subscriptions`. */
+export async function syncSubscription(
   admin: AnySupabase,
   provider: BillingProvider,
-  event: BillingEvent,
+  providerSubscriptionId: string,
 ): Promise<"processed" | "ignored"> {
-  if (event.kind === "ignored") return "ignored";
-
-  if (event.kind === "checkout_closed") {
-    await admin
-      .from("billing_checkouts")
-      .update({ status: event.status })
-      .eq("provider", provider.id)
-      .eq("provider_checkout_id", event.providerCheckoutId)
-      .eq("status", "pending");
-    return "processed";
+  const snap = await provider.fetchSubscription(providerSubscriptionId);
+  if (!snap) return "ignored";
+  const row =
+    (await findRow(admin, "provider_subscription_id", snap.providerSubscriptionId)) ??
+    (await findRow(admin, "provider_customer_id", snap.providerCustomerId));
+  if (!row) return "ignored"; // customer não criado por nós: não é nosso
+  if (row.provider_customer_id !== snap.providerCustomerId) {
+    throw new Error("customer_mismatch"); // nunca associa assinatura de A ao usuário B
   }
 
-  if (event.kind === "checkout_paid") {
-    // Vínculo usuário ⇄ cliente: pelo checkout que NÓS criamos e persistimos.
-    const { data: co } = await admin
-      .from("billing_checkouts")
-      .select("id, user_id, plan_code, status")
-      .eq("provider", provider.id)
-      .eq("provider_checkout_id", event.providerCheckoutId)
-      .maybeSingle();
-    if (!co) return "ignored"; // checkout desconhecido: não é nosso
-    if (co.status === "paid") return "ignored";
-    if (!event.providerCustomerId) throw new RetryLaterError("checkout sem customer");
-
-    // Um customer do gateway nunca pode ser associado a dois usuários.
-    const { data: other } = await admin
-      .from("subscriptions")
-      .select("user_id")
-      .eq("provider_customer_id", event.providerCustomerId)
-      .neq("user_id", co.user_id)
-      .maybeSingle();
-    if (other) throw new Error("customer_already_bound");
-
-    let subscriptionId: string | null = null;
-    try {
-      subscriptionId = await provider.findActiveSubscriptionId({ providerCustomerId: event.providerCustomerId });
-    } catch {
-      subscriptionId = null; // será obtido no primeiro evento de cobrança
-    }
-
-    await admin
-      .from("subscriptions")
-      .update({
-        provider: provider.id,
-        provider_customer_id: event.providerCustomerId,
-        provider_subscription_id: subscriptionId,
-        plan_code: co.plan_code,
-        cancel_at_period_end: false,
-        canceled_at: null,
-      })
-      .eq("user_id", co.user_id);
-    await admin.from("billing_checkouts").update({ status: "paid" }).eq("id", co.id);
-    await recordSystemAudit(admin, {
-      userId: co.user_id,
-      eventType: "checkout_started",
-      metadata: { operation: "checkout_paid", source: provider.id },
-    });
-    return "processed";
-  }
-
-  const sub = await findSubscriptionByProviderIds(admin, {
-    providerSubscriptionId: event.providerSubscriptionId,
-    providerCustomerId: event.providerCustomerId,
-  });
-  if (!sub) {
-    // Cobrança chegou antes do CHECKOUT_PAID: pede retentativa ao gateway.
-    if (event.kind === "payment_confirmed") throw new RetryLaterError("subscription not bound yet");
-    return "ignored";
-  }
-
-  const result = reconcile(sub, event);
+  const result = reconcile(row, snap);
   if (!result.patch) return "ignored";
 
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from("subscriptions")
-    .update(result.patch)
-    .eq("user_id", sub.user_id)
+    .update({ ...result.patch, provider: provider.id })
+    .eq("user_id", row.user_id)
     // Concorrência otimista: só aplica se ninguém alterou a linha no meio.
-    .eq("updated_at", sub.updated_at);
+    .eq("updated_at", row.updated_at)
+    .select("user_id");
   if (error) throw error;
+  if (!updated || updated.length === 0) throw new RetryLaterError("concurrent update");
 
   if (result.consumeFounder) {
     await admin
       .from("billing_eligibility")
       .update({ founder_eligible: false, consumed_at: new Date().toISOString() })
-      .eq("user_id", sub.user_id);
+      .eq("user_id", row.user_id)
+      .is("consumed_at", null);
   }
-  if (result.audit) {
+  for (const audit of result.audits) {
     await recordSystemAudit(admin, {
-      userId: sub.user_id,
-      eventType: result.audit,
-      status: result.audit === "payment_failed" ? "failure" : "success",
-      metadata: { source: provider.id },
+      userId: row.user_id,
+      eventType: audit,
+      status: audit === "payment_failed" ? "failure" : "success",
+      metadata: { source: provider.id, operation: result.patch.plan_code },
     });
   }
   return "processed";
+}
+
+type Verified = Extract<WebhookVerification, { ok: true }>;
+
+/** Aplica um evento verificado. Retorna "processed" | "ignored". */
+export async function applyWebhookEvent(
+  admin: AnySupabase,
+  provider: BillingProvider,
+  ev: Verified,
+): Promise<"processed" | "ignored"> {
+  const t = ev.eventType;
+
+  if (t === "checkout.session.expired" && ev.checkoutSessionId) {
+    await admin
+      .from("billing_checkouts")
+      .update({ status: "expired" })
+      .eq("provider", provider.id)
+      .eq("provider_checkout_id", ev.checkoutSessionId)
+      .eq("status", "pending");
+    return "processed";
+  }
+
+  if (t === "checkout.session.completed") {
+    if (!ev.checkoutSessionId) return "ignored";
+    const { data: co } = await admin
+      .from("billing_checkouts")
+      .select("id, user_id, status")
+      .eq("provider", provider.id)
+      .eq("provider_checkout_id", ev.checkoutSessionId)
+      .maybeSingle();
+    if (!co) return "ignored"; // checkout desconhecido: não é nosso
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("provider_customer_id")
+      .eq("user_id", co.user_id)
+      .maybeSingle();
+    if (!sub?.provider_customer_id || sub.provider_customer_id !== ev.customerId) {
+      throw new Error("customer_mismatch");
+    }
+    if (co.status === "pending") await admin.from("billing_checkouts").update({ status: "paid" }).eq("id", co.id);
+    // Checkout concluído NÃO ativa nada: o status vem do estado da Subscription.
+    return ev.subscriptionId ? syncSubscription(admin, provider, ev.subscriptionId) : "processed";
+  }
+
+  if (
+    (t.startsWith("customer.subscription.") || t === "invoice.paid" || t === "invoice.payment_failed") &&
+    ev.subscriptionId
+  ) {
+    return syncSubscription(admin, provider, ev.subscriptionId);
+  }
+
+  return "ignored";
 }

@@ -15,9 +15,9 @@ export type BillingRow = {
   trial_ends_at: string | null;
 };
 
-/** Existe recorrência no gateway que pode gerar cobrança futura? */
+/** Existe assinatura no gateway que pode gerar cobrança futura? */
 export function hasLiveRecurrence(row: BillingRow | null): boolean {
-  if (!row || !row.provider_customer_id) return false;
+  if (!row || !row.provider_subscription_id) return false;
   if (row.cancel_at_period_end) return false;
   return (
     row.status === SUBSCRIPTION_STATUS.ACTIVE ||
@@ -27,41 +27,26 @@ export function hasLiveRecurrence(row: BillingRow | null): boolean {
   );
 }
 
-/**
- * Cancela a recorrência no gateway e registra o cancelamento agendado.
- * O Asaas não tem "cancelar no fim do período": a assinatura é removida
- * no gateway (nenhuma cobrança futura) e o AgroIntel mantém o acesso até
- * `current_period_ends_at` via entitlement engine (status canceled).
- * Lança em qualquer falha — quem chama decide (ex.: abortar exclusão).
- */
-export async function cancelRecurrence(
-  admin: AnySupabase,
-  provider: BillingProvider,
-  userId: string,
-  row: BillingRow,
-): Promise<void> {
-  let subscriptionId = row.provider_subscription_id;
-  if (!subscriptionId && row.provider_customer_id) {
-    subscriptionId = await provider.findActiveSubscriptionId({ providerCustomerId: row.provider_customer_id });
-  }
-  if (subscriptionId) {
-    await provider.cancelSubscription({ providerSubscriptionId: subscriptionId });
-  }
-  const now = new Date().toISOString();
-  const patch =
-    row.status === SUBSCRIPTION_STATUS.TRIALING
-      ? { cancel_at_period_end: true, canceled_at: now, provider_subscription_id: null }
-      : { status: SUBSCRIPTION_STATUS.CANCELED, cancel_at_period_end: true, canceled_at: now };
-  const { error } = await admin.from("subscriptions").update(patch).eq("user_id", userId);
-  if (error) throw error;
+/** Há assinatura vinculada que ainda não terminou (inclui cancelamento agendado)? */
+export function hasOpenSubscription(row: BillingRow | null): boolean {
+  return !!row?.provider_subscription_id && row.status !== SUBSCRIPTION_STATUS.CANCELED && row.status !== SUBSCRIPTION_STATUS.EXPIRED;
 }
 
-/** Data (YYYY-MM-DD, America/Sao_Paulo) da 1ª cobrança: fim do trial interno, ou hoje. */
-export function firstChargeDate(row: { status: string; trial_ends_at: string | null }, now = new Date()): string {
-  const fmt = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
-  if (row.status === SUBSCRIPTION_STATUS.TRIALING && row.trial_ends_at) {
-    const end = new Date(row.trial_ends_at);
-    if (end.getTime() > now.getTime()) return fmt(end);
-  }
-  return fmt(now);
+/**
+ * Exclusão de conta: encerra IMEDIATAMENTE toda recorrência do customer na Stripe
+ * (cancel_at_period_end não basta — ainda existiria uma assinatura viva).
+ * Lança em qualquer falha — quem chama aborta a exclusão.
+ */
+export async function cancelForAccountDeletion(provider: BillingProvider, row: BillingRow | null): Promise<void> {
+  if (!row?.provider_customer_id) return;
+  await provider.cancelAllImmediately({ providerCustomerId: row.provider_customer_id });
+}
+
+/** Aplica o snapshot devolvido pela Stripe após agendar/desfazer cancelamento. */
+export async function persistCancelFlag(admin: AnySupabase, userId: string, cancel: boolean): Promise<void> {
+  const { error } = await admin
+    .from("subscriptions")
+    .update({ cancel_at_period_end: cancel, canceled_at: cancel ? new Date().toISOString() : null })
+    .eq("user_id", userId);
+  if (error) throw error;
 }
