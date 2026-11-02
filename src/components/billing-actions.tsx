@@ -116,10 +116,7 @@ export function BillingActions() {
     return (
       <div className="space-y-3">
         {billing.cancelScheduled ? (
-          <p className="text-sm text-muted-foreground">
-            Cancelamento agendado{endLabel ? ` para ${endLabel}` : ""}. Você mantém o acesso até lá e nenhuma nova
-            cobrança será feita.
-          </p>
+          <p className="text-sm text-muted-foreground">{cancelScheduledMessage(endLabel)}</p>
         ) : billing.recurrenceScheduled ? (
           <p className="text-sm text-muted-foreground">
             Assinatura contratada. A primeira cobrança acontece ao fim do teste gratuito.
