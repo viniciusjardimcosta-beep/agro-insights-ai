@@ -25,6 +25,7 @@ import {
   resumeMySubscription,
 } from "@/lib/billing/billing.functions";
 import { annualSavingsCents, formatBRL } from "@/lib/billing/plans";
+import { cancelScheduledMessage } from "@/lib/billing/copy";
 import { toUserMessage } from "@/lib/errors";
 import { useSubscription } from "@/hooks/use-subscription";
 
