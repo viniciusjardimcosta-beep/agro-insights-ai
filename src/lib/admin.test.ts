@@ -114,15 +114,19 @@ describe("Plano Fundador", () => {
         updated_at: "2026-10-08T00:00:00.000Z",
       },
       {
-        kind: "payment_confirmed",
-        providerCustomerId: "c",
         providerSubscriptionId: "s",
+        providerCustomerId: "c",
+        providerStatus: "active",
+        planCode: "pro_founder_monthly",
         periodStart: "2026-11-08T03:00:00.000Z",
-        occurredAt: "2026-11-08T12:00:00.000Z",
+        periodEnd: "2026-12-08T03:00:00.000Z",
+        cancelAtPeriodEnd: false,
+        canceledAt: null,
+        livemode: false,
       },
     );
-    expect(r.audit).toBe("subscription_renewed");
-    expect(r.patch).not.toHaveProperty("plan_code");
+    expect(r.audits).toEqual(["subscription_renewed"]);
+    expect(r.patch?.plan_code).toBe("pro_founder_monthly");
     expect(findPlanVariant("pro_founder_monthly")?.amountCents).toBe(6990);
   });
   it("revogação não toca subscriptions", () => {

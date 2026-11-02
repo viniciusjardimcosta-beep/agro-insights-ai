@@ -1,5 +1,5 @@
 // Catálogo central de planos — o servidor é a única autoridade de preço.
-// Valores aprovados comercialmente (Sprint 3.4B — Asaas).
+// Valores aprovados comercialmente (Sprint 3.4B — Stripe).
 import type { PlanVariant } from "./types";
 
 export const PLAN_CATALOG: readonly PlanVariant[] = [
