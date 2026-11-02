@@ -6,7 +6,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { BillingActions } from "@/components/billing-actions";
 import { PREMIUM_FEATURES, SUBSCRIPTION_STATUS, TRIAL_DAYS } from "@/lib/entitlements";
 
-export const Route = createFileRoute("/_authenticated/configuracoes/assinatura")({
+export const Route = createFileRoute("/_authenticated/configuracoes_/assinatura")({
   head: () => ({
     meta: [
       { title: "Assinatura e teste gratuito — AgroIntel AI" },
