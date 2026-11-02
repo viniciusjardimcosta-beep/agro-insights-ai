@@ -32,7 +32,7 @@ import { Route as AuthenticatedAssinaturaSucessoRouteImport } from './routes/_au
 import { Route as AuthenticatedConfiguracoesAssinaturaRouteImport } from './routes/_authenticated/configuracoes.assinatura'
 import { Route as AuthenticatedConsultorThreadIdRouteImport } from './routes/_authenticated/consultor.$threadId'
 import { Route as ApiPublicChatRouteImport } from './routes/api/public/chat'
-import { Route as ApiPublicBillingAsaasRouteImport } from './routes/api/public/billing/asaas'
+import { Route as ApiPublicBillingStripeRouteImport } from './routes/api/public/billing/stripe'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -156,9 +156,9 @@ const ApiPublicChatRoute = ApiPublicChatRouteImport.update({
   path: '/api/public/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicBillingAsaasRoute = ApiPublicBillingAsaasRouteImport.update({
-  id: '/api/public/billing/asaas',
-  path: '/api/public/billing/asaas',
+const ApiPublicBillingStripeRoute = ApiPublicBillingStripeRouteImport.update({
+  id: '/api/public/billing/stripe',
+  path: '/api/public/billing/stripe',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -185,7 +185,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
-  '/api/public/billing/asaas': typeof ApiPublicBillingAsaasRoute
+  '/api/public/billing/stripe': typeof ApiPublicBillingStripeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -210,7 +210,7 @@ export interface FileRoutesByTo {
   '/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
-  '/api/public/billing/asaas': typeof ApiPublicBillingAsaasRoute
+  '/api/public/billing/stripe': typeof ApiPublicBillingStripeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -237,7 +237,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/_authenticated/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
-  '/api/public/billing/asaas': typeof ApiPublicBillingAsaasRoute
+  '/api/public/billing/stripe': typeof ApiPublicBillingStripeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -264,7 +264,7 @@ export interface FileRouteTypes {
     | '/configuracoes/assinatura'
     | '/consultor/$threadId'
     | '/api/public/chat'
-    | '/api/public/billing/asaas'
+    | '/api/public/billing/stripe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -289,7 +289,7 @@ export interface FileRouteTypes {
     | '/configuracoes/assinatura'
     | '/consultor/$threadId'
     | '/api/public/chat'
-    | '/api/public/billing/asaas'
+    | '/api/public/billing/stripe'
   id:
     | '__root__'
     | '/'
@@ -315,7 +315,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes/assinatura'
     | '/_authenticated/consultor/$threadId'
     | '/api/public/chat'
-    | '/api/public/billing/asaas'
+    | '/api/public/billing/stripe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -325,7 +325,7 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiPublicChatRoute: typeof ApiPublicChatRoute
-  ApiPublicBillingAsaasRoute: typeof ApiPublicBillingAsaasRoute
+  ApiPublicBillingStripeRoute: typeof ApiPublicBillingStripeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -491,11 +491,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/billing/asaas': {
-      id: '/api/public/billing/asaas'
-      path: '/api/public/billing/asaas'
-      fullPath: '/api/public/billing/asaas'
-      preLoaderRoute: typeof ApiPublicBillingAsaasRouteImport
+    '/api/public/billing/stripe': {
+      id: '/api/public/billing/stripe'
+      path: '/api/public/billing/stripe'
+      fullPath: '/api/public/billing/stripe'
+      preLoaderRoute: typeof ApiPublicBillingStripeRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -577,7 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiPublicChatRoute: ApiPublicChatRoute,
-  ApiPublicBillingAsaasRoute: ApiPublicBillingAsaasRoute,
+  ApiPublicBillingStripeRoute: ApiPublicBillingStripeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

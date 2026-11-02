@@ -2,8 +2,8 @@
 //
 // SEGURANÇA:
 // - Identidade sempre do token (`requireSupabaseAuth`). O cliente envia apenas
-//   `planCode`; preço, ciclo, desconto, trial, status e IDs do gateway são
-//   resolvidos no servidor e qualquer campo extra é descartado.
+//   `planCode`; preço, moeda, ciclo, desconto, trial, Price ID, Customer e status
+//   são resolvidos no servidor e qualquer campo extra é descartado.
 // - Retorno de checkout nunca ativa assinatura: só o webhook validado.
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
@@ -21,13 +21,19 @@ export type BillingStatusInfo = {
   configured: boolean;
   plans: BillingPlanDTO[];
   founderEligible: boolean;
-  /** Contratação concluída no gateway aguardando 1ª cobrança (ex.: durante o trial). */
+  /** Assinatura contratada aguardando 1ª cobrança (durante o trial interno). */
   recurrenceScheduled: boolean;
+  /** Assinatura vinculada e ainda não encerrada (inclui cancelamento agendado). */
+  hasSubscription: boolean;
+  cancelScheduled: boolean;
   checkoutPending: boolean;
   hasCustomerPortal: boolean;
   /** Plano contratado (para exibição), sem IDs técnicos. */
   planCode: string;
 };
+
+const SUB_SELECT =
+  "status, plan_code, provider_customer_id, provider_subscription_id, cancel_at_period_end, trial_ends_at, current_period_ends_at";
 
 function safeOrigin(): string {
   const raw = getRequestHeader("origin") ?? "";
@@ -46,15 +52,12 @@ export const getBillingStatus = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<BillingStatusInfo> => {
     const { resolveProvider } = await import("./provider.server");
     const { availablePlanVariants, isFounderEligible } = await import("./plans");
-    const { hasLiveRecurrence } = await import("./billing.server");
+    const { hasLiveRecurrence, hasOpenSubscription } = await import("./billing.server");
     const provider = resolveProvider();
 
     const [{ data: elig }, { data: sub }] = await Promise.all([
       context.supabase.from("billing_eligibility").select("founder_eligible, consumed_at").maybeSingle(),
-      context.supabase
-        .from("subscriptions")
-        .select("status, plan_code, provider_customer_id, provider_subscription_id, cancel_at_period_end, trial_ends_at")
-        .maybeSingle(),
+      context.supabase.from("subscriptions").select(SUB_SELECT).maybeSingle(),
     ]);
     const founderEligible = isFounderEligible(elig ?? null);
 
@@ -86,24 +89,25 @@ export const getBillingStatus = createServerFn({ method: "GET" })
         : [],
       founderEligible,
       recurrenceScheduled: sub?.status === "trialing" && hasLiveRecurrence(sub ?? null),
+      hasSubscription: hasOpenSubscription(sub ?? null),
+      cancelScheduled: hasOpenSubscription(sub ?? null) && sub?.cancel_at_period_end === true,
       checkoutPending,
-      hasCustomerPortal: provider?.hasCustomerPortal ?? false,
+      hasCustomerPortal: !!provider?.hasCustomerPortal && !!sub?.provider_customer_id,
       planCode: sub?.plan_code ?? "trial",
     };
   });
 
-const CHECKOUT_MINUTES = 30;
-
 export const createCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  // Apenas planCode é lido; amount/price/discount/trialDays/customerId são descartados.
+  // Apenas planCode é lido; amount/price/currency/discount/trialDays/customerId são descartados.
   .inputValidator((input: unknown) => ({
     planCode: String((input as { planCode?: unknown } | null)?.planCode ?? "").slice(0, 64),
   }))
   .handler(async ({ data, context }): Promise<{ url: string }> => {
     const { requireProvider } = await import("./provider.server");
     const { findPlanVariant, isFounderEligible } = await import("./plans");
-    const { hasLiveRecurrence, firstChargeDate } = await import("./billing.server");
+    const { hasOpenSubscription } = await import("./billing.server");
+    const { trialEndForCheckout } = await import("./providers/stripe");
     const { ensureSubscription } = await import("@/lib/subscription.server");
     const { recordAuditEvent } = await import("@/lib/audit.server");
     const { AppError, ERROR_CODES } = await import("@/lib/errors");
@@ -136,20 +140,48 @@ export const createCheckout = createServerFn({ method: "POST" })
       }
     }
 
-    const provider = requireProvider(); // fail-closed (sandbox obrigatório)
+    const provider = requireProvider(); // fail-closed (test mode obrigatório)
     await ensureSubscription(context.supabase);
-    const { data: sub } = await context.supabase
-      .from("subscriptions")
-      .select("status, plan_code, provider_customer_id, provider_subscription_id, cancel_at_period_end, trial_ends_at, current_period_ends_at")
-      .maybeSingle();
+    const { data: sub } = await context.supabase.from("subscriptions").select(SUB_SELECT).maybeSingle();
     if (!sub) throw await fail("NO_SUBSCRIPTION", "Não foi possível iniciar a contratação.", 500, "CHECKOUT_FAILED");
-    if (hasLiveRecurrence(sub)) {
+    if (hasOpenSubscription(sub)) {
       throw await fail("ALREADY_SUBSCRIBED", "Você já possui uma assinatura contratada.", 409, "CHECKOUT_FAILED");
     }
 
+    // Price autorizado + validação contra o catálogo (BRL, valor, ciclo, test mode).
+    let priceId: string;
+    try {
+      priceId = await provider.resolvePrice(variant);
+    } catch {
+      throw await fail("PRICE_MISMATCH", "Este plano não está disponível para contratação agora.", 503, "BILLING_NOT_CONFIGURED");
+    }
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Customer: reutiliza o persistido; cria uma única vez (Idempotency-Key por usuário
+    // + gravação condicional) — nunca aceita customer vindo do navegador.
+    let customerId = sub.provider_customer_id;
+    if (!customerId) {
+      try {
+        const created = await provider.createCustomer({ userId: context.userId, email: (context.claims as { email?: string })?.email ?? null });
+        await supabaseAdmin
+          .from("subscriptions")
+          .update({ provider: provider.id, provider_customer_id: created })
+          .eq("user_id", context.userId)
+          .is("provider_customer_id", null);
+        const { data: again } = await supabaseAdmin
+          .from("subscriptions")
+          .select("provider_customer_id")
+          .eq("user_id", context.userId)
+          .single();
+        customerId = again?.provider_customer_id ?? null;
+      } catch {
+        customerId = null;
+      }
+      if (!customerId) throw await fail("CUSTOMER_FAILED", "Não foi possível iniciar a contratação agora. Tente novamente.", 502, "CHECKOUT_FAILED");
+    }
+
     const nowIso = new Date().toISOString();
-    // Expira tentativas antigas e reaproveita a pendente do mesmo plano.
     await supabaseAdmin
       .from("billing_checkouts")
       .update({ status: "expired" })
@@ -163,24 +195,16 @@ export const createCheckout = createServerFn({ method: "POST" })
       .eq("status", "pending")
       .maybeSingle();
     if (pending?.checkout_url && pending.plan_code === variant.planCode) return { url: pending.checkout_url };
-    if (pending) {
-      await supabaseAdmin.from("billing_checkouts").update({ status: "canceled" }).eq("id", pending.id);
-    }
+    if (pending) await supabaseAdmin.from("billing_checkouts").update({ status: "canceled" }).eq("id", pending.id);
 
-    const expiresAt = new Date(Date.now() + CHECKOUT_MINUTES * 60_000).toISOString();
+    const { CHECKOUT_EXPIRES_MINUTES } = await import("./providers/stripe");
+    const expiresAt = new Date(Date.now() + (CHECKOUT_EXPIRES_MINUTES - 1) * 60_000).toISOString();
     const { data: row, error: insErr } = await supabaseAdmin
       .from("billing_checkouts")
-      .insert({
-        user_id: context.userId,
-        provider: provider.id,
-        plan_code: variant.planCode,
-        status: "pending",
-        expires_at: expiresAt,
-      })
+      .insert({ user_id: context.userId, provider: provider.id, plan_code: variant.planCode, status: "pending", expires_at: expiresAt })
       .select("id")
       .single();
     if (insErr || !row) {
-      // 23505: outra aba criou um checkout ao mesmo tempo (índice único parcial).
       throw await fail("CONCURRENT_CHECKOUT", "Já existe uma contratação em andamento. Tente novamente em instantes.", 409, "CHECKOUT_FAILED");
     }
 
@@ -188,12 +212,12 @@ export const createCheckout = createServerFn({ method: "POST" })
     try {
       const session = await provider.createCheckoutSession({
         variant,
-        externalReference: row.id,
-        firstChargeDate: firstChargeDate(sub),
+        priceId,
+        customerId,
+        checkoutRef: row.id,
+        trialEnd: trialEndForCheckout(sub),
         successUrl: `${origin}/assinatura/sucesso`,
         cancelUrl: `${origin}/assinatura/cancelado`,
-        expiredUrl: `${origin}/assinatura/cancelado`,
-        minutesToExpire: CHECKOUT_MINUTES,
       });
       await supabaseAdmin
         .from("billing_checkouts")
@@ -212,50 +236,75 @@ export const createCheckout = createServerFn({ method: "POST" })
     }
   });
 
-/** Asaas não oferece portal hospedado de assinatura — documentado em docs/BILLING.md. */
+/** Customer Portal oficial da Stripe. O customer vem SEMPRE da conta autenticada. */
 export const openBillingPortal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async (): Promise<{ url: string }> => {
+  .handler(async ({ context }): Promise<{ url: string }> => {
     const { requireProvider } = await import("./provider.server");
-    const { AppError, ERROR_CODES } = await import("@/lib/errors");
-    requireProvider();
-    throw new AppError({
-      code: ERROR_CODES.BILLING_NOT_CONFIGURED,
-      status: 501,
-      userMessage: "O gerenciamento de cartão ainda não está disponível. Você pode cancelar pela própria tela de assinatura.",
-    });
-  });
-
-export const cancelMySubscription = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ ok: true }> => {
-    const { requireProvider } = await import("./provider.server");
-    const { hasLiveRecurrence, cancelRecurrence } = await import("./billing.server");
     const { recordAuditEvent } = await import("@/lib/audit.server");
     const { AppError, ERROR_CODES } = await import("@/lib/errors");
     const provider = requireProvider();
-    const { data: sub } = await context.supabase
-      .from("subscriptions")
-      .select("status, plan_code, provider_customer_id, provider_subscription_id, cancel_at_period_end, trial_ends_at")
-      .maybeSingle();
-    if (!hasLiveRecurrence(sub ?? null)) {
-      throw new AppError({ code: ERROR_CODES.VALIDATION, status: 400, userMessage: "Não há assinatura ativa para cancelar." });
+    const { data: sub } = await context.supabase.from("subscriptions").select("provider_customer_id").maybeSingle();
+    if (!sub?.provider_customer_id) {
+      throw new AppError({ code: ERROR_CODES.VALIDATION, status: 400, userMessage: "Você ainda não possui assinatura para gerenciar." });
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     try {
-      await cancelRecurrence(supabaseAdmin, provider, context.userId, sub!);
+      const url = await provider.createPortalSession({
+        customerId: sub.provider_customer_id,
+        returnUrl: `${safeOrigin()}/configuracoes/assinatura`,
+      });
+      await recordAuditEvent(context.supabase, { eventType: "billing_portal_opened", metadata: { source: provider.id } });
+      return { url };
     } catch {
       await recordAuditEvent(context.supabase, {
-        eventType: "subscription_cancel_scheduled",
+        eventType: "billing_portal_opened",
         status: "failure",
-        metadata: { error_code: "CANCEL_FAILED" },
+        metadata: { source: provider.id, error_code: "PORTAL_FAILED" },
       });
-      throw new AppError({
-        code: ERROR_CODES.CHECKOUT_FAILED,
-        status: 502,
-        userMessage: "Não foi possível cancelar agora. Tente novamente em instantes.",
-      });
+      throw new AppError({ code: ERROR_CODES.CHECKOUT_FAILED, status: 502, userMessage: "Não foi possível abrir o gerenciamento agora. Tente novamente." });
     }
-    await recordAuditEvent(context.supabase, { eventType: "subscription_cancel_scheduled", metadata: { source: provider.id } });
-    return { ok: true };
   });
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function setCancel(context: { supabase: any; userId: string }, cancel: boolean) {
+  const { requireProvider } = await import("./provider.server");
+  const { hasOpenSubscription, persistCancelFlag } = await import("./billing.server");
+  const { recordAuditEvent } = await import("@/lib/audit.server");
+  const { AppError, ERROR_CODES } = await import("@/lib/errors");
+  const provider = requireProvider();
+  const { data: sub } = await context.supabase.from("subscriptions").select(SUB_SELECT).maybeSingle();
+  if (!hasOpenSubscription(sub ?? null) || (cancel && sub.cancel_at_period_end) || (!cancel && !sub.cancel_at_period_end)) {
+    throw new AppError({
+      code: ERROR_CODES.VALIDATION,
+      status: 400,
+      userMessage: cancel ? "Não há assinatura ativa para cancelar." : "Não há cancelamento agendado para desfazer.",
+    });
+  }
+  try {
+    await provider.setCancelAtPeriodEnd({ providerSubscriptionId: sub.provider_subscription_id, cancel });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await persistCancelFlag(supabaseAdmin, context.userId, cancel);
+  } catch {
+    await recordAuditEvent(context.supabase, {
+      eventType: "subscription_cancel_scheduled",
+      status: "failure",
+      metadata: { error_code: cancel ? "CANCEL_FAILED" : "RESUME_FAILED" },
+    });
+    throw new AppError({ code: ERROR_CODES.CHECKOUT_FAILED, status: 502, userMessage: "Não foi possível concluir agora. Tente novamente em instantes." });
+  }
+  await recordAuditEvent(context.supabase, {
+    eventType: "subscription_cancel_scheduled",
+    metadata: { source: provider.id, operation: cancel ? "schedule" : "undo" },
+  });
+  return { ok: true as const };
+}
+
+/** Agenda o cancelamento no fim do período (acesso mantido até lá). */
+export const cancelMySubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => setCancel(context, true));
+
+/** Desfaz o cancelamento agendado (mesma assinatura e mesmo preço; fundador preservado). */
+export const resumeMySubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => setCancel(context, false));

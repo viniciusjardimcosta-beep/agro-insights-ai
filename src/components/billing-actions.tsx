@@ -17,7 +17,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { cancelMySubscription, createCheckout, getBillingStatus } from "@/lib/billing/billing.functions";
+import {
+  cancelMySubscription,
+  createCheckout,
+  getBillingStatus,
+  openBillingPortal,
+  resumeMySubscription,
+} from "@/lib/billing/billing.functions";
 import { annualSavingsCents, formatBRL } from "@/lib/billing/plans";
 import { toUserMessage } from "@/lib/errors";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -31,14 +37,40 @@ export function BillingActions() {
   const fetchStatus = useServerFn(getBillingStatus);
   const checkout = useServerFn(createCheckout);
   const cancel = useServerFn(cancelMySubscription);
+  const resume = useServerFn(resumeMySubscription);
+  const portal = useServerFn(openBillingPortal);
   const [busy, setBusy] = useState<string | null>(null);
 
   const { data: billing, isLoading } = useQuery({ queryKey: ["billing-status"], queryFn: () => fetchStatus() });
 
-  const subscribed =
-    !!access &&
-    !access.cancelAtPeriodEnd &&
-    (access.status === "active" || access.status === "past_due" || billing?.recurrenceScheduled);
+  const subscribed = !!billing?.hasSubscription;
+
+  async function openPortal() {
+    setBusy("portal");
+    try {
+      const { url } = await portal();
+      window.location.assign(url);
+    } catch (err) {
+      toast.error(toUserMessage(err));
+      setBusy(null);
+    }
+  }
+
+  async function doResume() {
+    setBusy("resume");
+    try {
+      await resume();
+      toast.success("Cancelamento desfeito. Sua assinatura continua normalmente.");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["subscription"] }),
+        qc.invalidateQueries({ queryKey: ["billing-status"] }),
+      ]);
+    } catch (err) {
+      toast.error(toUserMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function startCheckout(planCode: string) {
     setBusy(planCode);
@@ -55,7 +87,7 @@ export function BillingActions() {
     setBusy("cancel");
     try {
       await cancel();
-      toast.success("Cancelamento registrado. Nenhuma nova cobrança será feita.");
+      toast.success("Cancelamento agendado. Você mantém o acesso até o fim do período.");
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["subscription"] }),
         qc.invalidateQueries({ queryKey: ["billing-status"] }),
@@ -78,43 +110,68 @@ export function BillingActions() {
   }
 
   if (subscribed) {
+    const endsAt = access?.currentPeriodEndsAt ?? access?.trialEndsAt ?? null;
+    const endLabel = endsAt ? new Date(endsAt).toLocaleDateString("pt-BR") : null;
     return (
       <div className="space-y-3">
-        {billing.recurrenceScheduled && (
+        {billing.cancelScheduled ? (
+          <p className="text-sm text-muted-foreground">
+            Cancelamento agendado{endLabel ? ` para ${endLabel}` : ""}. Você mantém o acesso até lá e nenhuma nova
+            cobrança será feita.
+          </p>
+        ) : billing.recurrenceScheduled ? (
           <p className="text-sm text-muted-foreground">
             Assinatura contratada. A primeira cobrança acontece ao fim do teste gratuito.
           </p>
-        )}
+        ) : null}
         {access?.status === "past_due" && (
           <p className="text-sm text-destructive">
-            Não conseguimos processar o último pagamento. Seus dados estão preservados.
+            Não conseguimos processar o último pagamento. Atualize o cartão em “Gerenciar assinatura”. Seus dados estão
+            preservados.
           </p>
         )}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" disabled={busy === "cancel"}>
-              {busy === "cancel" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Cancelar assinatura
+        <div className="flex flex-wrap gap-2">
+          {billing.hasCustomerPortal && (
+            <Button onClick={openPortal} disabled={!!busy}>
+              {busy === "portal" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Gerenciar assinatura
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Cancelar assinatura?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Nenhuma nova cobrança será feita. Você mantém o acesso até o fim do período já pago
-                {billing.planCode === "pro_founder_monthly"
-                  ? ". O preço de fundador não poderá ser recuperado em uma nova assinatura."
-                  : "."}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
-              <AlertDialogAction onClick={doCancel}>Confirmar cancelamento</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          )}
+          {billing.cancelScheduled ? (
+            <Button variant="outline" onClick={doResume} disabled={!!busy}>
+              {busy === "resume" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Manter assinatura
+            </Button>
+          ) : (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={!!busy}>
+                  {busy === "cancel" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Cancelar assinatura
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancelar assinatura?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    O cancelamento vale ao fim do período atual: você mantém o acesso até lá e nenhuma nova cobrança
+                    será feita. Você pode desfazer antes dessa data
+                    {billing.planCode === "pro_founder_monthly"
+                      ? ". Depois do encerramento, o preço de fundador não poderá ser recuperado."
+                      : "."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
+                  <AlertDialogAction onClick={doCancel}>Confirmar cancelamento</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">
-          Para trocar o cartão, cancele e assine novamente. Nenhum dado de cartão é armazenado pelo AgroIntel.
+          Troca de cartão e faturas ficam em “Gerenciar assinatura”, no ambiente seguro da Stripe. Nenhum dado de cartão
+          é armazenado pelo AgroIntel.
         </p>
       </div>
     );
@@ -124,7 +181,7 @@ export function BillingActions() {
     <div className="space-y-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-primary">AgroIntel Pro</p>
-        <p className="text-sm text-muted-foreground">Pagamento por cartão de crédito em ambiente seguro do Asaas.</p>
+        <p className="text-sm text-muted-foreground">Pagamento por cartão de crédito em ambiente seguro da Stripe.</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {billing.plans.map((p) => (
