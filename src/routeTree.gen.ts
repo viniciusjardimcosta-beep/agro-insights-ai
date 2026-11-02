@@ -29,7 +29,7 @@ import { Route as AuthenticatedSimuladorRouteImport } from './routes/_authentica
 import { Route as AuthenticatedTalhoesRouteImport } from './routes/_authenticated/talhoes'
 import { Route as AuthenticatedAssinaturaCanceladoRouteImport } from './routes/_authenticated/assinatura.cancelado'
 import { Route as AuthenticatedAssinaturaSucessoRouteImport } from './routes/_authenticated/assinatura.sucesso'
-import { Route as AuthenticatedConfiguracoesAssinaturaRouteImport } from './routes/_authenticated/configuracoes.assinatura'
+import { Route as AuthenticatedConfiguracoesAssinaturaRouteImport } from './routes/_authenticated/configuracoes_.assinatura'
 import { Route as AuthenticatedConsultorThreadIdRouteImport } from './routes/_authenticated/consultor.$threadId'
 import { Route as ApiPublicChatRouteImport } from './routes/api/public/chat'
 import { Route as ApiPublicBillingStripeRouteImport } from './routes/api/public/billing/stripe'
@@ -141,9 +141,9 @@ const AuthenticatedAssinaturaSucessoRoute =
   } as any)
 const AuthenticatedConfiguracoesAssinaturaRoute =
   AuthenticatedConfiguracoesAssinaturaRouteImport.update({
-    id: '/assinatura',
-    path: '/assinatura',
-    getParentRoute: () => AuthenticatedConfiguracoesRoute,
+    id: '/configuracoes_/assinatura',
+    path: '/configuracoes/assinatura',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedConsultorThreadIdRoute =
   AuthenticatedConsultorThreadIdRouteImport.update({
@@ -169,7 +169,7 @@ export interface FileRoutesByFullPath {
   '/termos': typeof TermosRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/alertas': typeof AuthenticatedAlertasRoute
-  '/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -194,7 +194,7 @@ export interface FileRoutesByTo {
   '/termos': typeof TermosRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/alertas': typeof AuthenticatedAlertasRoute
-  '/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/custos': typeof AuthenticatedCustosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -221,7 +221,7 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
-  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRouteWithChildren
+  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/_authenticated/custos': typeof AuthenticatedCustosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -234,7 +234,7 @@ export interface FileRoutesById {
   '/_authenticated/talhoes': typeof AuthenticatedTalhoesRoute
   '/_authenticated/assinatura/cancelado': typeof AuthenticatedAssinaturaCanceladoRoute
   '/_authenticated/assinatura/sucesso': typeof AuthenticatedAssinaturaSucessoRoute
-  '/_authenticated/configuracoes/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
+  '/_authenticated/configuracoes_/assinatura': typeof AuthenticatedConfiguracoesAssinaturaRoute
   '/_authenticated/consultor/$threadId': typeof AuthenticatedConsultorThreadIdRoute
   '/api/public/chat': typeof ApiPublicChatRoute
   '/api/public/billing/stripe': typeof ApiPublicBillingStripeRoute
@@ -312,7 +312,7 @@ export interface FileRouteTypes {
     | '/_authenticated/talhoes'
     | '/_authenticated/assinatura/cancelado'
     | '/_authenticated/assinatura/sucesso'
-    | '/_authenticated/configuracoes/assinatura'
+    | '/_authenticated/configuracoes_/assinatura'
     | '/_authenticated/consultor/$threadId'
     | '/api/public/chat'
     | '/api/public/billing/stripe'
@@ -470,12 +470,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAssinaturaSucessoRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/configuracoes/assinatura': {
-      id: '/_authenticated/configuracoes/assinatura'
-      path: '/assinatura'
+    '/_authenticated/configuracoes_/assinatura': {
+      id: '/_authenticated/configuracoes_/assinatura'
+      path: '/configuracoes/assinatura'
       fullPath: '/configuracoes/assinatura'
       preLoaderRoute: typeof AuthenticatedConfiguracoesAssinaturaRouteImport
-      parentRoute: typeof AuthenticatedConfiguracoesRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/consultor/$threadId': {
       id: '/_authenticated/consultor/$threadId'
@@ -501,21 +501,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedConfiguracoesRouteChildren {
-  AuthenticatedConfiguracoesAssinaturaRoute: typeof AuthenticatedConfiguracoesAssinaturaRoute
-}
-
-const AuthenticatedConfiguracoesRouteChildren: AuthenticatedConfiguracoesRouteChildren =
-  {
-    AuthenticatedConfiguracoesAssinaturaRoute:
-      AuthenticatedConfiguracoesAssinaturaRoute,
-  }
-
-const AuthenticatedConfiguracoesRouteWithChildren =
-  AuthenticatedConfiguracoesRoute._addFileChildren(
-    AuthenticatedConfiguracoesRouteChildren,
-  )
-
 interface AuthenticatedConsultorRouteChildren {
   AuthenticatedConsultorThreadIdRoute: typeof AuthenticatedConsultorThreadIdRoute
 }
@@ -533,7 +518,7 @@ const AuthenticatedConsultorRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
-  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRouteWithChildren
+  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedConsultorRoute: typeof AuthenticatedConsultorRouteWithChildren
   AuthenticatedCustosRoute: typeof AuthenticatedCustosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -546,12 +531,13 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTalhoesRoute: typeof AuthenticatedTalhoesRoute
   AuthenticatedAssinaturaCanceladoRoute: typeof AuthenticatedAssinaturaCanceladoRoute
   AuthenticatedAssinaturaSucessoRoute: typeof AuthenticatedAssinaturaSucessoRoute
+  AuthenticatedConfiguracoesAssinaturaRoute: typeof AuthenticatedConfiguracoesAssinaturaRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAlertasRoute: AuthenticatedAlertasRoute,
-  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRouteWithChildren,
+  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedConsultorRoute: AuthenticatedConsultorRouteWithChildren,
   AuthenticatedCustosRoute: AuthenticatedCustosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
@@ -564,6 +550,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTalhoesRoute: AuthenticatedTalhoesRoute,
   AuthenticatedAssinaturaCanceladoRoute: AuthenticatedAssinaturaCanceladoRoute,
   AuthenticatedAssinaturaSucessoRoute: AuthenticatedAssinaturaSucessoRoute,
+  AuthenticatedConfiguracoesAssinaturaRoute:
+    AuthenticatedConfiguracoesAssinaturaRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
