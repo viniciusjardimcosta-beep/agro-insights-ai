@@ -130,7 +130,7 @@ export function reconcile(current: SubState, snap: SubscriptionSnapshot): Reconc
   // Nada mudou de fato → no-op (eventos duplicados / reentrega).
   const changed = (Object.keys(patch) as (keyof SubPatch)[]).some((k) => {
     const cur = (current as unknown as Record<string, unknown>)[k];
-    if (cur === undefined) return true;
+    if (cur === undefined) return false; // campos não rastreados no estado (derivados) não indicam mudança
     const a = patch[k];
     if (typeof a === "string" && typeof cur === "string" && ms(a) !== null && !Number.isNaN(ms(a)) && /T/.test(a))
       return ms(a) !== ms(cur);
