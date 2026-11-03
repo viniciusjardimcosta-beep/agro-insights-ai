@@ -1,6 +1,7 @@
 // Webhook da Stripe (TEST MODE). Público apenas para o gateway alcançar.
 // Autenticação: Stripe-Signature (HMAC-SHA256 sobre o RAW BODY, tolerância 5 min)
 // com STRIPE_WEBHOOK_SECRET, ANTES de qualquer escrita. Eventos livemode são recusados.
+// Ao trocar STRIPE_WEBHOOK_SECRET, a versão publicada/preview precisa de um novo build para usar o valor novo.
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/api/public/billing/stripe")({
