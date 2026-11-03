@@ -17,13 +17,30 @@ export type PriceRow = {
   crop: string;
   price_per_bag: number;
   date: string;
+  created_at?: string | null;
 };
 
 export function latestPriceByCrop(prices: PriceRow[]): Record<string, number> {
-  const sorted = [...prices].sort((a, b) => (a.date < b.date ? 1 : -1));
+  // Mais recente primeiro. Empate de data: o registro criado por último vence
+  // (resultado determinístico, independente da ordem em que o banco devolve).
+  const sorted = [...prices].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    const ca = a.created_at ?? "";
+    const cb = b.created_at ?? "";
+    if (ca !== cb) return ca < cb ? 1 : -1;
+    return 0;
+  });
   const out: Record<string, number> = {};
   for (const p of sorted) if (!(p.crop in out)) out[p.crop] = Number(p.price_per_bag);
   return out;
+}
+
+/** Culturas com talhão cadastrado mas sem nenhum preço (receita fica R$ 0). */
+export function cropsMissingPrice(
+  fields: Pick<FieldRow, "crop">[],
+  priceByCrop: Record<string, number>,
+): string[] {
+  return [...new Set(fields.map((f) => f.crop))].filter((c) => !(c in priceByCrop));
 }
 
 export function fieldMetrics(

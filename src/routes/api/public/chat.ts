@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
-import { aggregateFarm, BRL, NUM, latestPriceByCrop } from "@/lib/calc";
+import { aggregateFarm, BRL, NUM, cropsMissingPrice, latestPriceByCrop } from "@/lib/calc";
 import {
   AI_TIMEOUT_MESSAGE,
   CHAT_LIMITS,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/rate-limit.server";
 import { createCorrelationId, recordAuditEvent, startTimer } from "@/lib/audit.server";
 import { ERROR_CODES } from "@/lib/errors";
+import { fetchAll } from "@/lib/db-utils";
 
 function messageText(m: UIMessage): string {
   return (m.parts ?? [])
@@ -137,24 +138,35 @@ export const Route = createFileRoute("/api/public/chat")({
         if (!thread) return new Response("Conversa não encontrada", { status: 404 });
 
         // Load farm snapshot
+        // Paginado: o Supabase limita 1000 linhas por consulta.
         const [props, fields, costs, prices] = await Promise.all([
-          supabase.from("properties").select("name, city, state, total_area"),
-          supabase.from("fields").select("*"),
-          supabase.from("costs").select("field_id, category, amount, date, description"),
-          supabase.from("prices").select("crop, price_per_bag, date"),
+          fetchAll((f, t) =>
+            supabase.from("properties").select("name, city, state, total_area").order("id").range(f, t),
+          ),
+          fetchAll((f, t) => supabase.from("fields").select("*").order("id").range(f, t)),
+          fetchAll((f, t) =>
+            supabase.from("costs").select("field_id, category, amount, date, description").order("id").range(f, t),
+          ),
+          fetchAll((f, t) =>
+            supabase.from("prices").select("crop, price_per_bag, date, created_at").order("id").range(f, t),
+          ),
         ]);
 
         const farm = aggregateFarm(
-          (fields.data ?? []) as never,
-          (costs.data ?? []) as never,
-          (prices.data ?? []) as never,
+          fields as never,
+          costs as never,
+          prices as never,
         );
-        const priceByCrop = latestPriceByCrop((prices.data ?? []) as never);
+        const priceByCrop = latestPriceByCrop(prices as never);
+        const cropsWithoutPrice = cropsMissingPrice(fields as never, priceByCrop);
 
         const summary = [
-          `Propriedades: ${(props.data ?? []).map((p) => `${p.name} (${p.city ?? "-"}/${p.state ?? "-"}, ${p.total_area} ha)`).join("; ") || "nenhuma cadastrada"}`,
+          `Propriedades: ${props.map((p) => `${p.name} (${p.city ?? "-"}/${p.state ?? "-"}, ${p.total_area} ha)`).join("; ") || "nenhuma cadastrada"}`,
           `Total: área ${NUM.format(farm.totalArea)} ha | custo ${BRL.format(farm.totalCost)} | receita estimada ${BRL.format(farm.totalRevenue)} | lucro estimado ${BRL.format(farm.totalProfit)} | lucro/ha ${BRL.format(farm.profitPerHa)}`,
           `Preços atuais por saca: ${Object.entries(priceByCrop).map(([c, p]) => `${c} ${BRL.format(p)}`).join(", ") || "sem preços cadastrados"}`,
+          cropsWithoutPrice.length > 0
+            ? `ATENÇÃO: sem preço cadastrado para: ${cropsWithoutPrice.join(", ")}. A receita e o lucro desses talhões aparecem como R$ 0 / negativos por falta de preço, não por resultado real. Avise o produtor e peça o cadastro do preço.`
+            : "Todas as culturas têm preço cadastrado.",
           "Talhões:",
           ...farm.perField.map(
             (f) =>
@@ -259,30 +271,31 @@ ${summary}`;
           onFinish: async ({ messages: finalMessages }) => {
             clearTimeout(timer);
             try {
-              // Persist any new messages not yet stored
-              const { data: existing } = await supabase
-                .from("ai_messages")
-                .select("content, role, created_at")
-                .eq("thread_id", threadId);
-              const existingKeys = new Set(
-                (existing ?? []).map((m) => `${m.role}::${m.content}`),
-              );
-              const toInsert = finalMessages
-                .map((m) => {
-                  const text = m.parts
-                    .map((p) => (p.type === "text" ? p.text : ""))
-                    .join("");
-                  return { role: m.role, content: text };
-                })
+              // Persistência POSICIONAL: o cliente envia o histórico completo
+              // (carregado do banco) + novas mensagens. Gravamos só o que excede
+              // o que já está salvo. Dedupe por texto descartava mensagens repetidas
+              // (ex.: o usuário enviar "ok" duas vezes).
+              const persistable = finalMessages
+                .map((m) => ({
+                  role: m.role,
+                  content: m.parts.map((p) => (p.type === "text" ? p.text : "")).join(""),
+                }))
                 .filter(
                   (m) =>
                     m.content &&
-                    (m.role === "user" || m.role === "assistant" || m.role === "system") &&
-                    !existingKeys.has(`${m.role}::${m.content}`),
-                )
+                    (m.role === "user" || m.role === "assistant" || m.role === "system"),
+                );
+              const { count: existingCount, error: countErr } = await supabase
+                .from("ai_messages")
+                .select("id", { count: "exact", head: true })
+                .eq("thread_id", threadId);
+              if (countErr) throw new Error("count failed");
+              const toInsert = persistable
+                .slice(existingCount ?? 0)
                 .map((m) => ({ ...m, thread_id: threadId, user_id: userId }));
               if (toInsert.length) {
-                await supabase.from("ai_messages").insert(toInsert);
+                const { error: insErr } = await supabase.from("ai_messages").insert(toInsert);
+                if (insErr) throw new Error("insert failed");
               }
               // Update thread title from first user message if still default
               if (thread.title === "Nova conversa") {
