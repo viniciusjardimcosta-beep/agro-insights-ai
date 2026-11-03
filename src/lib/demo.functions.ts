@@ -1,10 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { dbError } from "@/lib/db-utils";
 
 export const seedDemoData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+
+    // Evita duplicar a fazenda de demonstração (duplo clique ou nova tentativa).
+    const { data: already, error: existErr } = await supabase
+      .from("properties")
+      .select("id")
+      .eq("name", "Fazenda Santa Maria")
+      .limit(1);
+    if (existErr) throw dbError(existErr);
+    if (already && already.length > 0) {
+      throw new Error("Os dados de demonstração já foram carregados.");
+    }
 
     // Property
     const { data: prop, error: propErr } = await supabase
@@ -18,7 +30,7 @@ export const seedDemoData = createServerFn({ method: "POST" })
       })
       .select()
       .single();
-    if (propErr) throw new Error(propErr.message);
+    if (propErr) throw dbError(propErr);
 
     const today = new Date().toISOString().slice(0, 10);
     const season = "2025/2026";
@@ -49,7 +61,7 @@ export const seedDemoData = createServerFn({ method: "POST" })
         },
       ])
       .select();
-    if (fErr) throw new Error(fErr.message);
+    if (fErr) throw dbError(fErr);
 
     const [soja, milho] = fields!;
 
@@ -69,14 +81,14 @@ export const seedDemoData = createServerFn({ method: "POST" })
       { field_id: milho.id, category: "Mão de obra", description: "Equipe safra", amount: 6500 },
     ].map((c) => ({ ...c, user_id: userId, date: today }));
     const { error: cErr } = await supabase.from("costs").insert(costs);
-    if (cErr) throw new Error(cErr.message);
+    if (cErr) throw dbError(cErr);
 
     // Prices
     const { error: pErr } = await supabase.from("prices").insert([
       { user_id: userId, crop: "soja", price_per_bag: 125, date: today },
       { user_id: userId, crop: "milho", price_per_bag: 60, date: today },
     ]);
-    if (pErr) throw new Error(pErr.message);
+    if (pErr) throw dbError(pErr);
 
     return { ok: true };
   });

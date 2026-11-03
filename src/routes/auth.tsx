@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sprout } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,14 +29,28 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   // Checkbox NUNCA pré-marcado: o aceite é ação explícita do usuário.
   const [accepted, setAccepted] = useState(false);
+  // Recuperação de senha: o link do e-mail volta para /auth com "type=recovery".
+  // Nesse caso NÃO redirecionamos para o painel; mostramos o formulário de nova senha.
+  const recoveryRef = useRef(
+    typeof window !== "undefined" && /type=recovery/.test(window.location.hash),
+  );
+  const [recovering, setRecovering] = useState(recoveryRef.current);
+  const [forgot, setForgot] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     supabase.auth.getUser().then(({ data }) => {
-      if (mounted && data.user) navigate({ to: "/dashboard", replace: true });
+      if (mounted && data.user && !recoveryRef.current) {
+        navigate({ to: "/dashboard", replace: true });
+      }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) navigate({ to: "/dashboard", replace: true });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        recoveryRef.current = true;
+        setRecovering(true);
+        return;
+      }
+      if (session?.user && !recoveryRef.current) navigate({ to: "/dashboard", replace: true });
     });
     return () => {
       mounted = false;
@@ -69,6 +83,47 @@ function AuthPage() {
       }).catch(() => {});
     }
     toast.success("Bem-vindo de volta!");
+  }
+
+  async function handleForgot(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(String(fd.get("email")), {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Não foi possível enviar o e-mail", { description: error.message });
+      return;
+    }
+    // Mensagem neutra: não revela se o e-mail existe.
+    toast.success("Verifique seu e-mail", {
+      description: "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha.",
+    });
+    setForgot(false);
+  }
+
+  async function handleNewPassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const password = String(fd.get("password"));
+    if (password !== String(fd.get("confirm"))) {
+      toast.error("As senhas não conferem");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (error) {
+      toast.error("Não foi possível alterar a senha", { description: error.message });
+      return;
+    }
+    toast.success("Senha alterada!");
+    recoveryRef.current = false;
+    setRecovering(false);
+    window.history.replaceState(null, "", window.location.pathname);
+    navigate({ to: "/dashboard", replace: true });
   }
 
   async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
@@ -132,6 +187,39 @@ function AuthPage() {
             </span>
             <span className="text-xl font-bold">AgroIntel AI</span>
           </div>
+          {recovering ? (
+            <form onSubmit={handleNewPassword} className="space-y-4">
+              <h1 className="text-xl font-semibold">Criar nova senha</h1>
+              <div className="space-y-2">
+                <Label htmlFor="np-password">Nova senha</Label>
+                <Input id="np-password" name="password" type="password" minLength={6} required autoComplete="new-password" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="np-confirm">Confirmar nova senha</Label>
+                <Input id="np-confirm" name="confirm" type="password" minLength={6} required autoComplete="new-password" />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Salvando..." : "Salvar nova senha"}
+              </Button>
+            </form>
+          ) : forgot ? (
+            <form onSubmit={handleForgot} className="space-y-4">
+              <h1 className="text-xl font-semibold">Recuperar senha</h1>
+              <p className="text-sm text-muted-foreground">
+                Informe seu e-mail e enviaremos um link para criar uma nova senha.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="fp-email">E-mail</Label>
+                <Input id="fp-email" name="email" type="email" required autoComplete="email" />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Enviando..." : "Enviar link"}
+              </Button>
+              <Button type="button" variant="ghost" className="w-full" onClick={() => setForgot(false)}>
+                Voltar
+              </Button>
+            </form>
+          ) : (
           <Tabs defaultValue="signin">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Entrar</TabsTrigger>
@@ -151,6 +239,13 @@ function AuthPage() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
                 </Button>
+                <button
+                  type="button"
+                  onClick={() => setForgot(true)}
+                  className="w-full text-center text-sm text-primary underline"
+                >
+                  Esqueci minha senha
+                </button>
               </form>
             </TabsContent>
 
@@ -192,6 +287,7 @@ function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
+          )}
         </div>
       </div>
     </div>

@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getFarmSnapshot } from "@/lib/data.functions";
 import { latestDiagnostic } from "@/lib/diagnostics.functions";
 import { seedDemoData } from "@/lib/demo.functions";
-import { aggregateFarm, BRL, NUM } from "@/lib/calc";
+import { aggregateFarm, BRL, cropsMissingPrice, NUM } from "@/lib/calc";
 import { ExecutiveReportButton } from "@/components/executive-report-button";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -67,6 +67,12 @@ function Dashboard() {
   const isEmpty = snapshot.fields.length === 0;
   const alerts: { tone: "warn" | "info"; text: string }[] = [];
   if (farm.totalArea > 0) {
+    const noPrice = cropsMissingPrice(snapshot.fields as never, farm.priceByCrop);
+    if (noPrice.length > 0)
+      alerts.push({
+        tone: "warn",
+        text: `Sem preço cadastrado para: ${noPrice.join(", ")}. A receita e o lucro desses talhões aparecem zerados — cadastre o preço em "Preços".`,
+      });
     if (farm.profitPerHa < 0)
       alerts.push({ tone: "warn", text: `Atenção: lucro/ha negativo (${BRL.format(farm.profitPerHa)}). Reveja custos ou preços.` });
     farm.perField.forEach((f) => {
