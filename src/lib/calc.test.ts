@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateFarm,
   cropsMissingPrice,
+  weightedCostPerHa,
   fieldMetrics,
   latestPriceByCrop,
   type CostRow,
@@ -104,5 +105,29 @@ describe("fetchAll", () => {
     } finally {
       console.error = quiet;
     }
+  });
+});
+
+describe("weightedCostPerHa", () => {
+  it("pondera pela área (fazenda de demonstração: 161.000 ÷ 35 ha)", () => {
+    const farm = aggregateFarm([soja, milho], costs, prices);
+    expect(weightedCostPerHa(farm.perField)).toBeCloseTo(161000 / 35, 6);
+  });
+
+  it("difere da média simples quando as áreas são diferentes", () => {
+    const perField = [
+      { area: 20, totalCost: 117000 }, // 5.850/ha
+      { area: 15, totalCost: 54000 }, // 3.600/ha
+    ];
+    const weighted = weightedCostPerHa(perField);
+    expect(weighted).toBeCloseTo(171000 / 35, 6); // ≈ 4.885,71
+    const over = ((5850 - weighted) / weighted) * 100;
+    expect(over < 20).toBe(true); // ≈ +19,7% (média simples daria +23,8%)
+  });
+
+  it("ignora talhões sem área e não divide por zero", () => {
+    expect(weightedCostPerHa([{ area: 0, totalCost: 500 }])).toBe(0);
+    expect(weightedCostPerHa([])).toBe(0);
+    expect(weightedCostPerHa([{ area: 10, totalCost: 1000 }, { area: 0, totalCost: 999 }])).toBe(100);
   });
 });

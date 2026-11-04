@@ -2,7 +2,7 @@
 // It NEVER computes new financial formulas or scores: it only reads the
 // existing farm aggregation (calc.ts), the existing score engine (score.ts),
 // saved diagnostics and saved simulated scenarios, and ranks what matters.
-import { aggregateFarm, BRL, NUM, type CostRow, type FieldRow, type PriceRow } from "@/lib/calc";
+import { aggregateFarm, BRL, NUM, weightedCostPerHa, type CostRow, type FieldRow, type PriceRow } from "@/lib/calc";
 import { computeMetrics, computeScoreBreakdown, type ScoreBreakdownEntry } from "@/lib/score";
 
 export type DiagnosticLite = {
@@ -453,7 +453,7 @@ export function getPriorityAlerts(
   // Custo/ha muito acima da média
   const withArea = farm.perField.filter((f) => f.area > 0);
   if (withArea.length > 1) {
-    const mean = withArea.reduce((s, f) => s + f.costPerHa, 0) / withArea.length;
+    const mean = weightedCostPerHa(farm.perField);
     if (mean > 0) {
       const over = withArea
         .map((f) => ({ f, over: ((f.costPerHa - mean) / mean) * 100 }))
@@ -464,7 +464,7 @@ export function getPriorityAlerts(
           key: "custo_ha",
           severity: over[0].over > 35 ? "high" : "medium",
           title: "Custo por hectare acima da média",
-          reason: `${over.length} talhão(ões) gastam bem mais por hectare que a média da fazenda.`,
+          reason: `${over.length} talhão(ões) gastam bem mais por hectare que a média da fazenda (custo total ÷ área total).`,
           metric: `${over[0].f.field.name}: ${BRL.format(over[0].f.costPerHa)}/ha (+${pct(over[0].over)})`,
           impact: over[0].over > 35 ? "-20 pontos por talhão" : "-10 pontos por talhão",
           action: "Audite os custos operacionais desses talhões.",
