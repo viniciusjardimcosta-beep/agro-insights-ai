@@ -263,7 +263,12 @@ export const openBillingPortal = createServerFn({ method: "POST" })
     const { requireProvider } = await import("./provider.server");
     const { recordAuditEvent } = await import("@/lib/audit.server");
     const { AppError, ERROR_CODES } = await import("@/lib/errors");
+    const { checkRateLimit, BILLING_RATE_LIMIT_MESSAGE } = await import("@/lib/rate-limit.server");
     const provider = requireProvider();
+    const limit = await checkRateLimit(context.supabase, "billing_action");
+    if (!limit.allowed) {
+      throw new AppError({ code: ERROR_CODES.CHECKOUT_FAILED, status: 429, userMessage: BILLING_RATE_LIMIT_MESSAGE });
+    }
     const { data: sub } = await context.supabase.from("subscriptions").select("provider_customer_id").maybeSingle();
     if (!sub?.provider_customer_id) {
       throw new AppError({ code: ERROR_CODES.VALIDATION, status: 400, userMessage: "Você ainda não possui assinatura para gerenciar." });
@@ -291,7 +296,12 @@ async function setCancel(context: { supabase: any; userId: string }, cancel: boo
   const { hasOpenSubscription, persistCancelFlag } = await import("./billing.server");
   const { recordAuditEvent } = await import("@/lib/audit.server");
   const { AppError, ERROR_CODES } = await import("@/lib/errors");
+  const { checkRateLimit, BILLING_RATE_LIMIT_MESSAGE } = await import("@/lib/rate-limit.server");
   const provider = requireProvider();
+  const limit = await checkRateLimit(context.supabase, "billing_action");
+  if (!limit.allowed) {
+    throw new AppError({ code: ERROR_CODES.CHECKOUT_FAILED, status: 429, userMessage: BILLING_RATE_LIMIT_MESSAGE });
+  }
   const { data: sub } = await context.supabase.from("subscriptions").select(SUB_SELECT).maybeSingle();
   if (!hasOpenSubscription(sub ?? null) || (cancel && sub.cancel_at_period_end) || (!cancel && !sub.cancel_at_period_end)) {
     throw new AppError({
