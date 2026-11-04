@@ -95,8 +95,18 @@ describe("formato dos números nos textos", () => {
     expect(reconcileText("lucro total (108000.00)", facts).text).toBe("lucro total (R$ 108.000,00)");
   });
 
-  it("número cru inventado torna a frase não verificável", () => {
-    expect(reconcileText("economia de 12345.67 no ciclo", facts).ok).toBe(false);
+  it("número cru sem unidade que não bate com valor real fica como está (pode ser sc/ha)", () => {
+    expect(reconcileText("equilíbrio em 64.44 sc/ha", facts)).toEqual({ text: "equilíbrio em 64.44 sc/ha", ok: true });
+  });
+
+  it("valor brasileiro sem R$ ganha R$ quando é real: (5.850,00) -> (R$ 5.850,00)", () => {
+    expect(reconcileText("custo da soja (5.850,00) acima da média (4.885,71)", facts).text).toBe(
+      "custo da soja (R$ 5.850,00) acima da média (R$ 4.885,71)",
+    );
+  });
+
+  it("percentual com ponto vira vírgula: 50.08% -> 50,08%", () => {
+    expect(reconcileText("soja gera 50.08% da receita", facts).text).toBe("soja gera 50,08% da receita");
   });
 
   it("não mexe em valores já formatados nem em percentuais", () => {
