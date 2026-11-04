@@ -10,6 +10,7 @@ import {
 import { AppError, ERROR_CODES } from "@/lib/errors";
 import { createAiModel } from "@/lib/ai-model.server";
 import { aggregateFarm, BRL, NUM, latestPriceByCrop } from "@/lib/calc";
+import { buildFacts, factualItems, sanitizeItems } from "@/lib/report-facts";
 import {
   computeScoreBreakdown as _computeScoreBreakdown,
   computeMetrics as _computeMetrics,
@@ -328,6 +329,17 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
         throw new Error("schema_mismatch");
       }
       report = normalize(result.data);
+      // Números do texto da IA são conferidos contra os calculados pelo sistema:
+      // arredondamentos errados são corrigidos; números sem correspondência real
+      // fazem a frase ser trocada por uma frase calculada.
+      const facts = buildFacts(farm as never, (costs.data ?? []) as never);
+      const reserve = factualItems(facts);
+      report = {
+        ...report,
+        risks: sanitizeItems(report.risks, facts, reserve.risks),
+        opportunities: sanitizeItems(report.opportunities, facts, reserve.opportunities),
+        actionPlan: sanitizeItems(report.actionPlan, facts, fallbackReport(farm).actionPlan),
+      };
     } catch (err) {
       // `rawResponse` (resposta da IA) NÃO é logado — conteúdo sensível.
       console.error("[diagnostico] geração estruturada falhou — usando fallback", {
