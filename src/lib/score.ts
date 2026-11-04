@@ -1,7 +1,7 @@
 // Client-safe deterministic financial score used by both the automatic
 // diagnostic (persisted) and the scenario simulator (in-memory only).
 // IMPORTANT: keep this file free of server-only imports.
-import { aggregateFarm } from "@/lib/calc";
+import { aggregateFarm, weightedCostPerHa } from "@/lib/calc";
 
 export type Metrics = {
   margin: number;
@@ -117,13 +117,8 @@ export function computeScoreBreakdown(
       -25 * negativeFields.length,
     );
 
-  const costPerHaList = farm.perField
-    .filter((f) => f.area > 0)
-    .map((f) => f.costPerHa);
-  const meanCostHa =
-    costPerHaList.length > 0
-      ? costPerHaList.reduce((s, v) => s + v, 0) / costPerHaList.length
-      : 0;
+  // Média ponderada pela área (custo total ÷ área total), igual ao painel.
+  const meanCostHa = weightedCostPerHa(farm.perField);
   if (meanCostHa > 0) {
     const buckets = { b1: [] as string[], b2: [] as string[], b3: [] as string[] };
     for (const f of farm.perField) {

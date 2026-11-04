@@ -62,6 +62,21 @@ export function fieldMetrics(
   return { area, yieldBag, price, totalCost, revenue, profit, costPerHa, profitPerHa, breakevenBagPerHa };
 }
 
+/**
+ * Custo médio por hectare da fazenda, PONDERADO PELA ÁREA:
+ * soma dos custos ÷ soma das áreas (só talhões com área > 0).
+ * Usado como referência no alerta e na nota ("custo/ha acima da média").
+ * A média simples dos talhões trata um talhão pequeno igual a um grande.
+ */
+export function weightedCostPerHa(
+  perField: { area: number; totalCost: number }[],
+): number {
+  const withArea = perField.filter((f) => f.area > 0);
+  const area = withArea.reduce((s, f) => s + f.area, 0);
+  if (area <= 0) return 0;
+  return withArea.reduce((s, f) => s + f.totalCost, 0) / area;
+}
+
 export function aggregateFarm(
   fields: FieldRow[],
   costs: CostRow[],
