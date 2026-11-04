@@ -204,10 +204,13 @@ export const createCheckout = createServerFn({ method: "POST" })
     if (pending) await supabaseAdmin.from("billing_checkouts").update({ status: "canceled" }).eq("id", pending.id);
 
     const { CHECKOUT_EXPIRES_MINUTES } = await import("./providers/stripe");
+    // Regra dos 7 dias: < 49h de trial → modo setup (cartão sem cobrança);
+    // a assinatura é criada no servidor após o setup, com o fim original do trial.
+    const strategy = checkoutStrategyForTrial(sub);
     const expiresAt = new Date(Date.now() + (CHECKOUT_EXPIRES_MINUTES - 1) * 60_000).toISOString();
     const { data: row, error: insErr } = await supabaseAdmin
       .from("billing_checkouts")
-      .insert({ user_id: context.userId, provider: provider.id, plan_code: variant.planCode, status: "pending", expires_at: expiresAt })
+      .insert({ user_id: context.userId, provider: provider.id, plan_code: variant.planCode, status: "pending", mode: strategy.mode, expires_at: expiresAt })
       .select("id")
       .single();
     if (insErr || !row) {
@@ -216,15 +219,26 @@ export const createCheckout = createServerFn({ method: "POST" })
 
     const origin = safeOrigin();
     try {
-      const session = await provider.createCheckoutSession({
-        variant,
-        priceId,
-        customerId,
-        checkoutRef: row.id,
-        trialEnd: trialEndForCheckout(sub),
-        successUrl: `${origin}/assinatura/sucesso`,
-        cancelUrl: `${origin}/assinatura/cancelado`,
-      });
+      const successUrl = `${origin}/assinatura/sucesso`;
+      const cancelUrl = `${origin}/assinatura/cancelado`;
+      const session =
+        strategy.mode === "setup"
+          ? await provider.createSetupCheckoutSession({
+              customerId,
+              checkoutRef: row.id,
+              planCode: variant.planCode,
+              successUrl,
+              cancelUrl,
+            })
+          : await provider.createCheckoutSession({
+              variant,
+              priceId,
+              customerId,
+              checkoutRef: row.id,
+              trialEnd: strategy.trialEnd,
+              successUrl,
+              cancelUrl,
+            });
       await supabaseAdmin
         .from("billing_checkouts")
         .update({ provider_checkout_id: session.providerCheckoutId, checkout_url: session.url })
