@@ -7,15 +7,17 @@ import { mapStripeStatus, reconcile, type SubState } from "./reconcile";
 import {
   MIN_TRIAL_SECONDS,
   buildCheckoutParams,
+  buildSetupCheckoutParams,
+  checkoutStrategyForTrial,
   computeSignature,
   encodeForm,
   extractEventRefs,
   isTestSecretKey,
   priceMatchesVariant,
   subscriptionToSnapshot,
-  trialEndForCheckout,
   verifyStripeSignature,
 } from "./providers/stripe";
+import { RATE_LIMITS } from "@/lib/rate-limit.server";
 import { readStripeConfig } from "./providers/stripe.server";
 import { resolveProvider } from "./provider.server";
 import { hasLiveRecurrence, hasOpenSubscription } from "./billing.server";
@@ -128,12 +130,35 @@ describe("checkout", () => {
   const now = Date.parse("2026-10-07T12:00:00Z");
   it("preserva o trial interno (sem trial duplo)", () => {
     const end = "2026-10-14T12:00:00.000Z";
-    expect(trialEndForCheckout({ status: "trialing", trial_ends_at: end }, now)).toBe(Date.parse(end) / 1000);
+    expect(checkoutStrategyForTrial({ status: "trialing", trial_ends_at: end }, now)).toEqual({
+      mode: "subscription",
+      trialEnd: Date.parse(end) / 1000,
+    });
   });
-  it("trial com < 49h ou vencido → cobrança imediata", () => {
-    const soon = new Date(now + (MIN_TRIAL_SECONDS - 60) * 1000).toISOString();
-    expect(trialEndForCheckout({ status: "trialing", trial_ends_at: soon }, now)).toBeNull();
-    expect(trialEndForCheckout({ status: "expired", trial_ends_at: "2026-10-01T00:00:00Z" }, now)).toBeNull();
+  it("regra dos 7 dias: 48h, 24h ou 1h restantes → modo setup (cartão sem cobrança)", () => {
+    for (const hours of [48, 24, 1]) {
+      const end = new Date(now + hours * 3600 * 1000).toISOString();
+      const s = checkoutStrategyForTrial({ status: "trialing", trial_ends_at: end }, now);
+      expect(s.mode).toBe("setup");
+      expect(s.trialEnd).toBe(Date.parse(end) / 1000); // fim original do trial preservado
+    }
+  });
+  it("limite exato: 49h → subscription com trial_end; 49h - 1s → setup", () => {
+    const at = new Date(now + MIN_TRIAL_SECONDS * 1000).toISOString();
+    expect(checkoutStrategyForTrial({ status: "trialing", trial_ends_at: at }, now).mode).toBe("subscription");
+    const justBelow = new Date(now + (MIN_TRIAL_SECONDS - 1) * 1000).toISOString();
+    expect(checkoutStrategyForTrial({ status: "trialing", trial_ends_at: justBelow }, now).mode).toBe("setup");
+  });
+  it("trial vencido ou inexistente → subscription sem trial (cobrança imediata é correta)", () => {
+    expect(checkoutStrategyForTrial({ status: "trialing", trial_ends_at: "2026-10-01T00:00:00Z" }, now)).toEqual({
+      mode: "subscription",
+      trialEnd: null,
+    });
+    expect(checkoutStrategyForTrial({ status: "expired", trial_ends_at: "2026-10-01T00:00:00Z" }, now)).toEqual({
+      mode: "subscription",
+      trialEnd: null,
+    });
+    expect(checkoutStrategyForTrial({ status: "trialing", trial_ends_at: null }, now).trialEnd).toBeNull();
   });
   it("parâmetros: subscription, customer do servidor, price autorizado, sem dados de cartão", () => {
     const p = buildCheckoutParams({ priceId: "price_m1", customerId: "cus_A", checkoutRef: "ref1", planCode: "pro_monthly", trialEnd: 123, successUrl: "s", cancelUrl: "c", nowMs: now });
@@ -144,8 +169,35 @@ describe("checkout", () => {
     expect(p.expires_at - now / 1000).toBeGreaterThanOrEqual(30 * 60);
     expect(JSON.stringify(p)).not.toMatch(/card|cvc|amount|user_id/);
   });
+  it("setup: mode=setup, sem line_items/valor, customer do servidor, metadata opaca", () => {
+    const p = buildSetupCheckoutParams({ customerId: "cus_A", checkoutRef: "ref1", planCode: "pro_monthly", successUrl: "s", cancelUrl: "c", nowMs: now });
+    expect(p.mode).toBe("setup");
+    expect(p.customer).toBe("cus_A");
+    expect(p.payment_method_types).toEqual(["card"]);
+    expect(p).not.toHaveProperty("line_items");
+    expect(p).not.toHaveProperty("subscription_data");
+    expect(JSON.stringify(p)).not.toMatch(/amount|trial|user_id/);
+    expect(p.expires_at - now / 1000).toBeGreaterThanOrEqual(30 * 60);
+  });
   it("form-encoding aninhado", () => {
     expect(encodeForm({ a: { b: [{ c: 1 }] }, d: true })).toBe("a%5Bb%5D%5B0%5D%5Bc%5D=1&d=true");
+  });
+});
+
+describe("rate limiting de cobrança", () => {
+  it("billing_action tem limites de hora e dia definidos", () => {
+    expect(RATE_LIMITS.billing_action.hour).toBeGreaterThan(0);
+    expect(RATE_LIMITS.billing_action.day).toBeGreaterThan(0);
+    expect(RATE_LIMITS.billing_action.day).toBeGreaterThanOrEqual(RATE_LIMITS.billing_action.hour);
+  });
+  it("endpoints sensíveis consomem o limite antes de agir", () => {
+    const src = readFileSync(join(__dirname, "billing.functions.ts"), "utf8");
+    for (const fn of ["createCheckout", "openBillingPortal"]) {
+      const body = src.slice(src.indexOf(`export const ${fn}`));
+      expect(body).toContain('checkRateLimit(context.supabase, "billing_action")');
+    }
+    const cancelBody = src.slice(src.indexOf("async function setCancel"));
+    expect(cancelBody).toContain('checkRateLimit(context.supabase, "billing_action")');
   });
 });
 
