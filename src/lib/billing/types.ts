@@ -78,6 +78,27 @@ export type BillingProvider = {
     successUrl: string;
     cancelUrl: string;
   }): Promise<CheckoutSession>;
+  /** Checkout mode=setup: cadastra o cartão SEM cobrança (trial com < 49h). */
+  createSetupCheckoutSession(args: {
+    customerId: string;
+    checkoutRef: string;
+    planCode: string;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<CheckoutSession>;
+  /**
+   * Após um setup concluído (confirmado pelo webhook), cria a assinatura no
+   * servidor com o cartão salvo, respeitando o fim original do trial interno.
+   * Idempotente por checkoutRef — nunca gera duas assinaturas para o mesmo setup.
+   */
+  createSubscriptionFromSetup(args: {
+    checkoutSessionId: string;
+    checkoutRef: string;
+    priceId: string;
+    customerId: string;
+    /** Fim do trial interno (unix); null ou passado = cobra já (trial já venceu). */
+    trialEnd: number | null;
+  }): Promise<{ providerSubscriptionId: string }>;
   createPortalSession(args: { customerId: string; returnUrl: string }): Promise<string>;
   /** Agenda (true) ou desfaz (false) o cancelamento no fim do período. */
   setCancelAtPeriodEnd(args: { providerSubscriptionId: string; cancel: boolean }): Promise<SubscriptionSnapshot>;

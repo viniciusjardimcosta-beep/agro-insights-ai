@@ -37,18 +37,32 @@ export function encodeForm(obj: Record<string, unknown>, prefix = ""): string {
 }
 
 /**
- * Fim do trial a repassar à Stripe: o trial INTERNO é a única fonte.
- * - trial interno com ≥ 49h restantes → trial_end = trial_ends_at (sem segundo trial);
- * - menos que isso, ou já vencido → null (cobrança na conclusão do Checkout).
+ * Estratégia de contratação conforme o trial INTERNO (única fonte de verdade).
+ * REGRA DOS 7 DIAS: ninguém é cobrado antes do fim do período gratuito prometido.
+ * - ≥ 49h restantes → Checkout mode=subscription com trial_end = trial_ends_at;
+ * - < 49h restantes (Stripe não aceita trial_end < 48h no Checkout) → Checkout
+ *   mode=setup (só cadastra o cartão, sem cobrança) e a assinatura é criada no
+ *   SERVIDOR após o setup, com trial_end = trial_ends_at original;
+ * - trial já vencido → Checkout mode=subscription sem trial (cobrança imediata
+ *   é correta: o período gratuito já terminou).
+ * O cliente NUNCA informa a data de fim do trial.
  */
-export function trialEndForCheckout(
+export type CheckoutStrategy =
+  | { mode: "subscription"; trialEnd: number }
+  | { mode: "setup"; trialEnd: number }
+  | { mode: "subscription"; trialEnd: null };
+
+export function checkoutStrategyForTrial(
   row: { status: string; trial_ends_at: string | null },
   nowMs = Date.now(),
-): number | null {
-  if (row.status !== "trialing" || !row.trial_ends_at) return null;
+): CheckoutStrategy {
+  if (row.status !== "trialing" || !row.trial_ends_at) return { mode: "subscription", trialEnd: null };
   const end = Math.floor(new Date(row.trial_ends_at).getTime() / 1000);
-  if (!Number.isFinite(end)) return null;
-  return end - Math.floor(nowMs / 1000) >= MIN_TRIAL_SECONDS ? end : null;
+  if (!Number.isFinite(end)) return { mode: "subscription", trialEnd: null };
+  const now = Math.floor(nowMs / 1000);
+  if (end <= now) return { mode: "subscription", trialEnd: null };
+  if (end - now >= MIN_TRIAL_SECONDS) return { mode: "subscription", trialEnd: end };
+  return { mode: "setup", trialEnd: end };
 }
 
 export function buildCheckoutParams(args: {
@@ -75,6 +89,36 @@ export function buildCheckoutParams(args: {
     subscription_data: {
       metadata: { checkout_ref: args.checkoutRef, plan_code: args.planCode },
       ...(args.trialEnd ? { trial_end: args.trialEnd } : {}),
+    },
+  };
+}
+
+/**
+ * Checkout em modo SETUP: cadastra o cartão SEM nenhuma cobrança.
+ * Usado quando o trial interno tem < 49h restantes — a assinatura é criada
+ * depois, no servidor, respeitando o fim original do trial.
+ */
+export function buildSetupCheckoutParams(args: {
+  customerId: string;
+  checkoutRef: string;
+  planCode: string;
+  successUrl: string;
+  cancelUrl: string;
+  nowMs?: number;
+}) {
+  const now = Math.floor((args.nowMs ?? Date.now()) / 1000);
+  return {
+    mode: "setup",
+    customer: args.customerId,
+    client_reference_id: args.checkoutRef,
+    payment_method_types: ["card"],
+    success_url: args.successUrl,
+    cancel_url: args.cancelUrl,
+    locale: "pt-BR",
+    expires_at: now + CHECKOUT_EXPIRES_MINUTES * 60,
+    metadata: { checkout_ref: args.checkoutRef, plan_code: args.planCode },
+    setup_intent_data: {
+      metadata: { checkout_ref: args.checkoutRef, plan_code: args.planCode },
     },
   };
 }
