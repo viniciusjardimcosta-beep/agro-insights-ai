@@ -260,6 +260,16 @@ export function reconcileText(text: string, facts: Facts): { text: string; ok: b
     return near !== null && Math.abs(near - value) < 0.005 ? `R$ ${raw}` : full;
   });
 
+  // "Margem" é percentual; valor em R$/ha é "lucro por hectare". Corrige o erro de vocabulário
+  // mais comum da IA, só no padrão inequívoco: "Margem [de lucro] do milho (R$ 7.200,00/ha)".
+  out = out.replace(
+    /(\b[Aa]\s+)?\b([Mm])argem(?: de lucro| líquida)?(?=\s+(?:d[oae]s?|n[oae]s?)\s+[^()]{0,40}\(\s*R\$\s*[\d.,]+\s*\/\s*ha\s*\))/g,
+    (_m, art: string | undefined, first: string) => {
+      const noun = first === "M" ? "Lucro por hectare" : "lucro por hectare";
+      return art ? `${art[0] === "A" ? "O" : "o"} ${noun.toLowerCase()}` : noun;
+    },
+  );
+
   return { text: out, ok };
 }
 
