@@ -244,12 +244,24 @@ export function reconcileText(text: string, facts: Facts): { text: string; ok: b
     return full;
   });
 
+  // Números "crus" com 2 casas decimais e ponto (ex.: 5850.00, 108000.00), que a IA às vezes
+  // escreve sem "R$". Se correspondem a um valor real, viram "R$ 5.850,00"; senão, a frase é
+  // marcada como não verificável. (Percentuais e valores já com "R$" já foram tratados acima.)
+  out = out.replace(/(?<![\d.,$])(?<!R\$\s)(\d{1,9}\.\d{2})(?![\d%]|\s*%)/g, (full, raw: string) => {
+    const value = Number(raw);
+    const near = nearest(facts.money, value);
+    if (near !== null && Math.abs(near - value) < 0.005) return `R$ ${fmt(near, 2)}`;
+    ok = false;
+    return full;
+  });
+
   return { text: out, ok };
 }
 
 // ---------------------------------------------------------------- frases de reserva
 
 const brl = (v: number) => `R$ ${fmt(v, 2)}`;
+const cap = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 
 export function factualItems(facts: Facts): { risks: string[]; opportunities: string[] } {
   const risks: string[] = [];
@@ -262,7 +274,7 @@ export function factualItems(facts: Facts): { risks: string[]; opportunities: st
     .filter((c) => c.profitSharePct != null)
     .sort((a, b) => (b.profitSharePct ?? 0) - (a.profitSharePct ?? 0))[0];
   if (facts.crops.length > 1 && top && (top.profitSharePct ?? 0) >= 50)
-    risks.push(`${top.crop} concentra ${fmt(top.profitSharePct ?? 0, 1)}% do lucro da fazenda (dependência de uma cultura).`);
+    risks.push(`${cap(top.crop)} concentra ${fmt(top.profitSharePct ?? 0, 1)}% do lucro da fazenda (dependência de uma cultura).`);
 
   const over = [...facts.fields].sort((a, b) => b.overMeanPct - a.overMeanPct)[0];
   if (facts.fields.length > 1 && over && over.overMeanPct >= 10 && facts.meanCostHa > 0) {
@@ -278,13 +290,25 @@ export function factualItems(facts: Facts): { risks: string[]; opportunities: st
 
   const d = facts.cropPairDiffs[0];
   if (d && d.pct > 0)
-    opps.push(`${d.best} entrega lucro por hectare ${fmt(d.pct, 1)}% superior ao de ${d.worst}.`);
+    opps.push(`${cap(d.best)} entrega lucro por hectare ${fmt(d.pct, 1)}% superior ao de ${d.worst}.`);
 
   opps.push("Melhorar a comercialização, travando preços em janelas favoráveis.");
   opps.push("Revisar contratos e insumos de maior peso no custo.");
   risks.push("Custos por hectare merecem revisão por categoria.");
 
   return { risks, opportunities: opps };
+}
+
+const numbersIn = (t: string) => (t.match(/\d+(?:[.,]\d+)?/g) ?? []).map((n) => parseNumber(n));
+
+/** True se todos os números da frase já aparecem (±0,05) em alguma frase aceita: mesma ideia repetida. */
+function repeatsIdea(candidate: string, accepted: string[]): boolean {
+  const nums = numbersIn(candidate);
+  if (nums.length === 0) return accepted.includes(candidate);
+  return accepted.some((a) => {
+    const an = numbersIn(a);
+    return nums.every((n) => an.some((x) => Math.abs(x - n) < 0.05));
+  });
 }
 
 /** Corrige números divergentes e troca frases não verificáveis por frases calculadas. */
@@ -302,7 +326,11 @@ export function sanitizeItems(
       out.push(r.text);
       continue;
     }
-    const next = spare.shift();
+    // Troca por uma frase calculada que não repita ideia já presente na lista
+    // (considera também as frases originais ainda por vir).
+    const taken = [...out, ...items.filter((x) => x !== item)];
+    let next = spare.shift();
+    while (next !== undefined && repeatsIdea(next, taken)) next = spare.shift();
     if (next) out.push(next);
   }
   return out;

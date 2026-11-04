@@ -306,7 +306,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 - Tudo em português do Brasil, frases curtas. Não invente dados além do contexto.`;
 
     const schemaHint = JSON.stringify(schemaShape, null, 2);
-    const userPrompt = `Dados da fazenda:\n${summary}\n\nResponda APENAS com um JSON válido (sem markdown, sem comentários) seguindo EXATAMENTE este formato:\n${schemaHint}\n\nRegras:\n- Use números crus (sem R$, sem pontos de milhar, ponto como decimal).\n- risks e opportunities: no máximo 3 itens cada.\n- actionPlan: exatamente 3 strings.\n- Todos os campos são obrigatórios.`;
+    const userPrompt = `Dados da fazenda:\n${summary}\n\nResponda APENAS com um JSON válido (sem markdown, sem comentários) seguindo EXATAMENTE este formato:\n${schemaHint}\n\nRegras:\n- Nos CAMPOS NUMÉRICOS do JSON use números crus (sem R$, sem pontos de milhar, ponto como decimal).\n- Nos TEXTOS (risks, opportunities, actionPlan) escreva valores como pessoas leem: R$ 5.850,00 e 19,7% (com R$, ponto de milhar e vírgula decimal).\n- risks e opportunities: no máximo 3 itens cada.\n- actionPlan: exatamente 3 strings.\n- Todos os campos são obrigatórios.`;
 
     let report: DiagnosticReport | null = null;
     let rawResponse = "";
