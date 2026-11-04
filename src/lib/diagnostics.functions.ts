@@ -300,6 +300,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 - opportunities: até 3 oportunidades curtas, concretas (PT-BR).
 - indicators: cultura/talhão mais e menos lucrativo (por margem/ha), e % de dependência da maior cultura sobre a receita total.
 - actionPlan: EXATAMENTE 3 ações práticas priorizadas por impacto financeiro. NUNCA recomende aumentar área, trocar cultura ou alterar estratégia produtiva sem deixar claro que faltam dados agronômicos/climáticos. Priorize: custos, margem, comercialização, gestão financeira, eficiência operacional.
+- Clareza: ao citar dependência de cultura, diga se é sobre receita, lucro ou área (ex.: "milho concentra 70% do lucro"). Não misture culturas na mesma frase sem dizer qual é qual. Ao citar valores por hectare, diga a que talhão ou cultura se referem e use R$/ha.
 - Tudo em português do Brasil, frases curtas. Não invente dados além do contexto.`;
 
     const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
