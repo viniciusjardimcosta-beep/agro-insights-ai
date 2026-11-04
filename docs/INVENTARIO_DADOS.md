@@ -50,6 +50,7 @@ Os textos não tratam do assunto. É provável que haja transferência (Stripe, 
 ## 5. Cookies e armazenamento no navegador
 
 - O login guarda o token de sessão no `localStorage` do navegador (chave do Supabase Auth).
+- Um cookie `sidebar_state` (preferência de menu aberto/fechado, 7 dias, sem dado pessoal), criado pelo componente de menu lateral.
 - Uma chave `agrointel.pending_terms_accept` guarda temporariamente o aceite dos termos até o primeiro login.
 - Não há ferramenta de análise de uso, publicidade ou pixel no código. **[confirmar]** que o Lovable não injeta análises na publicação
   (o painel do Lovable mostra "Analytics" de visitas quando o app é publicado).
