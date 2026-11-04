@@ -58,7 +58,7 @@ Processamento: corpo bruto lido como texto → `Stripe-Signature` verificado (HM
 Identidade: o Customer é criado pelo servidor antes do Checkout e gravado em `subscriptions.provider_customer_id` (índice único). Toda assinatura só é aplicada se o customer dela for o customer gravado do usuário. `metadata` nunca é autoridade.
 
 ## Trial
-Trial interno de 7 dias continua a única fonte. Se restarem ≥ 49h, o Checkout recebe `subscription_data.trial_end = trial_ends_at` (a Stripe exige ≥ 48h): cartão registrado agora, 1ª cobrança no fim do teste, sem trial extra. Com menos de 49h, ou fora do trial, a cobrança acontece na conclusão do Checkout. Status `trialing` na Stripe só vincula IDs; datas internas intocadas.
+Trial interno de 7 dias continua a única fonte e NINGUÉM é cobrado antes do fim dele (Sprint 3.5). Se restarem ≥ 49h, o Checkout recebe `subscription_data.trial_end = trial_ends_at` (a Stripe exige ≥ 48h): cartão registrado agora, 1ª cobrança no fim do teste, sem trial extra. Com menos de 49h de trial restante, o Checkout roda em `mode=setup` (cadastra o cartão SEM cobrança) e, após o `checkout.session.completed` verificado, o servidor cria a assinatura via API com `trial_end = trial_ends_at` original (Idempotency-Key por checkout; se o trial já tiver vencido nesse meio-tempo, a cobrança imediata é correta). Fora do trial, a cobrança acontece na conclusão do Checkout. Status `trialing` na Stripe só vincula IDs; datas internas intocadas.
 
 ## Status
 | Stripe | Interno | Auditoria |
