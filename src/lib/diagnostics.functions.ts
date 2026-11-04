@@ -8,7 +8,7 @@ import {
   startTimer,
 } from "@/lib/audit.server";
 import { AppError, ERROR_CODES } from "@/lib/errors";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { createAiModel } from "@/lib/ai-model.server";
 import { aggregateFarm, BRL, NUM, latestPriceByCrop } from "@/lib/calc";
 import {
   computeScoreBreakdown as _computeScoreBreakdown,
@@ -239,8 +239,8 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
     const { FEATURES } = await import("@/lib/entitlements");
     await requireEntitlement(context.supabase, FEATURES.DIAGNOSTIC, correlationId);
 
-    const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+    const ai = createAiModel();
+    if ("error" in ai) throw new Error(ai.error);
 
     const { checkRateLimit, DIAGNOSTIC_RATE_LIMIT_MESSAGE } = await import(
       "@/lib/rate-limit.server"
@@ -304,7 +304,6 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 - Comparações de custo por hectare usam a MÉDIA DA FAZENDA (custo total ÷ área total). NUNCA cite média regional, de mercado, do setor ou de outras fazendas: o sistema não tem esses dados.
 - Tudo em português do Brasil, frases curtas. Não invente dados além do contexto.`;
 
-    const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
     const schemaHint = JSON.stringify(schemaShape, null, 2);
     const userPrompt = `Dados da fazenda:\n${summary}\n\nResponda APENAS com um JSON válido (sem markdown, sem comentários) seguindo EXATAMENTE este formato:\n${schemaHint}\n\nRegras:\n- Use números crus (sem R$, sem pontos de milhar, ponto como decimal).\n- risks e opportunities: no máximo 3 itens cada.\n- actionPlan: exatamente 3 strings.\n- Todos os campos são obrigatórios.`;
 
@@ -313,7 +312,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
     let aiFallbackUsed = false;
     try {
       const { text } = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
+        model: ai.model,
         system,
         prompt: userPrompt,
       });

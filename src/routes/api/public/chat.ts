@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { createAiModel } from "@/lib/ai-model.server";
 import { aggregateFarm, BRL, NUM, cropsMissingPrice, latestPriceByCrop } from "@/lib/calc";
 import {
   AI_TIMEOUT_MESSAGE,
@@ -29,12 +29,12 @@ export const Route = createFileRoute("/api/public/chat")({
       POST: async ({ request }) => {
         const SUPABASE_URL = process.env.SUPABASE_URL;
         const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-        const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
         if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
           return new Response("Backend não configurado", { status: 500 });
         }
-        if (!LOVABLE_API_KEY) {
-          return new Response("LOVABLE_API_KEY não configurada", { status: 500 });
+        const ai = createAiModel();
+        if ("error" in ai) {
+          return new Response(ai.error, { status: 500 });
         }
 
         const authHeader = request.headers.get("authorization");
@@ -216,8 +216,7 @@ Liste 3–5 **ações práticas e específicas** para o produtor executar (ex.: 
 
 ${summary}`;
 
-        const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
-        const model = gateway("google/gemini-3-flash-preview");
+        const model = ai.model;
 
         // Contexto limitado: system prompt + snapshot financeiro atual +
         // as N mensagens mais recentes. O histórico persistido não é alterado.
