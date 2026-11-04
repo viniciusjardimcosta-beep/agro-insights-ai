@@ -107,10 +107,11 @@ export const createCheckout = createServerFn({ method: "POST" })
     const { requireProvider } = await import("./provider.server");
     const { findPlanVariant, isFounderEligible } = await import("./plans");
     const { hasOpenSubscription } = await import("./billing.server");
-    const { trialEndForCheckout } = await import("./providers/stripe");
+    const { checkoutStrategyForTrial } = await import("./providers/stripe");
     const { ensureSubscription } = await import("@/lib/subscription.server");
     const { recordAuditEvent } = await import("@/lib/audit.server");
     const { AppError, ERROR_CODES } = await import("@/lib/errors");
+    const { checkRateLimit, BILLING_RATE_LIMIT_MESSAGE } = await import("@/lib/rate-limit.server");
 
     const fail = async (code: string, userMessage: string, status: number, errCode: keyof typeof ERROR_CODES) => {
       await recordAuditEvent(context.supabase, {
@@ -120,6 +121,11 @@ export const createCheckout = createServerFn({ method: "POST" })
       });
       return new AppError({ code: ERROR_CODES[errCode], status, userMessage });
     };
+
+    const limit = await checkRateLimit(context.supabase, "billing_action");
+    if (!limit.allowed) {
+      throw await fail("BILLING_RATE_LIMITED", BILLING_RATE_LIMIT_MESSAGE, 429, "CHECKOUT_FAILED");
+    }
 
     const variant = findPlanVariant(data.planCode);
     if (!variant || !variant.available) {
