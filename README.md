@@ -62,6 +62,7 @@ docs/                   documentação técnica
 | --- | --- |
 | [`docs/SUBSCRIPTIONS.md`](docs/SUBSCRIPTIONS.md) | Teste gratuito, estados da assinatura e permissões por plano |
 | [`docs/BILLING.md`](docs/BILLING.md) | Integração com o Stripe, planos, webhook e plano fundador |
+| [`docs/MIGRACAO.md`](docs/MIGRACAO.md) | Guia para sair do Lovable Cloud para o seu próprio Supabase (planejamento, não testado) |
 | [`docs/ADMIN.md`](docs/ADMIN.md) | Papel de administrador e como criar o primeiro |
 | [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) | Observabilidade, auditoria e monitoramento |
 | [`docs/BACKUP_RECOVERY.md`](docs/BACKUP_RECOVERY.md) | Backup e recuperação |
