@@ -362,6 +362,23 @@ describe("segurança das server functions", () => {
     const routes = readdirSync(join(__dirname, "../../routes/api/public/billing"));
     expect(routes).toEqual(["stripe.ts"]);
   });
+  it("modo setup: assinatura criada no servidor, idempotente, trial interno preservado", () => {
+    const wh = readFileSync(join(__dirname, "webhook.server.ts"), "utf8");
+    // Só no checkout.session.completed, sem subscriptionId, com mode=setup persistido
+    expect(wh).toMatch(/co\.mode === "setup"/);
+    // Nunca cria segunda assinatura (retentativa de webhook)
+    expect(wh).toMatch(/sub\.provider_subscription_id\) return "processed"/);
+    // Falha na criação libera o evento para retentativa da Stripe
+    expect(wh).toMatch(/SETUP_SUBSCRIPTION_FAILED[\s\S]*RetryLaterError/);
+    const adapter = readFileSync(join(__dirname, "providers/stripe.server.ts"), "utf8");
+    // Idempotency-Key por checkout: repetição da mesma solicitação não duplica assinatura
+    expect(adapter).toContain("agrointel-setup-sub-");
+    // trial_end só é enviado se ainda estiver no futuro; cartão vem do SetupIntent
+    expect(adapter).toMatch(/trialEnd && trialEnd > now/);
+    expect(adapter).toMatch(/setup_intents/);
+    // A sessão é re-buscada na Stripe e precisa estar completa e do mesmo customer
+    expect(adapter).toMatch(/session\["mode"\] !== "setup" \|\| session\["status"\] !== "complete"/);
+  });
 });
 
 describe("segredos fora do cliente", () => {
