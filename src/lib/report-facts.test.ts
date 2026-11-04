@@ -78,8 +78,49 @@ describe("sanitizeItems", () => {
 describe("factualItems", () => {
   it("usa os números reais da fazenda", () => {
     const { risks, opportunities } = factualItems(facts);
-    expect(risks.some((r) => r.includes("milho concentra 70,4% do lucro"))).toBe(true);
+    expect(risks.some((r) => r.includes("Milho concentra 70,4% do lucro"))).toBe(true);
     expect(risks.some((r) => r.includes("R$ 5.850,00/ha") && r.includes("19,7%"))).toBe(true);
     expect(opportunities.some((o) => o.includes("216"))).toBe(true);
+  });
+});
+
+describe("formato dos números nos textos", () => {
+  it("troca número cru (5850.00) por R$ 5.850,00 quando é valor real", () => {
+    const r = reconcileText("reduzir o desembolso de 5850.00/ha, visando a média (4885.71)", facts);
+    expect(r.ok).toBe(true);
+    expect(r.text).toBe("reduzir o desembolso de R$ 5.850,00/ha, visando a média (R$ 4.885,71)");
+  });
+
+  it("108000.00 vira R$ 108.000,00", () => {
+    expect(reconcileText("lucro total (108000.00)", facts).text).toBe("lucro total (R$ 108.000,00)");
+  });
+
+  it("número cru inventado torna a frase não verificável", () => {
+    expect(reconcileText("economia de 12345.67 no ciclo", facts).ok).toBe(false);
+  });
+
+  it("não mexe em valores já formatados nem em percentuais", () => {
+    const t = "Custo de R$ 5.850,00/ha, 19,7% acima.";
+    expect(reconcileText(t, facts)).toEqual({ text: t, ok: true });
+  });
+});
+
+describe("sanitizeItems sem repetir ideia", () => {
+  it("não preenche com frase que repete um número já presente em outro item", () => {
+    const reserve = factualItems(facts).risks;
+    const items = [
+      "Custo por hectare da soja está 19,7% acima da média.",
+      "Milho representa 70,4% do lucro total.",
+      "Queda de 42% no preço do milho.",
+    ];
+    const out = sanitizeItems(items, facts, reserve);
+    // a reserva "Milho concentra 70,4% ..." repetiria a segunda frase: não pode entrar
+    expect(out.filter((x) => x.includes("70,4%"))).toHaveLength(1);
+    expect(out.some((x) => x.includes("42%"))).toBe(false);
+  });
+
+  it("frases de reserva começam com maiúscula", () => {
+    const { risks } = factualItems(facts);
+    expect(risks.every((r) => r[0] === r[0].toUpperCase())).toBe(true);
   });
 });
