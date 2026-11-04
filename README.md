@@ -66,6 +66,7 @@ docs/                   documentação técnica
 | [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) | Observabilidade, auditoria e monitoramento |
 | [`docs/BACKUP_RECOVERY.md`](docs/BACKUP_RECOVERY.md) | Backup e recuperação |
 | [`docs/DATA_RETENTION.md`](docs/DATA_RETENTION.md) | Retenção e ciclo de vida dos dados |
+| [`docs/INVENTARIO_DADOS.md`](docs/INVENTARIO_DADOS.md) | Inventário de dados pessoais, terceiros e pendências, para revisão jurídica |
 | [`docs/PROMPT_INICIAL.md`](docs/PROMPT_INICIAL.md) | Pedido original do projeto |
 
 ## Pendências conhecidas
