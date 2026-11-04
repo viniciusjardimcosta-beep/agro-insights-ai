@@ -107,10 +107,11 @@ export const createCheckout = createServerFn({ method: "POST" })
     const { requireProvider } = await import("./provider.server");
     const { findPlanVariant, isFounderEligible } = await import("./plans");
     const { hasOpenSubscription } = await import("./billing.server");
-    const { trialEndForCheckout } = await import("./providers/stripe");
+    const { checkoutStrategyForTrial } = await import("./providers/stripe");
     const { ensureSubscription } = await import("@/lib/subscription.server");
     const { recordAuditEvent } = await import("@/lib/audit.server");
     const { AppError, ERROR_CODES } = await import("@/lib/errors");
+    const { checkRateLimit, BILLING_RATE_LIMIT_MESSAGE } = await import("@/lib/rate-limit.server");
 
     const fail = async (code: string, userMessage: string, status: number, errCode: keyof typeof ERROR_CODES) => {
       await recordAuditEvent(context.supabase, {
@@ -120,6 +121,11 @@ export const createCheckout = createServerFn({ method: "POST" })
       });
       return new AppError({ code: ERROR_CODES[errCode], status, userMessage });
     };
+
+    const limit = await checkRateLimit(context.supabase, "billing_action");
+    if (!limit.allowed) {
+      throw await fail("BILLING_RATE_LIMITED", BILLING_RATE_LIMIT_MESSAGE, 429, "CHECKOUT_FAILED");
+    }
 
     const variant = findPlanVariant(data.planCode);
     if (!variant || !variant.available) {
@@ -198,10 +204,13 @@ export const createCheckout = createServerFn({ method: "POST" })
     if (pending) await supabaseAdmin.from("billing_checkouts").update({ status: "canceled" }).eq("id", pending.id);
 
     const { CHECKOUT_EXPIRES_MINUTES } = await import("./providers/stripe");
+    // Regra dos 7 dias: < 49h de trial → modo setup (cartão sem cobrança);
+    // a assinatura é criada no servidor após o setup, com o fim original do trial.
+    const strategy = checkoutStrategyForTrial(sub);
     const expiresAt = new Date(Date.now() + (CHECKOUT_EXPIRES_MINUTES - 1) * 60_000).toISOString();
     const { data: row, error: insErr } = await supabaseAdmin
       .from("billing_checkouts")
-      .insert({ user_id: context.userId, provider: provider.id, plan_code: variant.planCode, status: "pending", expires_at: expiresAt })
+      .insert({ user_id: context.userId, provider: provider.id, plan_code: variant.planCode, status: "pending", mode: strategy.mode, expires_at: expiresAt })
       .select("id")
       .single();
     if (insErr || !row) {
@@ -210,15 +219,26 @@ export const createCheckout = createServerFn({ method: "POST" })
 
     const origin = safeOrigin();
     try {
-      const session = await provider.createCheckoutSession({
-        variant,
-        priceId,
-        customerId,
-        checkoutRef: row.id,
-        trialEnd: trialEndForCheckout(sub),
-        successUrl: `${origin}/assinatura/sucesso`,
-        cancelUrl: `${origin}/assinatura/cancelado`,
-      });
+      const successUrl = `${origin}/assinatura/sucesso`;
+      const cancelUrl = `${origin}/assinatura/cancelado`;
+      const session =
+        strategy.mode === "setup"
+          ? await provider.createSetupCheckoutSession({
+              customerId,
+              checkoutRef: row.id,
+              planCode: variant.planCode,
+              successUrl,
+              cancelUrl,
+            })
+          : await provider.createCheckoutSession({
+              variant,
+              priceId,
+              customerId,
+              checkoutRef: row.id,
+              trialEnd: strategy.trialEnd,
+              successUrl,
+              cancelUrl,
+            });
       await supabaseAdmin
         .from("billing_checkouts")
         .update({ provider_checkout_id: session.providerCheckoutId, checkout_url: session.url })
@@ -243,7 +263,12 @@ export const openBillingPortal = createServerFn({ method: "POST" })
     const { requireProvider } = await import("./provider.server");
     const { recordAuditEvent } = await import("@/lib/audit.server");
     const { AppError, ERROR_CODES } = await import("@/lib/errors");
+    const { checkRateLimit, BILLING_RATE_LIMIT_MESSAGE } = await import("@/lib/rate-limit.server");
     const provider = requireProvider();
+    const limit = await checkRateLimit(context.supabase, "billing_action");
+    if (!limit.allowed) {
+      throw new AppError({ code: ERROR_CODES.CHECKOUT_FAILED, status: 429, userMessage: BILLING_RATE_LIMIT_MESSAGE });
+    }
     const { data: sub } = await context.supabase.from("subscriptions").select("provider_customer_id").maybeSingle();
     if (!sub?.provider_customer_id) {
       throw new AppError({ code: ERROR_CODES.VALIDATION, status: 400, userMessage: "Você ainda não possui assinatura para gerenciar." });
@@ -271,7 +296,12 @@ async function setCancel(context: { supabase: any; userId: string }, cancel: boo
   const { hasOpenSubscription, persistCancelFlag } = await import("./billing.server");
   const { recordAuditEvent } = await import("@/lib/audit.server");
   const { AppError, ERROR_CODES } = await import("@/lib/errors");
+  const { checkRateLimit, BILLING_RATE_LIMIT_MESSAGE } = await import("@/lib/rate-limit.server");
   const provider = requireProvider();
+  const limit = await checkRateLimit(context.supabase, "billing_action");
+  if (!limit.allowed) {
+    throw new AppError({ code: ERROR_CODES.CHECKOUT_FAILED, status: 429, userMessage: BILLING_RATE_LIMIT_MESSAGE });
+  }
   const { data: sub } = await context.supabase.from("subscriptions").select(SUB_SELECT).maybeSingle();
   if (!hasOpenSubscription(sub ?? null) || (cancel && sub.cancel_at_period_end) || (!cancel && !sub.cancel_at_period_end)) {
     throw new AppError({

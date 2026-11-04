@@ -149,20 +149,52 @@ export async function applyWebhookEvent(
     if (!ev.checkoutSessionId) return "ignored";
     const { data: co } = await admin
       .from("billing_checkouts")
-      .select("id, user_id, status")
+      .select("id, user_id, status, mode, plan_code")
       .eq("provider", provider.id)
       .eq("provider_checkout_id", ev.checkoutSessionId)
       .maybeSingle();
     if (!co) return "ignored"; // checkout desconhecido: não é nosso
     const { data: sub } = await admin
       .from("subscriptions")
-      .select("provider_customer_id")
+      .select("provider_customer_id, provider_subscription_id, trial_ends_at")
       .eq("user_id", co.user_id)
       .maybeSingle();
     if (!sub?.provider_customer_id || sub.provider_customer_id !== ev.customerId) {
       throw new Error("customer_mismatch");
     }
     if (co.status === "pending") await admin.from("billing_checkouts").update({ status: "paid" }).eq("id", co.id);
+
+    // Modo SETUP (trial < 49h): o checkout só cadastrou o cartão. A assinatura
+    // é criada AQUI, no servidor, com o fim original do trial interno.
+    if (!ev.subscriptionId && co.mode === "setup") {
+      if (sub.provider_subscription_id) return "processed"; // já criada (retentativa)
+      const { findPlanVariant } = await import("./plans");
+      const variant = findPlanVariant(co.plan_code);
+      if (!variant) throw new RetryLaterError("unknown_plan");
+      const priceId = await provider.resolvePrice(variant);
+      const trialEndMs = sub.trial_ends_at ? new Date(sub.trial_ends_at).getTime() : null;
+      const trialEnd = trialEndMs && trialEndMs > Date.now() ? Math.floor(trialEndMs / 1000) : null;
+      try {
+        const created = await provider.createSubscriptionFromSetup({
+          checkoutSessionId: ev.checkoutSessionId,
+          checkoutRef: co.id,
+          priceId,
+          customerId: sub.provider_customer_id,
+          trialEnd,
+        });
+        return syncSubscription(admin, provider, created.providerSubscriptionId);
+      } catch (err) {
+        await recordSystemAudit(admin, {
+          userId: co.user_id,
+          eventType: "webhook_processing_failed",
+          status: "failure",
+          metadata: { source: provider.id, error_code: "SETUP_SUBSCRIPTION_FAILED" },
+        });
+        // Libera a reserva: a retentativa da Stripe pode concluir a criação.
+        throw new RetryLaterError(err instanceof Error ? err.message.slice(0, 40) : "setup_failed");
+      }
+    }
+
     // Checkout concluído NÃO ativa nada: o status vem do estado da Subscription.
     return ev.subscriptionId ? syncSubscription(admin, provider, ev.subscriptionId) : "processed";
   }

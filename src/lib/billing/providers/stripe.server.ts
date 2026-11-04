@@ -6,6 +6,7 @@ import type { BillingProvider, PlanVariant } from "../types";
 import {
   STRIPE_API_BASE,
   buildCheckoutParams,
+  buildSetupCheckoutParams,
   encodeForm,
   extractEventRefs,
   isTestSecretKey,
@@ -13,6 +14,10 @@ import {
   subscriptionToSnapshot,
   verifyStripeSignature,
 } from "./stripe";
+
+const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+const idOf = (v: unknown): string | null =>
+  str(v) ?? (v && typeof v === "object" ? str((v as Record<string, unknown>)["id"]) : null);
 
 export const STRIPE_ENV_NAMES = {
   environment: "STRIPE_ENVIRONMENT",
@@ -143,6 +148,51 @@ export function createStripeProvider(cfg: StripeConfig): BillingProvider {
       const url = typeof data["url"] === "string" ? data["url"] : null;
       if (!id || !url || !url.startsWith("https://checkout.stripe.com/")) throw new StripeRequestError(502);
       return { url, providerCheckoutId: id };
+    },
+
+    async createSetupCheckoutSession(args) {
+      const data = await call("/checkout/sessions", {
+        idempotencyKey: `agrointel-setup-${args.checkoutRef}`,
+        body: buildSetupCheckoutParams({
+          customerId: args.customerId,
+          checkoutRef: args.checkoutRef,
+          planCode: args.planCode,
+          successUrl: args.successUrl,
+          cancelUrl: args.cancelUrl,
+        }),
+      });
+      const id = typeof data["id"] === "string" ? data["id"] : null;
+      const url = typeof data["url"] === "string" ? data["url"] : null;
+      if (!id || !url || !url.startsWith("https://checkout.stripe.com/")) throw new StripeRequestError(502);
+      return { url, providerCheckoutId: id };
+    },
+
+    async createSubscriptionFromSetup({ checkoutSessionId, checkoutRef, priceId, customerId, trialEnd }) {
+      // Re-busca a sessão na Stripe (estado autoritativo) — nunca confia no evento.
+      const session = await call(`/checkout/sessions/${encodeURIComponent(checkoutSessionId)}`);
+      if (session["mode"] !== "setup" || session["status"] !== "complete") throw new StripeRequestError(409);
+      if (idOf(session["customer"]) !== customerId) throw new StripeRequestError(409);
+      const setupIntentId = str(session["setup_intent"]);
+      if (!setupIntentId) throw new StripeRequestError(502);
+      const si = await call(`/setup_intents/${encodeURIComponent(setupIntentId)}`);
+      const paymentMethod = str(si["payment_method"]);
+      if (!paymentMethod || si["status"] !== "succeeded") throw new StripeRequestError(502);
+      const now = Math.floor(Date.now() / 1000);
+      const body: Record<string, unknown> = {
+        customer: customerId,
+        items: [{ price: priceId }],
+        default_payment_method: paymentMethod,
+        metadata: { checkout_ref: checkoutRef },
+      };
+      // Trial interno preservado: só cobra imediatamente se o trial JÁ venceu.
+      if (trialEnd && trialEnd > now) body["trial_end"] = trialEnd;
+      const sub = await call("/subscriptions", {
+        idempotencyKey: `agrointel-setup-sub-${checkoutRef}`,
+        body,
+      });
+      const id = str(sub["id"]);
+      if (!id) throw new StripeRequestError(502);
+      return { providerSubscriptionId: id };
     },
 
     async createPortalSession({ customerId, returnUrl }) {

@@ -10,12 +10,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type AnySupabase = SupabaseClient<any, any, any>;
 
-export type UsageEventType = "ai_message" | "ai_timeout" | "diagnostic_ai_generation";
+export type UsageEventType = "ai_message" | "ai_timeout" | "diagnostic_ai_generation" | "billing_action";
 
 /** Limites centrais — ajustáveis sem alterar a arquitetura. */
 export const RATE_LIMITS = {
   ai_message: { hour: 30, day: 120 },
   diagnostic_ai_generation: { hour: 0, day: 10 },
+  /** Ações sensíveis de cobrança (checkout, portal, cancelar/reativar). */
+  billing_action: { hour: 20, day: 60 },
 } as const satisfies Record<string, { hour: number; day: number }>;
 
 /** Limites de entrada / contexto do Consultor IA. */
@@ -35,6 +37,8 @@ export const RATE_LIMIT_MESSAGE =
   "Você atingiu o limite temporário de mensagens. Tente novamente mais tarde.";
 export const DIAGNOSTIC_RATE_LIMIT_MESSAGE =
   "Você atingiu o limite de diagnósticos deste período. Tente novamente mais tarde.";
+export const BILLING_RATE_LIMIT_MESSAGE =
+  "Muitas tentativas em sequência. Aguarde alguns minutos e tente novamente.";
 export const TOO_LONG_MESSAGE =
   "Sua mensagem está muito longa. Resuma a pergunta e tente novamente.";
 export const AI_TIMEOUT_MESSAGE =
