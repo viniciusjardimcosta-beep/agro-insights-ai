@@ -211,7 +211,7 @@ export function reconcileText(text: string, facts: Facts): { text: string; ok: b
   let out = text.replace(/(\d+(?:[.,]\d+)?)(\s*)%/g, (full, raw: string, sp: string) => {
     const value = Math.abs(parseNumber(raw));
     const d = decimalsOf(raw);
-    if (facts.pct.some((f) => roundTo(f, d) === value)) return full; // confere
+    if (facts.pct.some((f) => roundTo(f, d) === value)) return `${fmt(value, d)}${sp}%`; // confere (formato brasileiro)
     const near = nearest(facts.pct, value);
     const tol = d === 0 ? 0.6 : 0.3;
     if (near !== null && Math.abs(near - value) <= tol) return `${fmt(near, d)}${sp}%`;
@@ -245,14 +245,19 @@ export function reconcileText(text: string, facts: Facts): { text: string; ok: b
   });
 
   // Números "crus" com 2 casas decimais e ponto (ex.: 5850.00, 108000.00), que a IA às vezes
-  // escreve sem "R$". Se correspondem a um valor real, viram "R$ 5.850,00"; senão, a frase é
-  // marcada como não verificável. (Percentuais e valores já com "R$" já foram tratados acima.)
+  // escreve sem "R$". Se correspondem a um valor real, viram "R$ 5.850,00"; senão ficam como estão. (Percentuais e valores já com "R$" já foram tratados acima.)
   out = out.replace(/(?<![\d.,$])(?<!R\$\s)(\d{1,9}\.\d{2})(?![\d%]|\s*%)/g, (full, raw: string) => {
     const value = Number(raw);
     const near = nearest(facts.money, value);
     if (near !== null && Math.abs(near - value) < 0.005) return `R$ ${fmt(near, 2)}`;
-    ok = false;
-    return full;
+    return full; // sem unidade, não dá para julgar (pode ser sc/ha, ha...): deixa como está
+  });
+
+  // Valores já em formato brasileiro, mas sem "R$" (ex.: "(5.850,00)"): se são valores reais, ganham "R$".
+  out = out.replace(/(?<![\d.,$])(?<!R\$\s)(\d{1,3}(?:\.\d{3})*,\d{2})(?![\d,]|\s*%)/g, (full, raw: string) => {
+    const value = parseNumber(raw);
+    const near = nearest(facts.money, value);
+    return near !== null && Math.abs(near - value) < 0.005 ? `R$ ${raw}` : full;
   });
 
   return { text: out, ok };
