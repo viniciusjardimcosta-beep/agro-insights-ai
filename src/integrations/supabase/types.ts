@@ -126,6 +126,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          mode: string
           plan_code: string
           provider: string
           provider_checkout_id: string | null
@@ -138,6 +139,7 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          mode?: string
           plan_code: string
           provider: string
           provider_checkout_id?: string | null
@@ -150,6 +152,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          mode?: string
           plan_code?: string
           provider?: string
           provider_checkout_id?: string | null
