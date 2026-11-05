@@ -134,3 +134,22 @@ describe("sanitizeItems sem repetir ideia", () => {
     expect(risks.every((r) => r[0] === r[0].toUpperCase())).toBe(true);
   });
 });
+
+describe("vocabulário: margem x lucro por hectare", () => {
+  it("troca 'Margem de lucro do milho (R$ 7.200,00/ha)' por 'Lucro por hectare do milho (...)'", () => {
+    expect(
+      reconcileText("Margem de lucro do milho (R$ 7.200,00/ha) é 216% superior à da soja (R$ 2.275,00/ha)", facts).text,
+    ).toBe("Lucro por hectare do milho (R$ 7.200,00/ha) é 216% superior à da soja (R$ 2.275,00/ha)");
+  });
+
+  it("não mexe em margem em percentual", () => {
+    const t = "Margem de lucro da soja (28%) é inferior à do milho (66,7%).";
+    expect(reconcileText(t, facts)).toEqual({ text: t, ok: true });
+  });
+
+  it('artigo "a" vira "o"', () => {
+    expect(reconcileText("a margem do milho (R$ 7.200,00/ha) é alta", facts).text).toBe(
+      "o lucro por hectare do milho (R$ 7.200,00/ha) é alta",
+    );
+  });
+});

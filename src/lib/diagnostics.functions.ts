@@ -299,9 +299,10 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 - finance: use EXATAMENTE os números do contexto (revenue, costs, profit, profitPerHa em reais).
 - risks: até 3 riscos curtos, concretos, quantificados quando possível (PT-BR).
 - opportunities: até 3 oportunidades curtas, concretas (PT-BR).
-- indicators: cultura/talhão mais e menos lucrativo (por margem/ha), e % de dependência da maior cultura sobre a receita total.
+- indicators: cultura/talhão mais e menos lucrativo (por lucro por hectare, em R$/ha), e % de dependência da maior cultura sobre a receita total.
 - actionPlan: EXATAMENTE 3 ações práticas priorizadas por impacto financeiro. NUNCA recomende aumentar área, trocar cultura ou alterar estratégia produtiva sem deixar claro que faltam dados agronômicos/climáticos. Priorize: custos, margem, comercialização, gestão financeira, eficiência operacional.
 - Clareza: ao citar dependência de cultura, diga se é sobre receita, lucro ou área (ex.: "milho concentra 70% do lucro"). Não misture culturas na mesma frase sem dizer qual é qual. Ao citar valores por hectare, diga a que talhão ou cultura se referem e use R$/ha.
+- Vocabulário: "lucro por hectare" é um valor em R$/ha (lucro ÷ área). "Margem" (ou "margem líquida") é um PERCENTUAL (lucro ÷ receita). Nunca chame um valor em R$ de "margem" nem um percentual de "lucro por hectare". Use "margem" só com %, e "lucro por hectare" ou "lucro/ha" só com R$/ha.
 - Comparações de custo por hectare usam a MÉDIA DA FAZENDA (custo total ÷ área total). NUNCA cite média regional, de mercado, do setor ou de outras fazendas: o sistema não tem esses dados.
 - Tudo em português do Brasil, frases curtas. Não invente dados além do contexto.`;
 
