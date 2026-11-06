@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { translateAuthError } from "@/lib/auth-errors";
 import { Sprout } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -70,7 +71,7 @@ function AuthPage() {
     if (error) {
       // login_failure: apenas o código do erro. Nunca e-mail, senha ou token.
       captureMessage("login_failure", { errorCode: "AUTH_SIGN_IN_FAILED", route: "/auth" });
-      toast.error("Não foi possível entrar", { description: error.message });
+      toast.error("Não foi possível entrar", { description: translateAuthError(error.message) });
       return;
     }
     const { data: sessionData } = await supabase.auth.getUser();
@@ -94,7 +95,7 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error("Não foi possível enviar o e-mail", { description: error.message });
+      toast.error("Não foi possível enviar o e-mail", { description: translateAuthError(error.message) });
       return;
     }
     // Mensagem neutra: não revela se o e-mail existe.
@@ -116,7 +117,7 @@ function AuthPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      toast.error("Não foi possível alterar a senha", { description: error.message });
+      toast.error("Não foi possível alterar a senha", { description: translateAuthError(error.message) });
       return;
     }
     toast.success("Senha alterada!");
@@ -146,7 +147,7 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error("Não foi possível criar a conta", { description: error.message });
+      toast.error("Não foi possível criar a conta", { description: translateAuthError(error.message) });
       return;
     }
     // Quando a sessão já vem no cadastro, o aceite é gravado imediatamente.

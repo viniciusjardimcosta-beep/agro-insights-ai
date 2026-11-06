@@ -146,7 +146,8 @@ export const listCosts = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("costs")
       .select("*, fields(name, crop)")
-      .order("date", { ascending: false });
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false }); // mesmo dia: o lançamento mais novo primeiro
     if (error) throw dbError(error);
     return data ?? [];
   });
@@ -205,7 +206,8 @@ export const listPrices = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("prices")
       .select("*")
-      .order("date", { ascending: false });
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false });
     if (error) throw dbError(error);
     return data ?? [];
   });

@@ -116,7 +116,7 @@ function Page() {
                     <p className="text-xs text-muted-foreground">{f.properties?.name}</p>
                     <h3 className="text-lg font-semibold">{f.name}</h3>
                     <p className="text-sm capitalize text-primary">{f.crop} · {f.season ?? "—"}</p>
-                    <p className="mt-2 text-sm">{NUM.format(Number(f.area))} ha · {f.estimated_yield ? `${NUM.format(Number(f.estimated_yield))} sc/ha est.` : "yield não informado"}</p>
+                    <p className="mt-2 text-sm">{NUM.format(Number(f.area))} ha · {f.estimated_yield ? `${NUM.format(Number(f.estimated_yield))} sc/ha est.` : "produtividade não informada"}</p>
                   </div>
                   <div className="flex gap-1">
                     <Button size="icon" variant="ghost" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>
@@ -158,8 +158,8 @@ function Page() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2"><Label>Plantio</Label><Input name="planting_date" type="date" defaultValue={editing?.planting_date ?? ""} /></div>
-              <div className="space-y-2"><Label>Yield est. (sc/ha)</Label><Input name="estimated_yield" type="number" step="0.01" min="0" defaultValue={editing?.estimated_yield ?? ""} /></div>
-              <div className="space-y-2"><Label>Yield real (sc/ha)</Label><Input name="real_yield" type="number" step="0.01" min="0" defaultValue={editing?.real_yield ?? ""} /></div>
+              <div className="space-y-2"><Label>Produtividade estimada (sc/ha)</Label><Input name="estimated_yield" type="number" step="0.01" min="0" defaultValue={editing?.estimated_yield ?? ""} /></div>
+              <div className="space-y-2"><Label>Produtividade real (sc/ha)</Label><Input name="real_yield" type="number" step="0.01" min="0" defaultValue={editing?.real_yield ?? ""} /></div>
             </div>
             <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
           </form>
