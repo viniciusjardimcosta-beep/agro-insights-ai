@@ -173,7 +173,8 @@ describe("checkout", () => {
     const p = buildSetupCheckoutParams({ customerId: "cus_A", checkoutRef: "ref1", planCode: "pro_monthly", successUrl: "s", cancelUrl: "c", nowMs: now });
     expect(p.mode).toBe("setup");
     expect(p.customer).toBe("cus_A");
-    expect(p.payment_method_types).toEqual(["card"]);
+    expect(p.currency).toBe("brl");
+    expect("payment_method_types" in p).toBe(false);
     expect(p).not.toHaveProperty("line_items");
     expect(p).not.toHaveProperty("subscription_data");
     expect(JSON.stringify(p)).not.toMatch(/amount|trial|user_id/);

@@ -111,7 +111,8 @@ export function buildSetupCheckoutParams(args: {
     mode: "setup",
     customer: args.customerId,
     client_reference_id: args.checkoutRef,
-    payment_method_types: ["card"],
+    // A Stripe não aceita mais `payment_method_types`; em modo setup exige `currency`.
+    currency: "brl",
     success_url: args.successUrl,
     cancel_url: args.cancelUrl,
     locale: "pt-BR",

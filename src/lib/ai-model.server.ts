@@ -15,7 +15,7 @@ import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { resolveAiConfig } from "@/lib/ai-config";
 
 /** Modelo pronto para generateText/streamText, ou a mensagem do que falta configurar. */
-export function createAiModel(env: Env = process.env) {
+export function createAiModel(env: Record<string, string | undefined> = process.env) {
   const resolved = resolveAiConfig(env);
   if ("error" in resolved) return { error: resolved.error } as const;
   const { config } = resolved;
