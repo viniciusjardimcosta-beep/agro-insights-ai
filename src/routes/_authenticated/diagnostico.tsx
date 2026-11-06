@@ -14,7 +14,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { BRL } from "@/lib/calc";
+import { aggregateFarm, BRL } from "@/lib/calc";
+import { getFarmSnapshot } from "@/lib/data.functions";
+import { diagnosticFreshness } from "@/lib/diagnostic-freshness";
+import { ptPercentDecimals } from "@/lib/format-pt";
 import {
   generateDiagnostic,
   listDiagnostics,
@@ -38,6 +41,11 @@ export const Route = createFileRoute("/_authenticated/diagnostico")({
   ),
 });
 
+const snapshotQuery = queryOptions({
+  queryKey: ["farm-snapshot"],
+  queryFn: () => getFarmSnapshot(),
+});
+
 const listQuery = queryOptions({
   queryKey: ["diagnostics"],
   queryFn: () => listDiagnostics(),
@@ -58,6 +66,7 @@ function scoreLabel(score: number) {
 
 function DiagnosticoPage() {
   const { data: history = [], isLoading } = useQuery(listQuery);
+  const { data: snapshot } = useQuery(snapshotQuery);
   const qc = useQueryClient();
   const gen = useServerFn(generateDiagnostic);
   const [busy, setBusy] = useState(false);
@@ -65,6 +74,15 @@ function DiagnosticoPage() {
 
   const current = history.find((d) => d.id === selectedId) ?? history[0];
   const report = (current?.report as DiagnosticReport | undefined) ?? null;
+
+  // Aviso só para o diagnóstico mais recente: os dados atuais mudaram desde que ele foi gerado?
+  const freshness =
+    snapshot && current && current.id === history[0]?.id
+      ? diagnosticFreshness(
+          report?.finance,
+          aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never),
+        )
+      : null;
 
   async function run() {
     setBusy(true);
@@ -115,6 +133,32 @@ function DiagnosticoPage() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {freshness?.stale && current && (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 rounded-md border border-warning/40 bg-warning/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="font-semibold">Diagnóstico desatualizado</p>
+            <p className="text-muted-foreground">
+              Gerado em{" "}
+              {new Date(current.created_at).toLocaleString("pt-BR", {
+                dateStyle: "short",
+                timeStyle: "short",
+              })}
+              . Seus dados mudaram desde então (
+              {freshness.changes
+                .map((c) => `${c.label.toLowerCase()}: ${BRL.format(c.saved)} → ${BRL.format(c.live)}`)
+                .join("; ")}
+              ). A nota e a análise abaixo usam os valores antigos. Gere um novo diagnóstico para atualizar.
+            </p>
+          </div>
+          <Button onClick={run} disabled={busy} size="sm" variant="outline">
+            Atualizar agora
+          </Button>
+        </div>
       )}
 
       {report && current && (
@@ -608,7 +652,7 @@ function ScoreComposition({
                 key={i}
                 className="flex items-start justify-between gap-3 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2"
               >
-                <span>{b.label}</span>
+                <span>{ptPercentDecimals(b.label)}</span>
                 <span className="font-mono font-semibold text-destructive">{b.points}</span>
               </li>
             ))}
@@ -629,7 +673,7 @@ function ScoreComposition({
                 key={i}
                 className="flex items-start justify-between gap-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2"
               >
-                <span>{b.label}</span>
+                <span>{ptPercentDecimals(b.label)}</span>
                 <span className="font-mono font-semibold text-primary">
                   {b.label.startsWith("Ajuste") ? b.points : `+${b.points}`}
                 </span>
@@ -716,7 +760,7 @@ function ScoreWithBreakdown({
                 <ul className="space-y-1">
                   {positives.map((b, i) => (
                     <li key={i} className="flex justify-between gap-3">
-                      <span className="text-muted-foreground">{b.label}</span>
+                      <span className="text-muted-foreground">{ptPercentDecimals(b.label)}</span>
                       <span className="font-mono font-semibold text-primary">+{b.points}</span>
                     </li>
                   ))}
@@ -733,7 +777,7 @@ function ScoreWithBreakdown({
                 <ul className="space-y-1">
                   {penalties.map((b, i) => (
                     <li key={i} className="flex justify-between gap-3">
-                      <span className="text-muted-foreground">{b.label}</span>
+                      <span className="text-muted-foreground">{ptPercentDecimals(b.label)}</span>
                       <span className="font-mono font-semibold text-destructive">{b.points}</span>
                     </li>
                   ))}

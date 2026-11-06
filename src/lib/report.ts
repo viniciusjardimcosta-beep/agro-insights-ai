@@ -10,6 +10,8 @@ import type { DiagnosticReport } from "@/lib/diagnostics.functions";
 import type { SimulatedScenarioRow } from "@/lib/scenarios.functions";
 import { FEATURES, type SubscriptionAccess } from "@/lib/entitlements";
 import { assertEntitlement } from "@/lib/premium-guard";
+import { diagnosticFreshness } from "@/lib/diagnostic-freshness";
+import { ptPercentDecimals } from "@/lib/format-pt";
 
 export const REPORT_VERSION = "1.0";
 
@@ -200,6 +202,25 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
   if (report) {
     y = newContentPage();
     y = drawH1(doc, "Diagnóstico Financeiro", margin, y);
+    // Aviso quando o diagnóstico foi gerado com dados anteriores às alterações atuais.
+    const fresh = diagnosticFreshness(report.finance, farm);
+    if (fresh.stale) {
+      const when = diag ? new Date(diag.created_at).toLocaleString("pt-BR") : "";
+      const warnText =
+        `Atenção: este diagnóstico foi gerado em ${when} com dados anteriores às alterações mais recentes ` +
+        `(${fresh.changes.map((c) => `${c.label.toLowerCase()}: ${BRL.format(c.saved)} para ${BRL.format(c.live)}`).join("; ")}). ` +
+        `A nota e a análise desta seção podem divergir do Resumo Executivo. Gere um novo diagnóstico antes de compartilhar.`;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const lines = doc.splitTextToSize(warnText, pageW - margin * 2 - 20) as string[];
+      const boxH = lines.length * 12 + 14;
+      doc.setFillColor(254, 243, 199);
+      doc.setDrawColor(...WARN);
+      doc.roundedRect(margin, y, pageW - margin * 2, boxH, 4, 4, "FD");
+      doc.setTextColor(...DARK);
+      doc.text(lines, margin + 10, y + 16);
+      y += boxH + 12;
+    }
     // Score panel
     doc.setFillColor(...LIGHT);
     doc.roundedRect(margin, y, pageW - margin * 2, 70, 6, 6, "F");
@@ -237,7 +258,7 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     autoTable(doc, {
       startY: y + 4,
       head: [["Fator", "Pontos"]],
-      body: bd.map((b) => [b.label, (b.points > 0 ? "+" : "") + String(b.points)]),
+      body: bd.map((b) => [ptPercentDecimals(b.label), (b.points > 0 ? "+" : "") + String(b.points)]),
       styles: { fontSize: 9, cellPadding: 4, textColor: DARK, lineColor: [229, 231, 235] },
       headStyles: { fillColor: PRIMARY, textColor: [255, 255, 255], fontStyle: "bold" },
       columnStyles: { 1: { halign: "right", cellWidth: 60 } },
@@ -255,8 +276,8 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
 
     const fullW = pageW - margin * 2;
     const half = (fullW - 16) / 2;
-    const penaltyItems = penalties.map((p) => `${p.label} (${p.points})`);
-    const bonusItems = bonuses.map((p) => `${p.label} (+${p.points})`);
+    const penaltyItems = penalties.map((p) => `${ptPercentDecimals(p.label)} (${p.points})`);
+    const bonusItems = bonuses.map((p) => `${ptPercentDecimals(p.label)} (+${p.points})`);
 
     // Side-by-side only when both columns are short enough to fit together.
     const penH = measureList(doc, penaltyItems, half);
