@@ -12,7 +12,8 @@ import { generateExecutiveReport } from "@/lib/report";
 import { getMySubscription } from "@/lib/subscription.functions";
 import { FEATURES } from "@/lib/entitlements";
 import { assertEntitlement } from "@/lib/premium-guard";
-import type { CostRow, FieldRow, PriceRow } from "@/lib/calc";
+import { aggregateFarm, type CostRow, type FieldRow, type PriceRow } from "@/lib/calc";
+import { diagnosticFreshness } from "@/lib/diagnostic-freshness";
 import { logClientAuditEvent } from "@/lib/audit.functions";
 import { captureError } from "@/lib/monitoring";
 import { ERROR_CODES, toUserMessage } from "@/lib/errors";
@@ -67,6 +68,18 @@ export function ExecutiveReportButton({ size = "default", variant = "outline", c
       if (!snap.fields || snap.fields.length === 0) {
         toast.error("Cadastre talhões, custos e preços antes de gerar o relatório.");
         return;
+      }
+
+      // Aviso (não bloqueia): diagnóstico gerado antes das últimas alterações nos dados.
+      const latestRow = latest as { report?: { finance?: unknown } } | null;
+      if (latestRow?.report?.finance) {
+        const live = aggregateFarm(snap.fields, snap.costs, snap.prices);
+        if (diagnosticFreshness(latestRow.report.finance as never, live).stale) {
+          toast.warning("Diagnóstico desatualizado", {
+            description:
+              "Seus dados mudaram depois do último diagnóstico. O relatório traz um aviso; gere um novo diagnóstico para números consistentes.",
+          });
+        }
       }
 
       // Producer identity comes from the profile name only — never the e-mail.
