@@ -61,13 +61,13 @@ function AuthLayout() {
     <div className="min-h-screen bg-background">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col bg-sidebar text-sidebar-foreground md:flex">
-        <div className="flex h-16 items-center gap-2 px-6 text-lg font-bold">
+        <div className="flex h-16 shrink-0 items-center gap-2 px-6 text-lg font-bold">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <Sprout className="h-4 w-4" />
           </span>
           AgroIntel <span className="text-sidebar-primary">AI</span>
         </div>
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.to);
             return (
@@ -104,7 +104,7 @@ function AuthLayout() {
             </Link>
           )}
         </nav>
-        <div className="border-t border-sidebar-border p-3">
+        <div className="shrink-0 border-t border-sidebar-border p-3">
           <Button
             variant="ghost"
             onClick={logout}
