@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { diagnosticFreshness } from "@/lib/diagnostic-freshness";
-import { ptPercentDecimals } from "@/lib/format-pt";
+import { formatDateBR, ptPercentDecimals } from "@/lib/format-pt";
 
 describe("diagnosticFreshness", () => {
   const live = { totalRevenue: 370000, totalCost: 161000 };
@@ -45,5 +45,19 @@ describe("ptPercentDecimals", () => {
     expect(ptPercentDecimals("R$ 5.971,43 por ha")).toBe("R$ 5.971,43 por ha");
     expect(ptPercentDecimals("Todos os talhões lucrativos")).toBe("Todos os talhões lucrativos");
     expect(ptPercentDecimals("Margem 53,2%")).toBe("Margem 53,2%");
+  });
+});
+
+describe("formatDateBR", () => {
+  it("converte AAAA-MM-DD para DD/MM/AAAA sem deslocar o dia", () => {
+    expect(formatDateBR("2026-11-09")).toBe("09/11/2026");
+    expect(formatDateBR("2026-01-01")).toBe("01/01/2026");
+    expect(formatDateBR("2026-12-31T23:59:59Z")).toBe("31/12/2026");
+  });
+  it("devolve vazio ou o original quando não é data", () => {
+    expect(formatDateBR(null)).toBe("");
+    expect(formatDateBR(undefined)).toBe("");
+    expect(formatDateBR("")).toBe("");
+    expect(formatDateBR("ontem")).toBe("ontem");
   });
 });

@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { listCosts, upsertCost, createCostSplit, deleteCost, listFields } from "@/lib/data.functions";
 import { BRL, COST_CATEGORIES } from "@/lib/calc";
 import { splitByArea } from "@/lib/cost-split";
+import { formatDateBR } from "@/lib/format-pt";
 
 const qCosts = queryOptions({ queryKey: ["costs"], queryFn: () => listCosts() });
 const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields() });
@@ -128,10 +129,12 @@ function Page() {
               <TableBody>
                 {(costs as Cost[]).map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{c.date}</TableCell>
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{formatDateBR(c.date)}</TableCell>
                     <TableCell className="font-medium">{c.fields?.name ?? "-"}</TableCell>
                     <TableCell>{c.category}</TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{c.description}</TableCell>
+                    <TableCell className="hidden max-w-xs truncate md:table-cell text-sm text-muted-foreground" title={c.description || c.notes || undefined}>
+                      {c.description || (c.notes ? <span className="italic">{c.notes}</span> : null)}
+                    </TableCell>
                     <TableCell className="text-right font-medium">{BRL.format(Number(c.amount))}</TableCell>
                     <TableCell className="text-right">
                       <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>

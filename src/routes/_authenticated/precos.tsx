@@ -1,3 +1,4 @@
+import { formatDateBR } from "@/lib/format-pt";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -86,7 +87,7 @@ function Page() {
               <TableBody>
                 {(data as Price[]).map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="text-xs text-muted-foreground">{p.date}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{formatDateBR(p.date)}</TableCell>
                     <TableCell className="capitalize">{p.crop}</TableCell>
                     <TableCell className="text-right font-medium">{BRL.format(Number(p.price_per_bag))}</TableCell>
                     <TableCell className="text-right">
