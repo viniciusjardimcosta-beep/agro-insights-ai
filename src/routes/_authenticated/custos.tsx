@@ -2,7 +2,7 @@ import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { FileSpreadsheet, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { listCosts, upsertCost, createCostSplit, deleteCost, listFields } from "
 import { BRL, COST_CATEGORIES } from "@/lib/calc";
 import { splitByArea } from "@/lib/cost-split";
 import { formatDateBR } from "@/lib/format-pt";
+import { CostImportDialog } from "@/components/cost-import-dialog";
 
 const qCosts = queryOptions({ queryKey: ["costs"], queryFn: () => listCosts() });
 const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields() });
@@ -36,6 +37,7 @@ function Page() {
   const saveSplit = useServerFn(createCostSplit);
   const del = useServerFn(deleteCost);
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Cost | null>(null);
   // "all" = ratear entre todos; "crop:Soja" = ratear entre os talhões da cultura; senão, o id de um talhão.
   const [target, setTarget] = useState<string>("");
@@ -101,7 +103,10 @@ function Page() {
           <h1 className="text-3xl font-bold">Custos</h1>
           <p className="text-sm text-muted-foreground">Lançamentos por talhão e categoria, ou divididos entre os talhões pela área.</p>
         </div>
-        <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Novo custo</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" disabled={fields.length === 0} onClick={() => setImportOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Importar planilha</Button>
+          <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Novo custo</Button>
+        </div>
       </div>
 
       {fields.length === 0 ? (
@@ -148,6 +153,7 @@ function Page() {
         </Card>
       )}
 
+      <CostImportDialog open={importOpen} onOpenChange={setImportOpen} fields={fields} costs={costs as Cost[]} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo"} lançamento de custo</DialogTitle></DialogHeader>

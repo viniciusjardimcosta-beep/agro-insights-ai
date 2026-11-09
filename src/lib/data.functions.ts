@@ -237,6 +237,59 @@ export const createCostSplit = createServerFn({ method: "POST" })
     return { ok: true, count: rows.length };
   });
 
+const importRow = z.object({
+  target: z.union([z.literal("all"), z.string().uuid()]),
+  category: z.string().min(1).max(60),
+  description: z.string().max(300).optional().nullable(),
+  amount: z.number().gt(0).max(1e12),
+  date: isoDate,
+});
+
+// Importa várias linhas de custo já revisadas pelo usuário (planilha/CSV).
+// Cada linha vai para um talhão ou é dividida por área ("all"). Tudo numa única gravação.
+export const importCosts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ rows: z.array(importRow).min(1).max(1000) }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { data: fields, error: fErr } = await context.supabase.from("fields").select("id, area");
+    if (fErr) throw dbError(fErr);
+    const mine = new Map((fields ?? []).map((f: { id: string; area: number | string }) => [f.id, Number(f.area)]));
+    const all = [...mine.entries()].map(([id, area]) => ({ id, area }));
+
+    const out: {
+      user_id: string; field_id: string; category: string; description: string | null;
+      amount: number; date: string; notes: string | null;
+    }[] = [];
+    for (const r of data.rows) {
+      if (r.target === "all") {
+        const shares = splitByArea(r.amount, all);
+        if (shares.length === 0) throw new Error("Cadastre a área dos talhões para ratear custos da fazenda.");
+        const total = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(r.amount);
+        for (const s of shares) {
+          out.push({
+            user_id: context.userId, field_id: s.field_id, category: r.category,
+            description: r.description ?? null, amount: s.amount, date: r.date,
+            notes: `Rateio por área: ${total} entre ${shares.length} talhões. Importado de planilha.`,
+          });
+        }
+      } else {
+        if (!mine.has(r.target)) throw new Error(NOT_FOUND);
+        out.push({
+          user_id: context.userId, field_id: r.target, category: r.category,
+          description: r.description ?? null, amount: r.amount, date: r.date,
+          notes: "Importado de planilha.",
+        });
+      }
+    }
+    if (out.length > 5000) throw new Error("Importação grande demais. Divida em partes menores.");
+    const { error } = await context.supabase.from("costs").insert(out);
+    if (error) throw dbError(error);
+    await audit(context, "cost_created", { entityType: "cost", entityId: null, propertyId: null });
+    const { resyncAlerts } = await import("@/lib/alerts.server");
+    await resyncAlerts(context.supabase, context.userId);
+    return { ok: true, count: out.length, lines: data.rows.length };
+  });
+
 export const deleteCost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
