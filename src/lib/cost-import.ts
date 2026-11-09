@@ -16,6 +16,8 @@ export const COST_CATEGORY_NAMES = [
 ] as const;
 
 export const MAX_IMPORT_ROWS = 1000;
+/** Texto gravado na nota de todo custo importado; identifica lançamentos de importação. */
+export const IMPORT_NOTE_MARK = "Importado de planilha";
 
 /** minúsculas, sem acento, espaços colapsados */
 export function norm(s: unknown): string {

@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { recordAuditEvent, type AuditEventType } from "@/lib/audit.server";
 import { dbError, fetchAll, isIsoDate } from "@/lib/db-utils";
 import { splitByArea } from "@/lib/cost-split";
+import { IMPORT_NOTE_MARK } from "@/lib/cost-import";
 
 const isoDate = z.string().refine(isIsoDate, "Data inválida (use AAAA-MM-DD)");
 
@@ -288,6 +289,20 @@ export const importCosts = createServerFn({ method: "POST" })
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true, count: out.length, lines: data.rows.length };
+  });
+
+// Desfaz uma importação: apaga só custos marcados como importados (nunca lançamentos manuais).
+export const undoImportedCosts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ ids: z.array(z.string().uuid()).min(1).max(2000) }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { data: gone, error } = await context.supabase
+      .from("costs").delete().in("id", data.ids).like("notes", `%${IMPORT_NOTE_MARK}%`).select("id");
+    if (error) throw dbError(error);
+    await audit(context, "cost_deleted", { entityType: "cost", entityId: null, propertyId: null });
+    const { resyncAlerts } = await import("@/lib/alerts.server");
+    await resyncAlerts(context.supabase, context.userId);
+    return { ok: true, count: gone?.length ?? 0 };
   });
 
 export const deleteCost = createServerFn({ method: "POST" })
