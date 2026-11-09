@@ -104,7 +104,7 @@ function Page() {
           <p className="text-sm text-muted-foreground">Lançamentos por talhão e categoria, ou divididos entre os talhões pela área.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" disabled={fields.length === 0} onClick={() => setImportOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Importar planilha</Button>
+          <Button variant="outline" className="border-primary font-semibold text-primary" disabled={fields.length === 0} onClick={() => setImportOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Importar planilha</Button>
           <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Novo custo</Button>
         </div>
       </div>

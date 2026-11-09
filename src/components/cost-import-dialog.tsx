@@ -240,12 +240,12 @@ export function CostImportDialog({
             </div>
 
             <div>
-              <p className="mb-2 text-sm font-medium">2. Confira os lançamentos</p>
-              <p className="mb-2 text-xs text-muted-foreground">
-                {counts.ok} prontos · {counts.review} para revisar · {counts.error} com erro (não serão importados)
+              <p className="mb-2 text-sm font-medium">2. Confira os lançamentos e marque o que deseja importar</p>
+              <p className="mb-2 text-sm text-muted-foreground">
+                <b className="text-emerald-600">{counts.ok} prontos</b> · <b className="text-amber-700">{counts.review} para revisar</b> · <b className="text-destructive">{counts.error} com erro</b> (não serão importados). Linhas amarelas "já lançado" começam desmarcadas.
                 {built?.truncated ? " · só as primeiras 1.000 linhas foram lidas" : ""}
               </p>
-              <div className="max-h-[40vh] overflow-auto rounded-lg border">
+              <div className="rounded-lg border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -260,7 +260,7 @@ export function CostImportDialog({
                   </TableHeader>
                   <TableBody>
                     {drafts.map((d) => (
-                      <TableRow key={d.row} className={d.status === "error" ? "bg-destructive/5" : d.status === "review" ? "bg-amber-500/5" : ""}>
+                      <TableRow key={d.row} className={d.status === "error" ? "bg-destructive/10" : d.duplicate ? "bg-amber-500/15" : d.status === "review" ? "bg-amber-500/10" : ""}>
                         <TableCell>
                           <Checkbox disabled={d.status === "error"} checked={isChecked(d)} onCheckedChange={(v) => onCheck(d, v === true)} />
                         </TableCell>
@@ -275,9 +275,9 @@ export function CostImportDialog({
                         </TableCell>
                         <TableCell>
                           <Select value={d.target ?? ""} onValueChange={(v) => patch(d.row, { target: v })}>
-                            <SelectTrigger className="h-8 w-36"><SelectValue placeholder="Escolher" /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Escolher" /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="all">Todos (pela área)</SelectItem>
+                              <SelectItem value="all">Todos (dividir pela área)</SelectItem>
                               {fields.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
@@ -285,7 +285,7 @@ export function CostImportDialog({
                         <TableCell className="hidden max-w-[10rem] truncate text-xs text-muted-foreground md:table-cell" title={d.description}>{d.description}</TableCell>
                         <TableCell className="whitespace-nowrap text-right font-medium">{d.amount !== null ? BRL.format(d.amount) : "-"}</TableCell>
                         <TableCell className="text-xs">
-                          {d.issues.length === 0 ? <span className="text-emerald-600">Pronto</span> : <span className={d.status === "error" ? "text-destructive" : "text-amber-600"}>{d.issues.join("; ")}</span>}
+                          {d.issues.length === 0 ? <span className="font-medium text-emerald-600">Pronto</span> : <span className={d.status === "error" ? "font-medium text-destructive" : "font-medium text-amber-700"}>{d.issues.join("; ")}</span>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -296,17 +296,17 @@ export function CostImportDialog({
           </div>
         )}
 
-        <DialogFooter className="items-center gap-2">
-          {sheets.length > 0 && (
-            <span className="mr-auto text-sm text-muted-foreground">
-              {finalRows.length} lançamento(s) · {BRL.format(finalTotal)}
+        {sheets.length > 0 && (
+          <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 flex-col gap-3 border-t bg-background px-6 py-4 sm:flex-row sm:items-center">
+            <span className="text-sm sm:mr-auto">
+              <b>{finalRows.length}</b> lançamento(s) selecionado(s) · <b>{BRL.format(finalTotal)}</b>
             </span>
-          )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button disabled={busy || finalRows.length === 0} onClick={confirm}>
-            {busy ? "Importando..." : `Importar ${finalRows.length}`}
-          </Button>
-        </DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button size="lg" className="px-8 text-base font-semibold" disabled={busy || finalRows.length === 0} onClick={confirm}>
+              {busy ? "Importando..." : `Importar ${finalRows.length} lançamento(s)`}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

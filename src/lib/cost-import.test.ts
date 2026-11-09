@@ -194,4 +194,25 @@ describe("buildDrafts", () => {
     expect(x.drafts).toHaveLength(1000);
     expect(x.truncated).toBe(true);
   });
+
+  it("reconhece custo já lançado e dividido entre talhões (target all)", () => {
+    const r = buildDrafts([["05/03/2026", "Diesel", "1000,00"]], {
+      roles: ["date", "description", "amount"], fields: [{ id: "a", name: "A" }, { id: "b", name: "B" }],
+      defaultTarget: "all", skipFirst: false,
+      existing: [
+        { field_id: "a", date: "2026-03-05", category: "Diesel", amount: 600 },
+        { field_id: "b", date: "2026-03-05", category: "Diesel", amount: 400 },
+      ],
+    });
+    expect(r.drafts[0].duplicate).toBe(true);
+    expect(r.drafts[0].issues).toContain("Parece já lançado");
+  });
+  it("marca linha repetida dentro do mesmo arquivo", () => {
+    const r = buildDrafts([["05/03/2026", "Diesel", "10,00"], ["05/03/2026", "Diesel", "10,00"]], {
+      roles: ["date", "description", "amount"], fields: [{ id: "a", name: "A" }],
+      defaultTarget: "a", skipFirst: false, existing: [],
+    });
+    expect(r.drafts[0].duplicate).toBe(false);
+    expect(r.drafts[1].duplicate).toBe(true);
+  });
 });
