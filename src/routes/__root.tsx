@@ -93,8 +93,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "O copiloto inteligente do produtor rural." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "theme-color", content: "#166534" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "AgroIntel" },
     ],
     links: [
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", type: "image/png", href: "/icon-192.png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       {
         rel: "stylesheet",
         href: appCss,
