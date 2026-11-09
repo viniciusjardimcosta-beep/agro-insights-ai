@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { recordAuditEvent, type AuditEventType } from "@/lib/audit.server";
 import { dbError, fetchAll, isIsoDate } from "@/lib/db-utils";
+import { splitByArea } from "@/lib/cost-split";
 
 const isoDate = z.string().refine(isIsoDate, "Data inválida (use AAAA-MM-DD)");
 
@@ -185,6 +186,55 @@ export const upsertCost = createServerFn({ method: "POST" })
     const { resyncAlerts } = await import("@/lib/alerts.server");
     await resyncAlerts(context.supabase, context.userId);
     return { ok: true };
+  });
+
+const costSplitInput = z.object({
+  field_ids: z.array(z.string().uuid()).min(1).max(200),
+  category: z.string().min(1).max(60),
+  description: z.string().max(300).optional().nullable(),
+  amount: z.number().gt(0).max(1e12),
+  date: isoDate,
+  notes: z.string().max(400).optional().nullable(),
+});
+
+// Lança um custo da fazenda dividido entre talhões, proporcional à área.
+// A área vem do banco (nunca do navegador) e tudo entra numa única gravação.
+export const createCostSplit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => costSplitInput.parse(input))
+  .handler(async ({ context, data }) => {
+    const ids = [...new Set(data.field_ids)];
+    const { data: fields, error: fErr } = await context.supabase
+      .from("fields").select("id, area").in("id", ids);
+    if (fErr) throw dbError(fErr);
+    if (!fields || fields.length !== ids.length) throw new Error(NOT_FOUND);
+
+    const shares = splitByArea(
+      data.amount,
+      fields.map((f: { id: string; area: number | string }) => ({ id: f.id, area: Number(f.area) })),
+    );
+    if (shares.length === 0) {
+      throw new Error("Os talhões escolhidos não têm área cadastrada. Informe a área para ratear.");
+    }
+
+    const total = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(data.amount);
+    const note =
+      `Rateio por área: ${total} entre ${shares.length} talhões.` + (data.notes ? ` ${data.notes}` : "");
+    const rows = shares.map((s) => ({
+      user_id: context.userId,
+      field_id: s.field_id,
+      category: data.category,
+      description: data.description ?? null,
+      amount: s.amount,
+      date: data.date,
+      notes: note,
+    }));
+    const { error } = await context.supabase.from("costs").insert(rows);
+    if (error) throw dbError(error);
+    await audit(context, "cost_created", { entityType: "cost", entityId: null, propertyId: null });
+    const { resyncAlerts } = await import("@/lib/alerts.server");
+    await resyncAlerts(context.supabase, context.userId);
+    return { ok: true, count: rows.length };
   });
 
 export const deleteCost = createServerFn({ method: "POST" })
