@@ -299,6 +299,13 @@ export function buildDrafts(rows: string[][], opts: BuildOptions): { drafts: Dra
   const fieldByName = new Map<string, string>();
   for (const f of fields) fieldByName.set(norm(f.name), f.id);
   const existingKeys = new Set(existing.map((e) => `${e.field_id}|${e.date}|${norm(e.category)}|${amountKey(Number(e.amount))}`));
+  // Custos divididos entre talhões ("todos") ficam salvos em partes; somamos por data e categoria para reconhecê-los.
+  const groupTotals = new Map<string, number>();
+  for (const e of existing) {
+    const k = `${e.date}|${norm(e.category)}`;
+    groupTotals.set(k, (groupTotals.get(k) ?? 0) + amountKey(Number(e.amount)));
+  }
+  const seenInFile = new Set<string>();
 
   const drafts: Draft[] = [];
   const skipped: { row: number; reason: string }[] = [];
@@ -347,9 +354,17 @@ export function buildDrafts(rows: string[][], opts: BuildOptions): { drafts: Dra
     if (target === null) { issues.push("Talhão não definido"); bump("error"); }
 
     let duplicate = false;
-    if (status !== "error" && target && target !== "all" && date && amount !== null) {
-      duplicate = existingKeys.has(`${target}|${date}|${norm(cat.category)}|${amountKey(amount)}`);
+    if (status !== "error" && target && date && amount !== null) {
+      duplicate = target === "all"
+        ? groupTotals.get(`${date}|${norm(cat.category)}`) === amountKey(amount)
+        : existingKeys.has(`${target}|${date}|${norm(cat.category)}|${amountKey(amount)}`);
       if (duplicate) { issues.push("Parece já lançado"); bump("review"); }
+      else {
+        // Mesma linha repetida dentro do próprio arquivo.
+        const k = `${target}|${date}|${norm(cat.category)}|${amountKey(amount)}|${norm(desc)}`;
+        if (seenInFile.has(k)) { duplicate = true; issues.push("Repetido na planilha"); bump("review"); }
+        seenInFile.add(k);
+      }
     }
 
     drafts.push({
