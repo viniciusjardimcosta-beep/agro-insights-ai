@@ -118,20 +118,26 @@ function Page() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Custos</h1>
           <p className="text-sm text-muted-foreground">Lançamentos por talhão e categoria, ou divididos entre os talhões pela área.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {lastImport.length > 0 && (
-            <Button variant="ghost" className="text-muted-foreground" onClick={onUndoImport}>
-              <Undo2 className="mr-2 h-4 w-4" />Desfazer última importação ({lastImport.length})
+        <div className="w-full space-y-2 md:w-auto">
+          <div className="grid grid-cols-2 gap-2 md:flex">
+            <Button className="col-span-2 font-semibold md:col-span-1" disabled={fields.length === 0} onClick={() => setVoiceOpen(true)}>
+              <Mic className="mr-2 h-4 w-4" />Falar custo
             </Button>
+            <Button variant="outline" disabled={fields.length === 0} onClick={() => setImportOpen(true)}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />Importar planilha
+            </Button>
+            <Button variant="outline" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Novo custo</Button>
+          </div>
+          {lastImport.length > 0 && (
+            <button type="button" onClick={onUndoImport} className="flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline md:ml-auto">
+              <Undo2 className="h-3.5 w-3.5" />Desfazer última importação ({lastImport.length})
+            </button>
           )}
-          <Button className="font-semibold" disabled={fields.length === 0} onClick={() => setVoiceOpen(true)}><Mic className="mr-2 h-4 w-4" />Falar custo</Button>
-          <Button variant="outline" className="border-primary font-semibold text-primary" disabled={fields.length === 0} onClick={() => setImportOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Importar planilha</Button>
-          <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Novo custo</Button>
         </div>
       </div>
 

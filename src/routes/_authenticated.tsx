@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing, Settings, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing, Settings, ShieldCheck, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { listAlerts } from "@/lib/alerts.functions";
 import { countUnacknowledged } from "@/lib/alerts-rules";
@@ -37,10 +39,14 @@ const NAV = [
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
+/** Atalhos fixos no menu de baixo do celular; as demais telas ficam em "Mais". */
+const MOBILE_MAIN = ["/dashboard", "/custos", "/talhoes", "/alertas"] as const;
+
 function AuthLayout() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const queryClient = useQueryClient();
+  const [moreOpen, setMoreOpen] = useState(false);
   const alertsQ = useQuery({ queryKey: ["alerts"], queryFn: () => listAlerts(), staleTime: 30_000 });
   // Apenas UX: a autorização real é feita no servidor em cada função admin.
   const adminQ = useQuery({ queryKey: ["admin", "me"], queryFn: () => amIAdmin(), staleTime: 300_000 });
@@ -135,33 +141,77 @@ function AuthLayout() {
         </div>
       </main>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav: 4 atalhos + "Mais" com todas as telas */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t bg-background py-2 md:hidden">
-        {NAV.slice(0, 5).map((item) => {
+        {MOBILE_MAIN.map((to) => {
+          const item = NAV.find((n) => n.to === to)!;
           const active = pathname.startsWith(item.to);
           return (
             <Link
               key={item.to}
               to={item.to}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-medium ${
+              className={`relative flex min-w-14 flex-col items-center gap-0.5 px-2 py-1 text-[11px] font-medium ${
                 active ? "text-primary" : "text-muted-foreground"
               }`}
             >
               <item.icon className="h-5 w-5" />
               {item.label}
+              {item.to === "/alertas" && alertCount > 0 && (
+                <span className="absolute right-1 top-0 rounded-full bg-destructive px-1.5 text-[10px] font-semibold leading-4 text-destructive-foreground">
+                  {alertCount}
+                </span>
+              )}
             </Link>
           );
         })}
-        <Link
-          to="/consultor"
-          className={`flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-medium ${
-            pathname.startsWith("/consultor") ? "text-primary" : "text-muted-foreground"
+        <button
+          type="button"
+          onClick={() => setMoreOpen(true)}
+          className={`flex min-w-14 flex-col items-center gap-0.5 px-2 py-1 text-[11px] font-medium ${
+            MOBILE_MAIN.some((to) => pathname.startsWith(to)) ? "text-muted-foreground" : "text-primary"
           }`}
         >
-          <Bot className="h-5 w-5" />
-          IA
-        </Link>
+          <Menu className="h-5 w-5" />
+          Mais
+        </button>
       </nav>
+
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl pb-8 md:hidden">
+          <SheetHeader><SheetTitle>Todas as telas</SheetTitle></SheetHeader>
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            {NAV.map((item) => {
+              const active = pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMoreOpen(false)}
+                  className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center text-xs font-medium ${
+                    active ? "border-primary bg-primary/10 text-primary" : "text-foreground"
+                  }`}
+                >
+                  <item.icon className="h-6 w-6" />
+                  {item.label}
+                </Link>
+              );
+            })}
+            {adminQ.data?.isAdmin && (
+              <Link
+                to="/admin"
+                onClick={() => setMoreOpen(false)}
+                className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center text-xs font-medium"
+              >
+                <ShieldCheck className="h-6 w-6" />
+                Administração
+              </Link>
+            )}
+          </div>
+          <Button variant="outline" className="mt-5 w-full" onClick={() => { setMoreOpen(false); logout(); }}>
+            <LogOut className="mr-2 h-4 w-4" /> Sair
+          </Button>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
