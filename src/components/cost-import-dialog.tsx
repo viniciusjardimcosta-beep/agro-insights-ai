@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -62,6 +62,7 @@ export function CostImportDialog({
   const [edits, setEdits] = useState<Record<number, Partial<Draft>>>({});
   const [picked, setPicked] = useState<Record<number, boolean>>({});
   const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   const rows = sheets[sheetIdx]?.rows ?? [];
 
@@ -178,18 +179,28 @@ export function CostImportDialog({
         </DialogHeader>
 
         {sheets.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center">
-            <FileSpreadsheet className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <p className="mb-3 text-sm text-muted-foreground">
+          <div
+            className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${dragOver ? "border-primary bg-primary/10" : "border-primary/40 bg-primary/5"}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); onFile(e.dataTransfer.files?.[0]); }}
+          >
+            <FileSpreadsheet className="mx-auto mb-3 h-10 w-10 text-primary" />
+            <p className="mb-1 text-base font-semibold">Escolha sua planilha de custos</p>
+            <p className="mb-5 text-sm text-muted-foreground">
               Uma linha por lançamento, com data e valor. Categoria, descrição e talhão são opcionais.
             </p>
             <input
               ref={fileRef}
               type="file"
               accept=".xlsx,.csv,.txt,text/csv"
-              className="block w-full text-sm"
+              className="hidden"
               onChange={(e) => onFile(e.target.files?.[0])}
             />
+            <Button size="lg" className="px-8 text-base font-semibold" onClick={() => fileRef.current?.click()}>
+              <Upload className="mr-2 h-5 w-5" />Escolher planilha
+            </Button>
+            <p className="mt-3 text-xs text-muted-foreground">ou arraste o arquivo para cá · Excel (.xlsx) ou CSV · até 5 MB</p>
           </div>
         ) : (
           <div className="space-y-4">
