@@ -2,7 +2,7 @@ import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { FileSpreadsheet, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
+import { FileSpreadsheet, Mic, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { BRL, COST_CATEGORIES } from "@/lib/calc";
 import { splitByArea } from "@/lib/cost-split";
 import { formatDateBR } from "@/lib/format-pt";
 import { CostImportDialog } from "@/components/cost-import-dialog";
+import { VoiceCostDialog } from "@/components/voice-cost-dialog";
 import { IMPORT_NOTE_MARK } from "@/lib/cost-import";
 
 const qCosts = queryOptions({ queryKey: ["costs"], queryFn: () => listCosts() });
@@ -40,6 +41,7 @@ function Page() {
   const undo = useServerFn(undoImportedCosts);
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [editing, setEditing] = useState<Cost | null>(null);
   // "all" = ratear entre todos; "crop:Soja" = ratear entre os talhões da cultura; senão, o id de um talhão.
   const [target, setTarget] = useState<string>("");
@@ -127,6 +129,7 @@ function Page() {
               <Undo2 className="mr-2 h-4 w-4" />Desfazer última importação ({lastImport.length})
             </Button>
           )}
+          <Button className="font-semibold" disabled={fields.length === 0} onClick={() => setVoiceOpen(true)}><Mic className="mr-2 h-4 w-4" />Falar custo</Button>
           <Button variant="outline" className="border-primary font-semibold text-primary" disabled={fields.length === 0} onClick={() => setImportOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Importar planilha</Button>
           <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Novo custo</Button>
         </div>
@@ -177,6 +180,7 @@ function Page() {
         </Card>
       )}
 
+      <VoiceCostDialog open={voiceOpen} onOpenChange={setVoiceOpen} fields={fields} />
       <CostImportDialog open={importOpen} onOpenChange={setImportOpen} fields={fields} costs={costs as Cost[]} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
