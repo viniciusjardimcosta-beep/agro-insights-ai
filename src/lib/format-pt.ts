@@ -7,3 +7,14 @@
 export function ptPercentDecimals(text: string): string {
   return text.replace(/(\d)\.(\d+)(?=\s?%)/g, "$1,$2");
 }
+
+/**
+ * Data no padrão brasileiro. Recebe "AAAA-MM-DD" (ou um ISO com hora) e devolve "DD/MM/AAAA".
+ * Trabalha só com o texto, sem criar Date, para não deslocar o dia por fuso horário.
+ * Se o texto não for uma data no formato esperado, devolve o original.
+ */
+export function formatDateBR(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
