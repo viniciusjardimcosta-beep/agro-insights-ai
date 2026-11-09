@@ -2,7 +2,7 @@ import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { FileSpreadsheet, Pencil, Plus, Trash2 } from "lucide-react";
+import { FileSpreadsheet, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,11 +12,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { listCosts, upsertCost, createCostSplit, deleteCost, listFields } from "@/lib/data.functions";
+import { listCosts, upsertCost, createCostSplit, deleteCost, undoImportedCosts, listFields } from "@/lib/data.functions";
 import { BRL, COST_CATEGORIES } from "@/lib/calc";
 import { splitByArea } from "@/lib/cost-split";
 import { formatDateBR } from "@/lib/format-pt";
 import { CostImportDialog } from "@/components/cost-import-dialog";
+import { IMPORT_NOTE_MARK } from "@/lib/cost-import";
 
 const qCosts = queryOptions({ queryKey: ["costs"], queryFn: () => listCosts() });
 const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields() });
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/custos")({
   errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
-type Cost = { id: string; field_id: string; category: string; description: string | null; amount: number; date: string; notes: string | null; fields?: { name: string; crop: string } | null };
+type Cost = { created_at?: string; id: string; field_id: string; category: string; description: string | null; amount: number; date: string; notes: string | null; fields?: { name: string; crop: string } | null };
 
 function Page() {
   const { data: costs = [], isLoading: loadingCosts, error: costsError } = useQuery(qCosts);
@@ -36,6 +37,7 @@ function Page() {
   const save = useServerFn(upsertCost);
   const saveSplit = useServerFn(createCostSplit);
   const del = useServerFn(deleteCost);
+  const undo = useServerFn(undoImportedCosts);
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Cost | null>(null);
@@ -94,6 +96,22 @@ function Page() {
     toast.success("Excluído");
   }
 
+  const isImported = (c: Cost) => !!c.notes && c.notes.includes(IMPORT_NOTE_MARK);
+  // Uma importação grava tudo de uma vez, então todas as linhas dela têm o mesmo created_at.
+  const imported = (costs as Cost[]).filter((c) => isImported(c) && c.created_at);
+  const lastStamp = imported.reduce<string>((m, c) => (c.created_at! > m ? c.created_at! : m), "");
+  const lastImport = lastStamp ? imported.filter((c) => c.created_at === lastStamp) : [];
+
+  async function onUndoImport() {
+    const sum = lastImport.reduce((s, c) => s + Number(c.amount), 0);
+    if (!confirm(`Desfazer a última importação?\n\n${lastImport.length} lançamento(s), total ${BRL.format(sum)}, serão excluídos. Lançamentos feitos à mão não são afetados.`)) return;
+    try {
+      const r = await undo({ data: { ids: lastImport.map((c) => c.id) } });
+      await qc.invalidateQueries();
+      toast.success(`${r.count} lançamento(s) da importação excluído(s)`);
+    } catch (e) { toast.error("Erro", { description: (e as Error).message }); }
+  }
+
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -103,7 +121,12 @@ function Page() {
           <h1 className="text-3xl font-bold">Custos</h1>
           <p className="text-sm text-muted-foreground">Lançamentos por talhão e categoria, ou divididos entre os talhões pela área.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {lastImport.length > 0 && (
+            <Button variant="ghost" className="text-muted-foreground" onClick={onUndoImport}>
+              <Undo2 className="mr-2 h-4 w-4" />Desfazer última importação ({lastImport.length})
+            </Button>
+          )}
           <Button variant="outline" className="border-primary font-semibold text-primary" disabled={fields.length === 0} onClick={() => setImportOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Importar planilha</Button>
           <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Novo custo</Button>
         </div>
@@ -138,6 +161,7 @@ function Page() {
                     <TableCell className="font-medium">{c.fields?.name ?? "-"}</TableCell>
                     <TableCell>{c.category}</TableCell>
                     <TableCell className="hidden max-w-xs truncate md:table-cell text-sm text-muted-foreground" title={c.description || c.notes || undefined}>
+                      {isImported(c) && <span className="mr-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Importado</span>}
                       {c.description || (c.notes ? <span className="italic">{c.notes}</span> : null)}
                     </TableCell>
                     <TableCell className="text-right font-medium">{BRL.format(Number(c.amount))}</TableCell>
