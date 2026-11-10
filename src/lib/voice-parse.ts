@@ -141,6 +141,28 @@ function extractAmount(text: string): { amount: number | null; rest: string } {
   return { amount: null, rest: t };
 }
 
+const FILLER = new Set(["os", "as", "um", "uma", "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas", "por", "para", "pra", "e", "a", "o", "com", "foi", "gastei", "gasto", "paguei", "comprei", "lancar", "lancamento", "custo", "valor"]);
+const DROP = new Set(["r$", "rs", "reais", "real", "conto", "contos", "hoje", "ontem", "anteontem", "dia", "mil", "todos", "todas", "talhoes", "fazenda", "toda", "inteira", "geral", ...MONTHS]);
+const TALHAO_WORD = /^(?:ta[lr][hi]a?o(?:es|s)?|talhado|talhau|tailao|gleba|lote)$/;
+
+/** Deixa só o que descreve o gasto: tira valor, data e talhão da frase, mantendo os acentos que o usuário falou. */
+export function cleanDescription(input: string): string {
+  const words = input.trim().split(/\s+/).filter(Boolean);
+  const keep: string[] = [];
+  for (let i = 0; i < words.length; i++) {
+    const n = norm(words[i]).replace(/[.,;!?]+$/g, "");
+    if (n === "") continue;
+    if (TALHAO_WORD.test(n)) { i += 1; continue; } // "talhão 2" / "talião dois": some junto com o número
+    if (/^\d[\d.,/-]*$/.test(n) || /^r\$\d/.test(n)) continue; // números, valores, datas 5/10
+    if (n in UNITS || n in TENS || n in HUNDREDS || DROP.has(n)) continue;
+    keep.push(words[i].replace(/[.,;!?]+$/g, ""));
+  }
+  while (keep.length && FILLER.has(norm(keep[0]))) keep.shift();
+  while (keep.length && FILLER.has(norm(keep[keep.length - 1]))) keep.pop();
+  const out = keep.join(" ").trim();
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
 export function parseSpokenCost(input: string, fields: SpokenField[], now: Date = new Date()): SpokenCost {
   const issues: string[] = [];
   let t = ` ${norm(input).replace(/[,;]+(?=\s|$)/g, " ").replace(/\bpor cento\b/g, "%")} `.replace(/\s+/g, " ").trim();
@@ -181,9 +203,7 @@ export function parseSpokenCost(input: string, fields: SpokenField[], now: Date 
   const cat = normalizeCategory(input);
   if (!cat.confident) issues.push("Categoria não reconhecida");
 
-  // Descrição: a própria frase (com acentos), para o usuário poder ajustar.
-  const raw = input.trim().replace(/\s+/g, " ");
-  const description = raw.charAt(0).toUpperCase() + raw.slice(1);
+  const description = cleanDescription(input);
 
   return {
     amount: am.amount,
