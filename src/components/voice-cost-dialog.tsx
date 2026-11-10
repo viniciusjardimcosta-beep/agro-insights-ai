@@ -48,6 +48,9 @@ export function VoiceCostDialog({
   const save = useServerFn(upsertCost);
   const saveSplit = useServerFn(createCostSplit);
   const recRef = useRef<Recognition | null>(null);
+  const wantRef = useRef(false); // o usuário ainda quer ouvir (só para quando ele tocar em parar)
+  const textRef = useRef("");
+  const restartsRef = useRef(0);
   // Só decide no navegador (depois da hidratação), para o servidor e o cliente renderizarem o mesmo na primeira vez.
   const [supported, setSupported] = useState(false);
   useEffect(() => { setSupported(getRecognition() !== null); }, []);
@@ -62,6 +65,7 @@ export function VoiceCostDialog({
   const [busy, setBusy] = useState(false);
 
   function apply(spoken: string) {
+    textRef.current = spoken;
     setText(spoken);
     if (spoken.trim() === "") { setAmount(""); setIssues([]); return; }
     const p = parseSpokenCost(spoken, fields);
@@ -73,16 +77,20 @@ export function VoiceCostDialog({
   }
 
   function reset() {
+    wantRef.current = false;
+    textRef.current = "";
     try { recRef.current?.stop(); } catch { /* já parado */ }
     setListening(false); setText(""); setAmount(""); setDate(todayIso()); setCategory("Outros"); setTarget(""); setIssues([]);
   }
 
-  useEffect(() => () => { try { recRef.current?.stop(); } catch { /* sem efeito */ } }, []);
+  useEffect(() => () => { wantRef.current = false; try { recRef.current?.stop(); } catch { /* sem efeito */ } }, []);
 
-  function toggleListen() {
-    if (listening) { try { recRef.current?.stop(); } catch { /* sem efeito */ } return; }
+  // O navegador encerra a escuta em qualquer pausa. Para você poder pensar entre uma frase e outra,
+  // reiniciamos a escuta sozinhos (até um limite) e juntamos o que foi dito. Só para quando você tocar em parar.
+  function startSession() {
     const SR = getRecognition();
     if (!SR) return;
+    const base = textRef.current;
     const rec = new SR();
     rec.lang = "pt-BR";
     rec.interimResults = true;
@@ -90,18 +98,43 @@ export function VoiceCostDialog({
     rec.onresult = (e) => {
       let out = "";
       for (let i = 0; i < e.results.length; i++) out += e.results[i][0].transcript + " ";
-      apply(out.trim());
+      apply(`${base} ${out}`.trim());
     };
     rec.onerror = (e) => {
-      setListening(false);
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") toast.error("Permita o uso do microfone no navegador para falar o custo.");
-      else if (e.error === "no-speech") toast.message("Não ouvi nada. Toque no microfone e fale de novo.");
-      else toast.error("Não consegui ouvir. Você pode digitar a frase.");
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        wantRef.current = false;
+        toast.error("Permita o uso do microfone no navegador para falar o custo.");
+      } else if (e.error === "audio-capture") {
+        wantRef.current = false;
+        toast.error("Não encontrei o microfone.");
+      } else if (e.error !== "no-speech" && e.error !== "aborted") {
+        wantRef.current = false;
+        toast.error("Não consegui ouvir. Você pode digitar a frase.");
+      }
     };
-    rec.onend = () => setListening(false);
+    rec.onend = () => {
+      if (wantRef.current && restartsRef.current < 8) {
+        restartsRef.current += 1;
+        try { startSession(); return; } catch { /* cai para parar */ }
+      }
+      wantRef.current = false;
+      setListening(false);
+    };
     recRef.current = rec;
+    try { rec.start(); } catch { wantRef.current = false; setListening(false); }
+  }
+
+  function toggleListen() {
+    if (listening) {
+      wantRef.current = false;
+      try { recRef.current?.stop(); } catch { /* sem efeito */ }
+      return;
+    }
+    if (!getRecognition()) return;
+    wantRef.current = true;
+    restartsRef.current = 0;
     setListening(true);
-    try { rec.start(); } catch { setListening(false); }
+    startSession();
   }
 
   const n = Number(amount.replace(",", "."));
@@ -135,7 +168,7 @@ export function VoiceCostDialog({
         <DialogHeader>
           <DialogTitle>Lançar custo falando</DialogTitle>
           <DialogDescription>
-            Diga, por exemplo: “diesel 450 reais talhão 1 ontem”. Você confere antes de salvar.
+            Fale o valor, o que foi e o talhão. Ex.: “diesel 450 reais talhão 1 ontem”. Pode fazer pausas: ele continua ouvindo até você tocar em parar. Você confere antes de salvar.
           </DialogDescription>
         </DialogHeader>
 
@@ -173,7 +206,7 @@ export function VoiceCostDialog({
                   <Input type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3">
                 <div>
                   <Label>Categoria</Label>
                   <Select value={category} onValueChange={setCategory}>
@@ -181,15 +214,18 @@ export function VoiceCostDialog({
                     <SelectContent>{COST_CATEGORY_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Talhão</Label>
-                  <Select value={target} onValueChange={setTarget}>
-                    <SelectTrigger><SelectValue placeholder="Escolher" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos (dividir pela área)</SelectItem>
-                      {fields.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              </div>
+              <div>
+                <Label>Talhão</Label>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {fields.map((f) => (
+                    <Button key={f.id} type="button" size="sm" variant={target === f.id ? "default" : "outline"} onClick={() => setTarget(f.id)}>
+                      {f.name}
+                    </Button>
+                  ))}
+                  <Button type="button" size="sm" variant={target === "all" ? "default" : "outline"} onClick={() => setTarget("all")}>
+                    Todos (pela área)
+                  </Button>
                 </div>
               </div>
               {(unknownIssues.length > 0 || target === "") && (
