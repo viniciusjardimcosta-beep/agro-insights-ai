@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GENERIC_AUTH_ERROR, translateAuthError } from "@/lib/auth-errors";
+import { GENERIC_AUTH_ERROR, isExistingAccountSignUp, translateAuthError } from "@/lib/auth-errors";
 
 describe("translateAuthError", () => {
   it("login inválido", () => {
@@ -27,5 +27,19 @@ describe("translateAuthError", () => {
     expect(translateAuthError("some internal error xyz")).toBe(GENERIC_AUTH_ERROR);
     expect(translateAuthError("")).toBe(GENERIC_AUTH_ERROR);
     expect(translateAuthError(undefined)).toBe(GENERIC_AUTH_ERROR);
+  });
+});
+
+describe("isExistingAccountSignUp", () => {
+  it("reconhece e-mail já cadastrado (usuário sem identidades)", () => {
+    expect(isExistingAccountSignUp({ user: { identities: [] }, session: null })).toBe(true);
+  });
+  it("cadastro novo tem identidade", () => {
+    expect(isExistingAccountSignUp({ user: { identities: [{ id: "x" }] }, session: null })).toBe(false);
+  });
+  it("sem informação de identidades não assume duplicado", () => {
+    expect(isExistingAccountSignUp({ user: {} })).toBe(false);
+    expect(isExistingAccountSignUp({ user: null })).toBe(false);
+    expect(isExistingAccountSignUp(null)).toBe(false);
   });
 });

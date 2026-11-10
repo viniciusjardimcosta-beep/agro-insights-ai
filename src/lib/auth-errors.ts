@@ -27,3 +27,16 @@ export function translateAuthError(message: string | null | undefined): string {
   }
   return GENERIC_AUTH_ERROR;
 }
+
+/**
+ * Com a confirmação de e-mail ligada, o serviço de autenticação NÃO devolve erro quando o e-mail já tem conta:
+ * responde "sucesso" com um usuário sem identidades. Este teste reconhece esse caso.
+ */
+export function isExistingAccountSignUp(
+  data: { user?: { identities?: unknown[] | null } | null; session?: unknown } | null | undefined,
+): boolean {
+  const user = data?.user;
+  return !!user && Array.isArray(user.identities) && user.identities.length === 0;
+}
+
+export const MIN_PASSWORD_LENGTH = 8;

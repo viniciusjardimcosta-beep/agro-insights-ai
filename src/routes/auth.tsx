@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { translateAuthError } from "@/lib/auth-errors";
+import { isExistingAccountSignUp, MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/auth-errors";
 import { Sprout } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -136,10 +136,20 @@ function AuthPage() {
       });
       return;
     }
+    const password = String(fd.get("password"));
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      toast.error("Senha curta", { description: `Use pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` });
+      return;
+    }
+    if (password !== String(fd.get("confirm"))) {
+      toast.error("As senhas não são iguais", { description: "Digite a mesma senha nos dois campos." });
+      return;
+    }
+    const email = String(fd.get("email")).trim();
     setLoading(true);
     const { data: signUpData, error } = await supabase.auth.signUp({
-      email: String(fd.get("email")),
-      password: String(fd.get("password")),
+      email,
+      password,
       options: {
         emailRedirectTo: window.location.origin,
         data: { name: String(fd.get("name") || "") },
@@ -148,6 +158,13 @@ function AuthPage() {
     setLoading(false);
     if (error) {
       toast.error("Não foi possível criar a conta", { description: translateAuthError(error.message) });
+      return;
+    }
+    // E-mail que já tem conta: o serviço responde "sucesso" sem criar nada. Avisamos e não gravamos aceite.
+    if (isExistingAccountSignUp(signUpData)) {
+      toast.error("Este e-mail já tem cadastro", {
+        description: "Entre na aba “Entrar” ou use “Esqueci minha senha”.",
+      });
       return;
     }
     // Quando a sessão já vem no cadastro, o aceite é gravado imediatamente.
@@ -159,7 +176,11 @@ function AuthPage() {
       // Sem sessão (confirmação por e-mail): grava no primeiro login.
       window.localStorage.setItem("agrointel.pending_terms_accept", "1");
     }
-    toast.success("Conta criada!", { description: "Faça login para continuar." });
+    toast.success("Conta criada!", {
+      description: signUpData.session
+        ? "Bem-vindo!"
+        : `Enviamos um e-mail de confirmação para ${email}. Confirme e depois entre.`,
+    });
   }
 
   return (
@@ -193,11 +214,11 @@ function AuthPage() {
               <h1 className="text-xl font-semibold">Criar nova senha</h1>
               <div className="space-y-2">
                 <Label htmlFor="np-password">Nova senha</Label>
-                <Input id="np-password" name="password" type="password" minLength={6} required autoComplete="new-password" />
+                <Input id="np-password" name="password" type="password" minLength={MIN_PASSWORD_LENGTH} required autoComplete="new-password" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="np-confirm">Confirmar nova senha</Label>
-                <Input id="np-confirm" name="confirm" type="password" minLength={6} required autoComplete="new-password" />
+                <Input id="np-confirm" name="confirm" type="password" minLength={MIN_PASSWORD_LENGTH} required autoComplete="new-password" />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Salvando..." : "Salvar nova senha"}
@@ -262,7 +283,12 @@ function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="su-password">Senha</Label>
-                  <Input id="su-password" name="password" type="password" minLength={6} required autoComplete="new-password" />
+                  <Input id="su-password" name="password" type="password" minLength={MIN_PASSWORD_LENGTH} required autoComplete="new-password" />
+                  <p className="text-xs text-muted-foreground">Mínimo de {MIN_PASSWORD_LENGTH} caracteres.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="su-confirm">Confirmar senha</Label>
+                  <Input id="su-confirm" name="confirm" type="password" minLength={MIN_PASSWORD_LENGTH} required autoComplete="new-password" />
                 </div>
                 <div className="flex items-start gap-2">
                   <Checkbox
