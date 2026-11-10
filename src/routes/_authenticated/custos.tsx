@@ -158,7 +158,19 @@ function Page() {
           </CardContent>
         </Card>
       ) : costs.length === 0 ? (
-        <Card className="border-dashed"><CardContent className="py-12 text-center text-muted-foreground">Nenhum custo lançado.</CardContent></Card>
+        <Card className="border-dashed border-primary/40 bg-primary/5">
+          <CardContent className="space-y-4 py-10 text-center">
+            <p className="text-lg font-semibold">Lance o seu primeiro custo</p>
+            <p className="mx-auto max-w-md text-sm text-muted-foreground">
+              O jeito mais rápido é falar. Toque no botão e diga, por exemplo: <b>“diesel 450 reais ontem”</b>.
+            </p>
+            <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+              <Button size="lg" className="font-semibold" disabled={fields.length === 0} onClick={() => setVoiceOpen(true)}><Mic className="mr-2 h-5 w-5" />Falar custo</Button>
+              <Button size="lg" variant="outline" disabled={fields.length === 0} onClick={openNew}><Plus className="mr-2 h-5 w-5" />Digitar custo</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Também dá para importar uma planilha do Excel, no botão lá em cima.</p>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="p-0">

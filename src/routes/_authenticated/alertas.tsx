@@ -70,6 +70,8 @@ function AlertCard({
 }) {
   const sev = SEV[(alert.severity as keyof typeof SEV) ?? "medium"] ?? SEV.medium;
   const resolved = alert.status === "resolved";
+  // Dados que ainda faltam são "próximos passos", não problemas: tom neutro, sem número de pontos assustador.
+  const isNextStep = /^(missing_price|missing_cost):/.test(String((alert as { alert_key?: string }).alert_key ?? ""));
   return (
     <div className="space-y-2 rounded-lg border p-4 text-sm">
       <div className="flex items-start justify-between gap-2">
@@ -77,7 +79,7 @@ function AlertCard({
         <div className="flex items-center gap-2">
           {alert.status === "acknowledged" && <Badge variant="outline">Reconhecido</Badge>}
           {resolved && <Badge variant="outline">Resolvido</Badge>}
-          <Badge className={sev.cls}>{sev.label}</Badge>
+          <Badge className={isNextStep ? "bg-primary/10 text-primary" : sev.cls}>{isNextStep ? "Próximo passo" : sev.label}</Badge>
         </div>
       </div>
       <p className="text-muted-foreground">{alert.message}</p>
@@ -95,8 +97,8 @@ function AlertCard({
       )}
       {alert.impact && (
         <div>
-          <span className="text-muted-foreground">Impacto: </span>
-          {alert.impact}
+          <span className="text-muted-foreground">{isNextStep ? "Por que importa: " : "Impacto: "}</span>
+          {isNextStep ? "sem isso o lucro e a nota da fazenda ficam incompletos." : alert.impact}
         </div>
       )}
       <div className="text-muted-foreground">
