@@ -2,7 +2,8 @@ import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { FileSpreadsheet, Mic, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
+import { Copy, FileSpreadsheet, Mic, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
+import { lastCategory, lastTarget, rememberLast } from "@/lib/last-used";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +44,8 @@ function Page() {
   const [importOpen, setImportOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [editing, setEditing] = useState<Cost | null>(null);
+  // "Repetir": novo lançamento que começa igual a outro (sem data e sem observação).
+  const [template, setTemplate] = useState<Cost | null>(null);
   // "all" = ratear entre todos; "crop:Soja" = ratear entre os talhões da cultura; senão, o id de um talhão.
   const [target, setTarget] = useState<string>("");
   const [amountStr, setAmountStr] = useState<string>("");
@@ -51,9 +54,15 @@ function Page() {
 
   function openNew() {
     if (fields.length === 0) { toast.error("Cadastre um talhão primeiro"); return; }
-    setEditing(null); setTarget(fields[0].id); setCategory(COST_CATEGORIES[0]); setAmountStr(""); setFormKey((k) => k + 1); setOpen(true);
+    setEditing(null); setTemplate(null);
+    setTarget(lastTarget(fields.map((f) => f.id)) ?? fields[0].id);
+    setCategory(lastCategory(COST_CATEGORIES) ?? COST_CATEGORIES[0]);
+    setAmountStr(""); setFormKey((k) => k + 1); setOpen(true);
   }
-  function openEdit(c: Cost) { setEditing(c); setTarget(c.field_id); setCategory(c.category); setAmountStr(String(c.amount)); setFormKey((k) => k + 1); setOpen(true); }
+  function openRepeat(c: Cost) {
+    setEditing(null); setTemplate(c); setTarget(c.field_id); setCategory(c.category); setAmountStr(String(c.amount)); setFormKey((k) => k + 1); setOpen(true);
+  }
+  function openEdit(c: Cost) { setEditing(c); setTemplate(null); setTarget(c.field_id); setCategory(c.category); setAmountStr(String(c.amount)); setFormKey((k) => k + 1); setOpen(true); }
 
   if (loadingCosts || loadingFields) return <p className="text-sm text-muted-foreground">Carregando custos...</p>;
   if (costsError || fieldsError) return <p className="text-sm text-destructive">{(costsError ?? fieldsError)?.message}</p>;
@@ -86,6 +95,7 @@ function Page() {
         await save({ data: { ...common, id: editing?.id, field_id: target } });
         toast.success("Custo lançado");
       }
+      rememberLast(target, category);
       await qc.invalidateQueries();
       if (again) { setAmountStr(""); setFormKey((k) => k + 1); } else { setOpen(false); }
     } catch (e) { toast.error("Erro", { description: (e as Error).message }); }
@@ -175,6 +185,7 @@ function Page() {
                     </TableCell>
                     <TableCell className="text-right font-medium">{BRL.format(Number(c.amount))}</TableCell>
                     <TableCell className="text-right">
+                      <Button size="icon" variant="ghost" title="Repetir este lançamento" aria-label="Repetir este lançamento" onClick={() => openRepeat(c)}><Copy className="h-4 w-4" /></Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
                       <Button size="icon" variant="ghost" onClick={() => onDelete(c.id)}><Trash2 className="h-4 w-4" /></Button>
                     </TableCell>
@@ -190,7 +201,7 @@ function Page() {
       <CostImportDialog open={importOpen} onOpenChange={setImportOpen} fields={fields} costs={costs as Cost[]} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo"} lançamento de custo</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Editar" : template ? "Repetir" : "Novo"} lançamento de custo</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
               <Label>Talhão</Label>
@@ -240,7 +251,7 @@ function Page() {
                 )}
               </div>
             )}
-            <div className="space-y-2"><Label>Descrição</Label><Input key={`d${formKey}`} name="description" defaultValue={editing?.description ?? ""} /></div>
+            <div className="space-y-2"><Label>Descrição</Label><Input key={`d${formKey}`} name="description" defaultValue={(editing ?? template)?.description ?? ""} /></div>
             <div className="space-y-2"><Label>Data</Label><Input name="date" type="date" required defaultValue={editing?.date ?? today} /></div>
             <div className="space-y-2"><Label>Observação</Label><Textarea key={`n${formKey}`} name="notes" defaultValue={editing?.notes ?? ""} /></div>
             <DialogFooter>

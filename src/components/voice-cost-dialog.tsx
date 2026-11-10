@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createCostSplit, upsertCost } from "@/lib/data.functions";
 import { COST_CATEGORY_NAMES } from "@/lib/cost-import";
 import { parseSpokenCost } from "@/lib/voice-parse";
+import { lastTarget, rememberLast } from "@/lib/last-used";
 import { BRL } from "@/lib/calc";
 
 type FieldLite = { id: string; name: string };
@@ -62,6 +63,7 @@ export function VoiceCostDialog({
   const [category, setCategory] = useState<string>("Outros");
   const [target, setTarget] = useState<string>("");
   const [issues, setIssues] = useState<string[]>([]);
+  const [fromMemory, setFromMemory] = useState(false); // talhão veio do último usado, não da fala
   const [busy, setBusy] = useState(false);
 
   function apply(spoken: string) {
@@ -72,7 +74,9 @@ export function VoiceCostDialog({
     setAmount(p.amount !== null ? String(p.amount) : "");
     setDate(p.date);
     setCategory(p.category);
-    setTarget(p.target ?? "");
+    const remembered = p.target === null && !p.issues.some((i) => i.startsWith("Não achei o talhão")) ? lastTarget(fields.map((f) => f.id)) : null;
+    setTarget(p.target ?? remembered ?? "");
+    setFromMemory(p.target === null && remembered !== null);
     setIssues(p.issues);
   }
 
@@ -80,7 +84,7 @@ export function VoiceCostDialog({
     wantRef.current = false;
     textRef.current = "";
     try { recRef.current?.stop(); } catch { /* já parado */ }
-    setListening(false); setText(""); setAmount(""); setDate(todayIso()); setCategory("Outros"); setTarget(""); setIssues([]);
+    setListening(false); setText(""); setAmount(""); setDate(todayIso()); setCategory("Outros"); setTarget(""); setIssues([]); setFromMemory(false);
   }
 
   useEffect(() => () => { wantRef.current = false; try { recRef.current?.stop(); } catch { /* sem efeito */ } }, []);
@@ -153,6 +157,7 @@ export function VoiceCostDialog({
         await save({ data: { ...common, field_id: target } });
         toast.success("Custo lançado");
       }
+      rememberLast(target, category);
       await qc.invalidateQueries();
       if (again) reset(); else { reset(); onOpenChange(false); }
     } catch (e) {
@@ -219,15 +224,18 @@ export function VoiceCostDialog({
                 <Label>Talhão</Label>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {fields.map((f) => (
-                    <Button key={f.id} type="button" size="sm" variant={target === f.id ? "default" : "outline"} onClick={() => setTarget(f.id)}>
+                    <Button key={f.id} type="button" size="sm" variant={target === f.id ? "default" : "outline"} onClick={() => { setTarget(f.id); setFromMemory(false); }}>
                       {f.name}
                     </Button>
                   ))}
-                  <Button type="button" size="sm" variant={target === "all" ? "default" : "outline"} onClick={() => setTarget("all")}>
+                  <Button type="button" size="sm" variant={target === "all" ? "default" : "outline"} onClick={() => { setTarget("all"); setFromMemory(false); }}>
                     Todos (pela área)
                   </Button>
                 </div>
               </div>
+              {fromMemory && target !== "" && (
+                <p className="text-sm text-muted-foreground">Talhão: o mesmo do último lançamento. Toque em outro para trocar.</p>
+              )}
               {(unknownIssues.length > 0 || target === "") && (
                 <p className="text-sm font-medium text-amber-700">
                   {[...unknownIssues, ...(target === "" && !unknownIssues.some((i) => i.startsWith("Não achei o talhão")) ? ["Escolha o talhão"] : [])].join(" · ")}
