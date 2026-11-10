@@ -158,9 +158,11 @@ export function parseSpokenCost(input: string, fields: SpokenField[], now: Date 
     }
   }
   if (target === null) {
-    const m = /\b(?:talhao|gleba|lote) (\w+)/.exec(t);
+    // O reconhecimento de voz erra a palavra ("talião", "tarhão"...), então aceitamos variações.
+    const m = /\b(?:ta[lr][hi]a?o(?:es|s)?|talhado|talhau|tailao|gleba|lote) (\w+)/.exec(t);
     if (m) {
-      const hit = fields.find((f) => norm(f.name).split(" ").pop() === m[1]);
+      const num = m[1] in UNITS ? String(UNITS[m[1]]) : m[1];
+      const hit = fields.find((f) => norm(f.name).split(" ").pop() === num);
       if (hit) { target = hit.id; t = t.replace(m[0], " ").replace(/\s+/g, " "); }
       else { issues.push(`Não achei o talhão "${m[1]}"`); t = t.replace(m[0], " ").replace(/\s+/g, " "); }
     }

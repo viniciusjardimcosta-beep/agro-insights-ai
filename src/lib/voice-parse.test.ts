@@ -67,4 +67,18 @@ describe("parseSpokenCost", () => {
   it("guarda a frase como descrição, com acento", () => {
     expect(parseSpokenCost("óleo diesel 450", fields, now).description).toBe("Óleo diesel 450");
   });
+  it("aceita erros comuns do reconhecimento de voz no talhão", () => {
+    const r = parseSpokenCost("dois mil e manutenção talião dois", fields, now);
+    expect(r.amount).toBe(2000);
+    expect(r.category).toBe("Máquinas");
+    expect(r.target).toBe("f2");
+    expect(parseSpokenCost("diesel 450 tarhão um", fields, now).target).toBe("f1");
+    expect(parseSpokenCost("diesel 450 talhão dois", fields, now).target).toBe("f2");
+  });
+  it("não confunde outras palavras com talhão", () => {
+    const r = parseSpokenCost("tarifa 100 reais", fields, now);
+    expect(r.amount).toBe(100);
+    expect(r.target).toBeNull();
+    expect(r.issues.join(" ")).not.toContain("talhão");
+  });
 });

@@ -166,8 +166,8 @@ function Page() {
               <TableBody>
                 {(costs as Cost[]).map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{formatDateBR(c.date)}</TableCell>
-                    <TableCell className="font-medium">{c.fields?.name ?? "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap px-2 text-xs text-muted-foreground md:px-4">{formatDateBR(c.date)}</TableCell>
+                    <TableCell className="whitespace-nowrap px-2 font-medium md:px-4">{c.fields?.name ?? "-"}</TableCell>
                     <TableCell>{c.category}</TableCell>
                     <TableCell className="hidden max-w-xs truncate md:table-cell text-sm text-muted-foreground" title={c.description || c.notes || undefined}>
                       {isImported(c) && <span className="mr-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Importado</span>}
