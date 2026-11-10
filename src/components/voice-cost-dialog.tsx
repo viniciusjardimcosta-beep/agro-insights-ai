@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createCostSplit, upsertCost } from "@/lib/data.functions";
 import { COST_CATEGORY_NAMES } from "@/lib/cost-import";
-import { parseSpokenCost } from "@/lib/voice-parse";
+import { cleanDescription, parseSpokenCost } from "@/lib/voice-parse";
 import { lastTarget, rememberLast } from "@/lib/last-used";
 import { BRL } from "@/lib/calc";
 
@@ -149,7 +149,7 @@ export function VoiceCostDialog({
     if (!valid) return;
     setBusy(true);
     try {
-      const common = { category, description: text.trim().slice(0, 300) || null, amount: n, date, notes: "Lançado por voz." };
+      const common = { category, description: cleanDescription(text).slice(0, 300) || null, amount: n, date, notes: "Lançado por voz." };
       if (target === "all") {
         const r = await saveSplit({ data: { ...common, field_ids: fields.map((f) => f.id) } });
         toast.success(`Custo dividido entre ${r.count} talhões`);

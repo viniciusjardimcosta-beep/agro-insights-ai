@@ -64,8 +64,13 @@ describe("parseSpokenCost", () => {
     expect(r.issues).toContain("Categoria não reconhecida");
     expect(r.category).toBe("Outros");
   });
-  it("guarda a frase como descrição, com acento", () => {
-    expect(parseSpokenCost("óleo diesel 450", fields, now).description).toBe("Óleo diesel 450");
+  it("descrição fica só com o que descreve o gasto, com acento", () => {
+    expect(parseSpokenCost("óleo diesel 450", fields, now).description).toBe("Óleo diesel");
+    expect(parseSpokenCost("r$ 2000 combustível talião um", fields, now).description).toBe("Combustível");
+    expect(parseSpokenCost("diesel 450 reais talhão 1 ontem", fields, now).description).toBe("Diesel");
+    expect(parseSpokenCost("dois mil e manutenção talião dois", fields, now).description).toBe("Manutenção");
+    expect(parseSpokenCost("adubo 1.500 reais todos os talhões dia 5 de outubro", fields, now).description).toBe("Adubo");
+    expect(parseSpokenCost("manutenção do trator 800 reais", fields, now).description).toBe("Manutenção do trator");
   });
   it("aceita erros comuns do reconhecimento de voz no talhão", () => {
     const r = parseSpokenCost("dois mil e manutenção talião dois", fields, now);
