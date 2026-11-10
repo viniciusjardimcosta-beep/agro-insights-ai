@@ -305,6 +305,60 @@ export const undoImportedCosts = createServerFn({ method: "POST" })
     return { ok: true, count: gone?.length ?? 0 };
   });
 
+const quickStartInput = z.object({
+  name: z.string().trim().min(1).max(120),
+  state: z.string().length(2),
+  crop: z.string().min(1).max(40),
+  area: z.number().gt(0).max(10_000_000),
+  estimated_yield: z.number().min(0).max(100_000).optional().nullable(),
+  price_per_bag: z.number().min(0).max(1_000_000).optional().nullable(),
+});
+
+// Primeiros passos em uma tela só: cria a propriedade, o primeiro talhão e (se informado) o preço da cultura.
+export const quickStartFarm = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => quickStartInput.parse(input))
+  .handler(async ({ context, data }) => {
+    // Se a pessoa já tem propriedade (mas nenhum talhão), usa a primeira em vez de criar outra igual.
+    const { data: existing } = await context.supabase.from("properties").select("id").order("created_at").limit(1);
+    let prop: { id: string } | null = existing?.[0] ?? null;
+    if (!prop) {
+      const { data: created, error: pErr } = await context.supabase
+        .from("properties")
+        .insert({ user_id: context.userId, name: data.name, state: data.state.toUpperCase(), total_area: data.area })
+        .select("id")
+        .single();
+      if (pErr || !created) throw dbError(pErr ?? new Error("Falha ao criar a propriedade"));
+      prop = created;
+      await audit(context, "property_created", { entityType: "property", entityId: prop.id, propertyId: prop.id });
+    }
+    const { data: field, error: fErr } = await context.supabase
+      .from("fields")
+      .insert({
+        user_id: context.userId,
+        property_id: prop.id,
+        name: "Talhão 1",
+        area: data.area,
+        crop: data.crop,
+        estimated_yield: data.estimated_yield ?? null,
+      })
+      .select("id")
+      .single();
+    if (fErr || !field) throw dbError(fErr ?? new Error("Falha ao criar o talhão"));
+    await audit(context, "field_created", { entityType: "field", entityId: field.id, propertyId: prop.id });
+
+    if (data.price_per_bag && data.price_per_bag > 0) {
+      const { error: prErr } = await context.supabase.from("prices").insert({
+        user_id: context.userId, crop: data.crop, price_per_bag: data.price_per_bag, date: new Date().toISOString().slice(0, 10),
+      });
+      if (prErr) throw dbError(prErr);
+      await audit(context, "price_created", { entityType: "price", entityId: null, propertyId: prop.id });
+    }
+    const { resyncAlerts } = await import("@/lib/alerts.server");
+    await resyncAlerts(context.supabase, context.userId);
+    return { ok: true, property_id: prop.id, field_id: field.id };
+  });
+
 export const deleteCost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))

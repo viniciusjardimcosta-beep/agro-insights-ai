@@ -11,6 +11,7 @@ import { latestDiagnostic } from "@/lib/diagnostics.functions";
 import { seedDemoData } from "@/lib/demo.functions";
 import { aggregateFarm, BRL, cropsMissingPrice, NUM } from "@/lib/calc";
 import { ExecutiveReportButton } from "@/components/executive-report-button";
+import { OnboardingCard } from "@/components/onboarding-card";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AgroIntel AI" }] }),
@@ -102,13 +103,15 @@ function Dashboard() {
           <p className="text-sm text-muted-foreground">Resumo financeiro da sua safra.</p>
         </div>
         {isEmpty && (
-          <Button onClick={loadDemo} disabled={seeding} variant="default">
+          <Button onClick={loadDemo} disabled={seeding} variant="outline" size="sm">
             <Database className="mr-2 h-4 w-4" />
-            {seeding ? "Carregando..." : "Carregar dados de demonstração"}
+            {seeding ? "Carregando..." : "Ver com dados de exemplo"}
           </Button>
         )}
         {!isEmpty && <ExecutiveReportButton />}
       </div>
+
+      {isEmpty && <OnboardingCard />}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
