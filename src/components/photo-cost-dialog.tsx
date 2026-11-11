@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -13,10 +13,13 @@ import { getPhotoUsage, readNotebookPhoto } from "@/lib/photo.functions";
 import { COST_CATEGORY_NAMES } from "@/lib/cost-import";
 import { lastTarget } from "@/lib/last-used";
 import { BRL } from "@/lib/calc";
-import type { NotebookItem } from "@/lib/notebook-photo";
+import { isAlreadyLogged, type NotebookItem } from "@/lib/notebook-photo";
+import type { ExistingCost } from "@/lib/cost-import";
 
 type FieldLite = { id: string; name: string };
-type Row = NotebookItem & { picked: boolean; amountStr: string };
+type CostLite = { field_id: string; date: string; category: string; amount: number | string };
+// picked null = ainda não mexeu: vale "marcado, exceto se parecer já lançado".
+type Row = NotebookItem & { picked: boolean | null; amountStr: string };
 
 const MAX_SIDE = 1600;
 
@@ -37,10 +40,12 @@ export function PhotoCostDialog({
   open,
   onOpenChange,
   fields,
+  costs,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   fields: FieldLite[];
+  costs: CostLite[];
 }) {
   const qc = useQueryClient();
   const read = useServerFn(readNotebookPhoto);
@@ -74,7 +79,7 @@ export function PhotoCostDialog({
       const r = await read({ data: { image } });
       setUsed({ used: r.used, limit: r.limit });
       setIgnored(r.ignored);
-      setRows(r.items.map((i) => ({ ...i, picked: true, amountStr: String(i.amount).replace(".", ",") })));
+      setRows(r.items.map((i) => ({ ...i, picked: null, amountStr: String(i.amount).replace(".", ",") })));
       if (r.items.length === 0) toast.message("Não achei lançamentos nessa foto. Tente com mais luz e a página inteira.");
     } catch (e) {
       toast.error((e as Error).message || "Não consegui ler essa foto.");
@@ -86,7 +91,13 @@ export function PhotoCostDialog({
   }
 
   const num = (s: string) => Number(s.replace(/\./g, "").replace(",", "."));
-  const chosen = (rows ?? []).filter((r) => r.picked && num(r.amountStr) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(r.date));
+  const existing: ExistingCost[] = useMemo(
+    () => costs.map((c) => ({ field_id: c.field_id, date: c.date, category: c.category, amount: Number(c.amount) })),
+    [costs],
+  );
+  const dup = (rows ?? []).map((r) => isAlreadyLogged({ date: r.date, category: r.category, amount: num(r.amountStr) }, target, existing));
+  const isPicked = (r: Row, i: number) => (r.picked === null ? !dup[i] : r.picked);
+  const chosen = (rows ?? []).filter((r, i) => isPicked(r, i) && num(r.amountStr) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(r.date));
   const total = chosen.reduce((s, r) => s + num(r.amountStr), 0);
   const canSave = chosen.length > 0 && target !== "" && !busy;
 
@@ -161,9 +172,9 @@ export function PhotoCostDialog({
 
             <div className="space-y-2">
               {rows.map((r, i) => (
-                <div key={i} className={`rounded-lg border p-3 ${r.picked ? "" : "opacity-50"}`}>
+                <div key={i} className={`rounded-lg border p-3 ${isPicked(r, i) ? "" : "opacity-50"}`}>
                   <div className="flex items-start gap-3">
-                    <Checkbox checked={r.picked} onCheckedChange={(v) => patch(i, { picked: v === true })} className="mt-2" aria-label="Importar este item" />
+                    <Checkbox checked={isPicked(r, i)} onCheckedChange={(v) => patch(i, { picked: v === true })} className="mt-2" aria-label="Importar este item" />
                     <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
                       <Input className="col-span-2 sm:col-span-4" value={r.description} onChange={(e) => patch(i, { description: e.target.value })} placeholder="Descrição" />
                       <Input inputMode="decimal" value={r.amountStr} onChange={(e) => patch(i, { amountStr: e.target.value })} aria-label="Valor" />
@@ -176,6 +187,9 @@ export function PhotoCostDialog({
                       </div>
                     </div>
                   </div>
+                  {dup[i] && (
+                    <p className="mt-2 pl-8 text-xs font-medium text-amber-700">Parece já lançado (mesma data, categoria e valor). Deixei desmarcado; marque se for outro lançamento.</p>
+                  )}
                   {(!r.dateFound || !r.categoryConfident) && (
                     <p className="mt-2 pl-8 text-xs font-medium text-amber-700">
                       {[!r.dateFound ? "Sem data no caderno: usei hoje, confira" : "", !r.categoryConfident ? "Categoria incerta, confira" : ""].filter(Boolean).join(" · ")}

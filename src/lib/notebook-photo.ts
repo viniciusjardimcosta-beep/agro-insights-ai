@@ -1,6 +1,6 @@
 // Foto do caderno: regras puras (sem rede, sem IA) para montar o pedido e validar o que a IA devolveu.
 // A IA só LÊ o que está escrito; quem decide categoria, data e valor final é este código + a conferência do usuário.
-import { COST_CATEGORY_NAMES, normalizeCategory, parseDateBR, parseMoney } from "@/lib/cost-import";
+import { COST_CATEGORY_NAMES, norm, normalizeCategory, parseDateBR, parseMoney, type ExistingCost } from "@/lib/cost-import";
 
 export const PHOTO_MONTHLY_LIMIT = 100;
 export const MAX_PHOTO_ITEMS = 40;
@@ -101,4 +101,22 @@ export function sniffImage(bytes: Uint8Array): "image/jpeg" | "image/png" | "ima
   if (bytes.length > 12 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
   if (bytes.length > 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45) return "image/webp";
   return null;
+}
+
+/**
+ * O mesmo lançamento (data + categoria + valor) já existe? Em um talhão: igual no talhão.
+ * Em "todos (pela área)": a soma do dia naquela categoria já bate com o valor.
+ * Quem lê a mesma foto duas vezes não deve lançar em dobro sem perceber.
+ */
+export function isAlreadyLogged(
+  item: { date: string; category: string; amount: number },
+  target: string,
+  existing: ExistingCost[],
+): boolean {
+  if (target === "") return false;
+  const cents = (a: number) => Math.round(a * 100);
+  const cat = norm(item.category);
+  const same = existing.filter((e) => e.date === item.date && norm(e.category) === cat);
+  if (target === "all") return same.reduce((t, e) => t + cents(Number(e.amount)), 0) === cents(item.amount);
+  return same.some((e) => e.field_id === target && cents(Number(e.amount)) === cents(item.amount));
 }

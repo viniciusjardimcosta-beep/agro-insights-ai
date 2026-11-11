@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { monthlyAllowed, parseNotebookResponse, resolveNotebookDate, sniffImage } from "./notebook-photo";
+import { isAlreadyLogged, monthlyAllowed, parseNotebookResponse, resolveNotebookDate, sniffImage } from "./notebook-photo";
 
 const today = new Date(2026, 10, 11); // 11/11/2026
 
@@ -50,4 +50,23 @@ describe("limite e imagem", () => {
     expect(sniffImage(new Uint8Array([0xff, 0xd8, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))).toBe("image/jpeg");
     expect(sniffImage(new Uint8Array(20))).toBeNull();
   });
+});
+
+describe("isAlreadyLogged", () => {
+  const existing = [
+    { field_id: "a", date: "2026-11-08", category: "Sementes", amount: 20000 },
+    { field_id: "a", date: "2026-11-11", category: "Diesel", amount: "1250.5" as unknown as number },
+    { field_id: "b", date: "2026-11-11", category: "Diesel", amount: 1250 },
+  ];
+  it("igual no mesmo talhão", () => expect(isAlreadyLogged({ date: "2026-11-08", category: "Sementes", amount: 20000 }, "a", existing)).toBe(true));
+  it("outro talhão não conta", () => expect(isAlreadyLogged({ date: "2026-11-08", category: "Sementes", amount: 20000 }, "b", existing)).toBe(false));
+  it("valor ou data diferente não conta", () => {
+    expect(isAlreadyLogged({ date: "2026-11-08", category: "Sementes", amount: 19999 }, "a", existing)).toBe(false);
+    expect(isAlreadyLogged({ date: "2026-11-09", category: "Sementes", amount: 20000 }, "a", existing)).toBe(false);
+  });
+  it("todos pela área compara a soma do dia", () => {
+    expect(isAlreadyLogged({ date: "2026-11-11", category: "Diesel", amount: 2500.5 }, "all", existing)).toBe(true);
+    expect(isAlreadyLogged({ date: "2026-11-11", category: "Diesel", amount: 1250 }, "all", existing)).toBe(false);
+  });
+  it("sem talhão escolhido não avisa", () => expect(isAlreadyLogged({ date: "2026-11-08", category: "Sementes", amount: 20000 }, "", existing)).toBe(false));
 });
