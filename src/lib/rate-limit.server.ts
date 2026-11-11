@@ -10,12 +10,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type AnySupabase = SupabaseClient<any, any, any>;
 
-export type UsageEventType = "ai_message" | "ai_timeout" | "diagnostic_ai_generation" | "billing_action";
+export type UsageEventType = "ai_message" | "ai_timeout" | "diagnostic_ai_generation" | "billing_action" | "photo_ai_read";
 
 /** Limites centrais — ajustáveis sem alterar a arquitetura. */
 export const RATE_LIMITS = {
   ai_message: { hour: 30, day: 120 },
   diagnostic_ai_generation: { hour: 0, day: 10 },
+  /** Leitura de foto do caderno. O limite mensal (100) fica em notebook-photo.ts; estes seguram abuso. */
+  photo_ai_read: { hour: 15, day: 30 },
   /** Ações sensíveis de cobrança (checkout, portal, cancelar/reativar). */
   billing_action: { hour: 20, day: 60 },
 } as const satisfies Record<string, { hour: number; day: number }>;
@@ -69,6 +71,21 @@ export async function checkRateLimit(
   const res = (data ?? {}) as { allowed?: boolean; scope?: "hour" | "day" | null };
   return { allowed: res.allowed === true, scope: res.scope ?? null };
 }
+
+/** Quantos usos o usuário autenticado fez nos últimos `days` dias (leitura direta; RLS limita ao próprio usuário). */
+export async function countUsageSince(supabase: AnySupabase, eventType: UsageEventType, days: number): Promise<number> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from("usage_events")
+    .select("id", { count: "exact", head: true })
+    .eq("event_type", eventType)
+    .gte("created_at", since);
+  if (error) throw new Error("Não foi possível validar o uso agora. Tente novamente.");
+  return count ?? 0;
+}
+
+export const PHOTO_RATE_LIMIT_MESSAGE = "Você atingiu o limite de fotos deste período. Tente novamente mais tarde.";
+export const PHOTO_MONTHLY_LIMIT_MESSAGE = "Você usou todas as leituras de foto deste mês. Você ainda pode lançar por voz, planilha ou digitando.";
 
 /** Registra um evento técnico (ex.: ai_timeout). Nunca quebra o fluxo principal. */
 export async function recordUsage(supabase: AnySupabase, eventType: UsageEventType) {
