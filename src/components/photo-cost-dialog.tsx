@@ -1,0 +1,202 @@
+import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Camera, ImageIcon, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { importCosts } from "@/lib/data.functions";
+import { getPhotoUsage, readNotebookPhoto } from "@/lib/photo.functions";
+import { COST_CATEGORY_NAMES } from "@/lib/cost-import";
+import { lastTarget } from "@/lib/last-used";
+import { BRL } from "@/lib/calc";
+import type { NotebookItem } from "@/lib/notebook-photo";
+
+type FieldLite = { id: string; name: string };
+type Row = NotebookItem & { picked: boolean; amountStr: string };
+
+const MAX_SIDE = 1600;
+
+/** Reduz a foto no próprio celular (lado maior 1600 px, JPEG) para enviar rápido e gastar pouco. Devolve base64 puro. */
+async function shrink(file: File): Promise<string> {
+  const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  bmp.close();
+  const url = canvas.toDataURL("image/jpeg", 0.85);
+  return url.slice(url.indexOf(",") + 1);
+}
+
+export function PhotoCostDialog({
+  open,
+  onOpenChange,
+  fields,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  fields: FieldLite[];
+}) {
+  const qc = useQueryClient();
+  const read = useServerFn(readNotebookPhoto);
+  const usage = useServerFn(getPhotoUsage);
+  const save = useServerFn(importCosts);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+
+  const [reading, setReading] = useState(false);
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [ignored, setIgnored] = useState(0);
+  const [target, setTarget] = useState("");
+  const [used, setUsed] = useState<{ used: number; limit: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    usage().then(setUsed).catch(() => setUsed(null));
+    setTarget((t) => t || lastTarget(fields.map((f) => f.id)) || (fields.length === 1 ? fields[0].id : ""));
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function reset() {
+    setRows(null); setIgnored(0); setReading(false); setBusy(false);
+  }
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setReading(true);
+    try {
+      const image = await shrink(file);
+      const r = await read({ data: { image } });
+      setUsed({ used: r.used, limit: r.limit });
+      setIgnored(r.ignored);
+      setRows(r.items.map((i) => ({ ...i, picked: true, amountStr: String(i.amount).replace(".", ",") })));
+      if (r.items.length === 0) toast.message("Não achei lançamentos nessa foto. Tente com mais luz e a página inteira.");
+    } catch (e) {
+      toast.error((e as Error).message || "Não consegui ler essa foto.");
+    } finally {
+      setReading(false);
+      if (cameraRef.current) cameraRef.current.value = "";
+      if (galleryRef.current) galleryRef.current.value = "";
+    }
+  }
+
+  const num = (s: string) => Number(s.replace(/\./g, "").replace(",", "."));
+  const chosen = (rows ?? []).filter((r) => r.picked && num(r.amountStr) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(r.date));
+  const total = chosen.reduce((s, r) => s + num(r.amountStr), 0);
+  const canSave = chosen.length > 0 && target !== "" && !busy;
+
+  function patch(i: number, p: Partial<Row>) {
+    setRows((rs) => (rs ?? []).map((r, k) => (k === i ? { ...r, ...p } : r)));
+  }
+
+  async function confirm() {
+    if (!canSave) return;
+    setBusy(true);
+    try {
+      const out = await save({
+        data: {
+          source: "foto",
+          rows: chosen.map((r) => ({
+            target,
+            category: r.category,
+            description: r.description || null,
+            amount: num(r.amountStr),
+            date: r.date,
+          })),
+        },
+      });
+      await qc.invalidateQueries();
+      toast.success(`${out.lines} lançamento(s) salvos`);
+      reset();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error("Erro ao salvar", { description: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Lançar custos pela foto do caderno</DialogTitle>
+          <DialogDescription>
+            Tire uma foto da página (ou escolha uma da galeria). O app lê o que está escrito e você confere antes de salvar. A foto não fica guardada.
+          </DialogDescription>
+        </DialogHeader>
+
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+        <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+
+        {rows === null ? (
+          <div className="space-y-3">
+            <Button size="lg" className="h-16 w-full text-lg font-semibold" disabled={reading} onClick={() => cameraRef.current?.click()}>
+              {reading ? <><Loader2 className="mr-2 h-6 w-6 animate-spin" />Lendo o caderno...</> : <><Camera className="mr-2 h-6 w-6" />Tirar foto do caderno</>}
+            </Button>
+            <Button variant="outline" className="w-full" disabled={reading} onClick={() => galleryRef.current?.click()}>
+              <ImageIcon className="mr-2 h-4 w-4" />Escolher foto da galeria
+            </Button>
+            <p className="text-sm text-muted-foreground">Dica: página inteira na foto, com boa luz e sem sombra. Valor e data escritos juntos ajudam.</p>
+            {used && <p className="text-xs text-muted-foreground">Leituras de foto nos últimos 30 dias: {used.used} de {used.limit}.</p>}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {rows.length > 0 && (
+              <div>
+                <p className="mb-1 text-sm font-medium">Talhão (vale para todos os itens)</p>
+                <div className="flex flex-wrap gap-2">
+                  {fields.map((f) => (
+                    <Button key={f.id} type="button" size="sm" variant={target === f.id ? "default" : "outline"} onClick={() => setTarget(f.id)}>{f.name}</Button>
+                  ))}
+                  <Button type="button" size="sm" variant={target === "all" ? "default" : "outline"} onClick={() => setTarget("all")}>Todos (pela área)</Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {rows.map((r, i) => (
+                <div key={i} className={`rounded-lg border p-3 ${r.picked ? "" : "opacity-50"}`}>
+                  <div className="flex items-start gap-3">
+                    <Checkbox checked={r.picked} onCheckedChange={(v) => patch(i, { picked: v === true })} className="mt-2" aria-label="Importar este item" />
+                    <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+                      <Input className="col-span-2 sm:col-span-4" value={r.description} onChange={(e) => patch(i, { description: e.target.value })} placeholder="Descrição" />
+                      <Input inputMode="decimal" value={r.amountStr} onChange={(e) => patch(i, { amountStr: e.target.value })} aria-label="Valor" />
+                      <Input type="date" value={r.date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => patch(i, { date: e.target.value, dateFound: true })} aria-label="Data" />
+                      <div className="col-span-2">
+                        <Select value={r.category} onValueChange={(v) => patch(i, { category: v, categoryConfident: true })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{COST_CATEGORY_NAMES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  {(!r.dateFound || !r.categoryConfident) && (
+                    <p className="mt-2 pl-8 text-xs font-medium text-amber-700">
+                      {[!r.dateFound ? "Sem data no caderno: usei hoje, confira" : "", !r.categoryConfident ? "Categoria incerta, confira" : ""].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                </div>
+              ))}
+              {rows.length === 0 && <p className="text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>}
+            </div>
+
+            {ignored > 0 && <p className="text-xs text-muted-foreground">{ignored} item(ns) sem valor legível foram deixados de fora. Lance esses à mão.</p>}
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={reset}>Ler outra foto</Button>
+              <Button size="lg" className="font-semibold" disabled={!canSave} onClick={confirm}>
+                {busy ? "Salvando..." : target === "" && chosen.length > 0 ? "Escolha o talhão" : `Salvar ${chosen.length} lançamento(s) · ${BRL.format(total)}`}
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -2,7 +2,7 @@ import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Copy, FileSpreadsheet, Mic, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
+import { Camera, Copy, FileSpreadsheet, Mic, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import { lastCategory, lastTarget, rememberLast } from "@/lib/last-used";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { splitByArea } from "@/lib/cost-split";
 import { formatDateBR } from "@/lib/format-pt";
 import { CostImportDialog } from "@/components/cost-import-dialog";
 import { VoiceCostDialog } from "@/components/voice-cost-dialog";
+import { PhotoCostDialog } from "@/components/photo-cost-dialog";
 import { IMPORT_NOTE_MARK } from "@/lib/cost-import";
 
 const qCosts = queryOptions({ queryKey: ["costs"], queryFn: () => listCosts() });
@@ -43,6 +44,7 @@ function Page() {
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [editing, setEditing] = useState<Cost | null>(null);
   // "Repetir": novo lançamento que começa igual a outro (sem data e sem observação).
   const [template, setTemplate] = useState<Cost | null>(null);
@@ -138,6 +140,9 @@ function Page() {
             <Button className="col-span-2 font-semibold md:col-span-1" disabled={fields.length === 0} onClick={() => setVoiceOpen(true)}>
               <Mic className="mr-2 h-4 w-4" />Falar custo
             </Button>
+            <Button variant="outline" disabled={fields.length === 0} onClick={() => setPhotoOpen(true)}>
+              <Camera className="mr-2 h-4 w-4" />Foto do caderno
+            </Button>
             <Button variant="outline" disabled={fields.length === 0} onClick={() => setImportOpen(true)}>
               <FileSpreadsheet className="mr-2 h-4 w-4" />Importar planilha
             </Button>
@@ -168,7 +173,7 @@ function Page() {
               <Button size="lg" className="font-semibold" disabled={fields.length === 0} onClick={() => setVoiceOpen(true)}><Mic className="mr-2 h-5 w-5" />Falar custo</Button>
               <Button size="lg" variant="outline" disabled={fields.length === 0} onClick={openNew}><Plus className="mr-2 h-5 w-5" />Digitar custo</Button>
             </div>
-            <p className="text-xs text-muted-foreground">Também dá para importar uma planilha do Excel, no botão lá em cima.</p>
+            <p className="text-xs text-muted-foreground">Também dá para fotografar o caderno ou importar uma planilha, nos botões lá em cima.</p>
           </CardContent>
         </Card>
       ) : (
@@ -210,6 +215,7 @@ function Page() {
       )}
 
       <VoiceCostDialog open={voiceOpen} onOpenChange={setVoiceOpen} fields={fields} />
+      <PhotoCostDialog open={photoOpen} onOpenChange={setPhotoOpen} fields={fields} />
       <CostImportDialog open={importOpen} onOpenChange={setImportOpen} fields={fields} costs={costs as Cost[]} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

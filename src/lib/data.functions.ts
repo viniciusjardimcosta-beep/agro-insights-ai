@@ -250,8 +250,11 @@ const importRow = z.object({
 // Cada linha vai para um talhão ou é dividida por área ("all"). Tudo numa única gravação.
 export const importCosts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ rows: z.array(importRow).min(1).max(1000) }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ rows: z.array(importRow).min(1).max(1000), source: z.enum(["planilha", "foto"]).default("planilha") }).parse(input),
+  )
   .handler(async ({ context, data }) => {
+    const tag = data.source === "foto" ? "Lido de foto do caderno." : "Importado de planilha.";
     const { data: fields, error: fErr } = await context.supabase.from("fields").select("id, area");
     if (fErr) throw dbError(fErr);
     const mine = new Map((fields ?? []).map((f: { id: string; area: number | string }) => [f.id, Number(f.area)]));
@@ -270,7 +273,7 @@ export const importCosts = createServerFn({ method: "POST" })
           out.push({
             user_id: context.userId, field_id: s.field_id, category: r.category,
             description: r.description ?? null, amount: s.amount, date: r.date,
-            notes: `Rateio por área: ${total} entre ${shares.length} talhões. Importado de planilha.`,
+            notes: `Rateio por área: ${total} entre ${shares.length} talhões. ${tag}`,
           });
         }
       } else {
@@ -278,7 +281,7 @@ export const importCosts = createServerFn({ method: "POST" })
         out.push({
           user_id: context.userId, field_id: r.target, category: r.category,
           description: r.description ?? null, amount: r.amount, date: r.date,
-          notes: "Importado de planilha.",
+          notes: tag,
         });
       }
     }
