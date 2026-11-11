@@ -215,7 +215,7 @@ function Page() {
       )}
 
       <VoiceCostDialog open={voiceOpen} onOpenChange={setVoiceOpen} fields={fields} />
-      <PhotoCostDialog open={photoOpen} onOpenChange={setPhotoOpen} fields={fields} />
+      <PhotoCostDialog open={photoOpen} onOpenChange={setPhotoOpen} fields={fields} costs={costs as Cost[]} />
       <CostImportDialog open={importOpen} onOpenChange={setImportOpen} fields={fields} costs={costs as Cost[]} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
