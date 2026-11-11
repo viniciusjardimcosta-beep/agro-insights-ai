@@ -57,6 +57,8 @@ export function PhotoCostDialog({
   const [reading, setReading] = useState(false);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [ignored, setIgnored] = useState(0);
+  const [preview, setPreview] = useState<string | null>(null); // a própria foto, para comparar com a lista
+  const [zoom, setZoom] = useState(false);
   const [target, setTarget] = useState("");
   const [used, setUsed] = useState<{ used: number; limit: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,7 +70,7 @@ export function PhotoCostDialog({
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function reset() {
-    setRows(null); setIgnored(0); setReading(false); setBusy(false);
+    setRows(null); setIgnored(0); setReading(false); setBusy(false); setPreview(null); setZoom(false);
   }
 
   async function onFile(file: File | undefined) {
@@ -78,6 +80,8 @@ export function PhotoCostDialog({
       const image = await shrink(file);
       const r = await read({ data: { image } });
       setUsed({ used: r.used, limit: r.limit });
+      setPreview(`data:image/jpeg;base64,${image}`);
+      setZoom(false);
       setIgnored(r.ignored);
       setRows(r.items.map((i) => ({ ...i, picked: null, amountStr: String(i.amount).replace(".", ",") })));
       if (r.items.length === 0) toast.message("Não achei lançamentos nessa foto. Tente com mais luz e a página inteira.");
@@ -158,6 +162,14 @@ export function PhotoCostDialog({
           </div>
         ) : (
           <div className="space-y-4">
+            {preview && (
+              <div className="sticky top-0 z-10 -mx-1 rounded-lg border bg-background p-1 shadow-sm">
+                <button type="button" onClick={() => setZoom((z) => !z)} className="block w-full" aria-label={zoom ? "Diminuir a foto" : "Ampliar a foto"}>
+                  <img src={preview} alt="Foto do caderno" className={`mx-auto w-full object-contain ${zoom ? "max-h-[70vh]" : "max-h-32"}`} />
+                </button>
+                <p className="px-1 pt-1 text-center text-xs text-muted-foreground">Confira os valores com o caderno. Toque na foto para {zoom ? "diminuir" : "ampliar"}.</p>
+              </div>
+            )}
             {rows.length > 0 && (
               <div>
                 <p className="mb-1 text-sm font-medium">Talhão (vale para todos os itens)</p>
