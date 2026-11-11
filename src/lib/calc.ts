@@ -109,6 +109,11 @@ export const COST_CATEGORIES = [
   "Arrendamento",
   "Mão de obra",
   "Máquinas",
+  "Sanidade",
+  "Alimentação",
+  "Cercas e infraestrutura",
+  "Serviços contratados",
+  "Impostos e taxas",
   "Outros",
 ] as const;
 
