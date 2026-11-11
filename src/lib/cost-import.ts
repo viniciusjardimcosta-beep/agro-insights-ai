@@ -12,6 +12,11 @@ export const COST_CATEGORY_NAMES = [
   "Arrendamento",
   "Mão de obra",
   "Máquinas",
+  "Sanidade",
+  "Alimentação",
+  "Cercas e infraestrutura",
+  "Serviços contratados",
+  "Impostos e taxas",
   "Outros",
 ] as const;
 
@@ -176,6 +181,11 @@ const CATEGORY_KEYWORDS: [(typeof COST_CATEGORY_NAMES)[number], string[]][] = [
   ["Diesel", ["diesel", "combustivel", "s10", "s500", "oleo combust"]],
   ["Arrendamento", ["arrend", "aluguel de terra", "aluguel da terra", "parceria"]],
   ["Mão de obra", ["mao de obra", "salario", "funcionario", "diaria", "empregado", "trabalhador", "equipe", "encargo", "folha", "pagamento de pessoal"]],
+  ["Cercas e infraestrutura", ["cerca", "arame", "moirao", "mourao", "porteira", "tabua", "esticador", "rocada", "curral", "brete", "galpao", "bebedouro", "cocho", "mangueira", "limpeza de campo", "limpeza de pasto", "benfeitoria", "infraestrutura", "dobradica"]],
+  ["Sanidade", ["vacina", "vermifug", "medicament", "remedio", "veterinari", "carrapat", "antibiotic", "vitamina", "ivermectina", "brucelose", "aftosa", "sanidade", "seringa", "sanitari"]],
+  ["Alimentação", ["sal mineral", "mineral", "proteinado", "racao", "silagem", "suplement", "farelo", "feno", "capim", "alimentacao", "nutricao", "trato dos animais"]],
+  ["Serviços contratados", ["servico", "terceiriz", "empreit", "alambrador", "contratad", "frete", "prestador"]],
+  ["Impostos e taxas", ["imposto", "taxa", "georreferenc", "=itr", "=ccir", "=car", "funrural", "licenciamento", "cartorio", "escritura", "contabilidade", "iptu"]],
   ["Máquinas", ["maquina", "trator", "colheitadeira", "pulverizador", "manutencao", "peca", "reparo", "implemento", "plantadeira", "pneu"]],
 ];
 
@@ -184,7 +194,7 @@ export function normalizeCategory(text: unknown): { category: string; confident:
   if (t === "") return { category: "Outros", confident: false };
   for (const c of COST_CATEGORY_NAMES) if (norm(c) === t) return { category: c, confident: true };
   for (const [cat, words] of CATEGORY_KEYWORDS) {
-    if (words.some((w) => t.includes(w))) return { category: cat, confident: true };
+    if (words.some((w) => (w.startsWith("=") ? t.split(" ").includes(w.slice(1)) : t.includes(w)))) return { category: cat, confident: true };
   }
   return { category: "Outros", confident: false };
 }

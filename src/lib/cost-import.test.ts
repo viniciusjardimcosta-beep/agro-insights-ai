@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  COST_CATEGORY_NAMES,
   buildDrafts,
   decodeCsvBytes,
   detectRoles,
@@ -214,5 +215,38 @@ describe("buildDrafts", () => {
     });
     expect(r.drafts[0].duplicate).toBe(false);
     expect(r.drafts[1].duplicate).toBe(true);
+  });
+});
+
+describe("categorias da pecuária", () => {
+  const cases: [string, string][] = [
+    ["vacina e vermífugo", "Sanidade"],
+    ["Medicamentos", "Sanidade"],
+    ["veterinário", "Sanidade"],
+    ["sal mineral", "Alimentação"],
+    ["ração", "Alimentação"],
+    ["silagem de milho", "Alimentação"],
+    ["arame farpado", "Cercas e infraestrutura"],
+    ["manutenção da cerca", "Cercas e infraestrutura"],
+    ["roçada do pasto", "Cercas e infraestrutura"],
+    ["conserto do brete", "Cercas e infraestrutura"],
+    ["alambrador", "Serviços contratados"],
+    ["frete do gado", "Serviços contratados"],
+    ["serviço terceirizado", "Serviços contratados"],
+    ["ITR", "Impostos e taxas"],
+    ["georreferenciamento", "Impostos e taxas"],
+    ["manutenção do trator", "Máquinas"],
+    ["adubo", "Fertilizantes"],
+  ];
+  for (const [text, cat] of cases) {
+    it(`"${text}" -> ${cat}`, () => expect(normalizeCategory(text).category).toBe(cat));
+  }
+  it("não confunde salário com sal mineral nem nitrogênio com ITR", () => {
+    expect(normalizeCategory("salário do peão").category).toBe("Mão de obra");
+    expect(normalizeCategory("nitrogênio").category).toBe("Fertilizantes");
+  });
+  it("as duas listas de categorias são iguais", async () => {
+    const { COST_CATEGORIES } = await import("./calc");
+    expect([...COST_CATEGORIES]).toEqual([...COST_CATEGORY_NAMES]);
   });
 });
