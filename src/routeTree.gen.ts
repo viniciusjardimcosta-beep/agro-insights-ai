@@ -19,6 +19,7 @@ import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedConsultorRouteImport } from './routes/_authenticated/consultor'
 import { Route as AuthenticatedCustosRouteImport } from './routes/_authenticated/custos'
+import { Route as AuthenticatedPecuariaRouteImport } from './routes/_authenticated/pecuaria'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenticated/diagnostico'
 import { Route as AuthenticatedInteligenciaRouteImport } from './routes/_authenticated/inteligencia'
@@ -82,6 +83,11 @@ const AuthenticatedConsultorRoute = AuthenticatedConsultorRouteImport.update({
 const AuthenticatedCustosRoute = AuthenticatedCustosRouteImport.update({
   id: '/custos',
   path: '/custos',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPecuariaRoute = AuthenticatedPecuariaRouteImport.update({
+  id: '/pecuaria',
+  path: '/pecuaria',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -172,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/custos': typeof AuthenticatedCustosRoute
+  '/pecuaria': typeof AuthenticatedPecuariaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/inteligencia': typeof AuthenticatedInteligenciaRoute
@@ -197,6 +204,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/custos': typeof AuthenticatedCustosRoute
+  '/pecuaria': typeof AuthenticatedPecuariaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/inteligencia': typeof AuthenticatedInteligenciaRoute
@@ -224,6 +232,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/consultor': typeof AuthenticatedConsultorRouteWithChildren
   '/_authenticated/custos': typeof AuthenticatedCustosRoute
+  '/_authenticated/pecuaria': typeof AuthenticatedPecuariaRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/_authenticated/inteligencia': typeof AuthenticatedInteligenciaRoute
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/consultor'
     | '/custos'
+    | '/pecuaria'
     | '/dashboard'
     | '/diagnostico'
     | '/inteligencia'
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/consultor'
     | '/custos'
+    | '/pecuaria'
     | '/dashboard'
     | '/diagnostico'
     | '/inteligencia'
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes'
     | '/_authenticated/consultor'
     | '/_authenticated/custos'
+    | '/_authenticated/pecuaria'
     | '/_authenticated/dashboard'
     | '/_authenticated/diagnostico'
     | '/_authenticated/inteligencia'
@@ -398,6 +410,13 @@ declare module '@tanstack/react-router' {
       path: '/custos'
       fullPath: '/custos'
       preLoaderRoute: typeof AuthenticatedCustosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/pecuaria': {
+      id: '/_authenticated/pecuaria'
+      path: '/pecuaria'
+      fullPath: '/pecuaria'
+      preLoaderRoute: typeof AuthenticatedPecuariaRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -521,6 +540,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedConsultorRoute: typeof AuthenticatedConsultorRouteWithChildren
   AuthenticatedCustosRoute: typeof AuthenticatedCustosRoute
+  AuthenticatedPecuariaRoute: typeof AuthenticatedPecuariaRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDiagnosticoRoute: typeof AuthenticatedDiagnosticoRoute
   AuthenticatedInteligenciaRoute: typeof AuthenticatedInteligenciaRoute
@@ -540,6 +560,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedConsultorRoute: AuthenticatedConsultorRouteWithChildren,
   AuthenticatedCustosRoute: AuthenticatedCustosRoute,
+  AuthenticatedPecuariaRoute: AuthenticatedPecuariaRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDiagnosticoRoute: AuthenticatedDiagnosticoRoute,
   AuthenticatedInteligenciaRoute: AuthenticatedInteligenciaRoute,

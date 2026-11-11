@@ -29,7 +29,7 @@ export const exportMyData = createServerFn({ method: "POST" })
     });
 
     try {
-      const [profile, properties, fields, costs, prices, diagnostics, scenarios, alerts, threads, messages, subscription] =
+      const [profile, properties, fields, costs, prices, diagnostics, scenarios, alerts, threads, messages, subscription, cattleLots, cattleCosts, cattleSales] =
         await Promise.all([
           sb.from("profiles").select("*").eq("id", context.userId).maybeSingle(),
           sb.from("properties").select("*").order("created_at", { ascending: true }),
@@ -42,6 +42,10 @@ export const exportMyData = createServerFn({ method: "POST" })
           sb.from("ai_threads").select("*").order("created_at", { ascending: true }),
           sb.from("ai_messages").select("*").order("created_at", { ascending: true }),
           sb.from("subscriptions").select("*").maybeSingle(),
+          // Pecuária: se as tabelas ainda não existem, a consulta falha e esses campos saem vazios.
+          sb.from("cattle_lots").select("*").order("created_at", { ascending: true }),
+          sb.from("cattle_costs").select("*").order("date", { ascending: true }),
+          sb.from("cattle_sales").select("*").order("date", { ascending: true }),
         ]);
 
       const src: ExportSource = {
@@ -56,6 +60,9 @@ export const exportMyData = createServerFn({ method: "POST" })
         threads: threads.data as ExportSource["threads"],
         messages: messages.data as ExportSource["messages"],
         subscription: (subscription.data ?? null) as ExportSource["subscription"],
+        cattleLots: (cattleLots.data ?? []) as ExportSource["cattleLots"],
+        cattleCosts: (cattleCosts.data ?? []) as ExportSource["cattleCosts"],
+        cattleSales: (cattleSales.data ?? []) as ExportSource["cattleSales"],
       };
 
       const payload = buildExportPayload(src);

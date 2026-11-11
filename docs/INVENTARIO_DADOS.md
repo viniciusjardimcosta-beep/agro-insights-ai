@@ -106,3 +106,14 @@ Dados no Stripe (cliente, faturas) seguem as regras do Stripe e podem ter obriga
 - Auditoria: `src/lib/audit.server.ts`
 - Esquema do banco: `supabase/migrations/`
 - Retenção: `docs/DATA_RETENTION.md`
+
+## Adendo: módulo Pecuária (novo, em teste fechado)
+
+Tabelas novas, todas por usuário, com RLS (`auth.uid() = user_id`) e exclusão em cascata ao encerrar a conta:
+
+- `cattle_lots`: lotes de animais (nome, fase recria/engorda, cabeças, data e valor de compra, peso médio opcional).
+- `cattle_costs`: custos de um lote ou gerais da fazenda (categoria, descrição, valor, data).
+- `cattle_sales`: vendas (lote, data, cabeças, arrobas opcionais, valor).
+- `profiles.activities`: quais atividades a pessoa usa (`lavoura`, `pecuaria`).
+
+Esses dados entram na exportação (versão 1.1) e são apagados com a conta. Não há envio desses dados a provedores de IA. Revisar na leitura jurídica dos textos de privacidade (v1.1).
