@@ -119,6 +119,24 @@ export const addCattleCost = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const costRow = costInput.extend({ description: z.string().trim().max(300).nullable().optional() });
+
+/** Vários custos de uma vez (foto do caderno): uma conferência de donos, um insert. */
+export const addCattleCosts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ rows: z.array(costRow).min(1).max(100) }).parse(input))
+  .handler(async ({ context, data }) => {
+    const lotIds = [...new Set(data.rows.map((r) => r.lot_id).filter((x): x is string => x !== null))];
+    if (lotIds.length > 0) {
+      const { data: mine } = await context.supabase.from("cattle_lots").select("id").in("id", lotIds);
+      if (((mine ?? []) as { id: string }[]).length !== lotIds.length) throw new Error(NOT_FOUND);
+    }
+    const rows = data.rows.map((r) => ({ ...r, description: r.description || null, notes: "Lido de foto do caderno.", user_id: context.userId }));
+    const { error } = await context.supabase.from("cattle_costs").insert(rows);
+    if (error) throw dbError(error);
+    return { lines: rows.length };
+  });
+
 export const deleteCattleCost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))

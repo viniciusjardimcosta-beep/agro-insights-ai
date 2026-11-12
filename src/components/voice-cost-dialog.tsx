@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createCostSplit, upsertCost } from "@/lib/data.functions";
+import { addCattleCost } from "@/lib/cattle.functions";
 import { COST_CATEGORY_NAMES } from "@/lib/cost-import";
 import { cleanDescription, parseSpokenCost } from "@/lib/voice-parse";
 import { lastTarget, rememberLast } from "@/lib/last-used";
@@ -40,11 +41,17 @@ export function VoiceCostDialog({
   open,
   onOpenChange,
   fields,
+  cattle = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** Talhões (lavoura) ou lotes (pecuária). */
   fields: FieldLite[];
+  /** Pecuária: "fields" são lotes e "todos/geral" vira custo geral da fazenda. */
+  cattle?: boolean;
 }) {
+  const noun = cattle ? "lote" : "talhão";
+  const addCattle = useServerFn(addCattleCost);
   const qc = useQueryClient();
   const save = useServerFn(upsertCost);
   const saveSplit = useServerFn(createCostSplit);
@@ -74,7 +81,7 @@ export function VoiceCostDialog({
     setAmount(p.amount !== null ? String(p.amount) : "");
     setDate(p.date);
     setCategory(p.category);
-    const remembered = p.target === null && !p.issues.some((i) => i.startsWith("Não achei o talhão")) ? lastTarget(fields.map((f) => f.id)) : null;
+    const remembered = !cattle && p.target === null && !p.issues.some((i) => i.startsWith("Não achei o talhão")) ? lastTarget(fields.map((f) => f.id)) : null;
     setTarget(p.target ?? remembered ?? "");
     setFromMemory(p.target === null && remembered !== null);
     setIssues(p.issues);
@@ -150,6 +157,13 @@ export function VoiceCostDialog({
     setBusy(true);
     try {
       const common = { category, description: cleanDescription(text).slice(0, 300) || null, amount: n, date, notes: "Lançado por voz." };
+      if (cattle) {
+        await addCattle({ data: { lot_id: target === "all" ? null : target, category, description: common.description, amount: n, date } });
+        toast.success("Custo lançado");
+        await qc.invalidateQueries();
+        if (again) reset(); else { reset(); onOpenChange(false); }
+        return;
+      }
       if (target === "all") {
         const r = await saveSplit({ data: { ...common, field_ids: fields.map((f) => f.id) } });
         toast.success(`Custo dividido entre ${r.count} talhões`);
@@ -157,7 +171,7 @@ export function VoiceCostDialog({
         await save({ data: { ...common, field_id: target } });
         toast.success("Custo lançado");
       }
-      rememberLast(target, category);
+      if (!cattle) rememberLast(target, category);
       await qc.invalidateQueries();
       if (again) reset(); else { reset(); onOpenChange(false); }
     } catch (e) {
@@ -171,9 +185,11 @@ export function VoiceCostDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Lançar custo falando</DialogTitle>
+          <DialogTitle>{cattle ? "Lançar custo da pecuária falando" : "Lançar custo falando"}</DialogTitle>
           <DialogDescription>
-            Fale o valor, o que foi e o talhão. Ex.: “diesel 450 reais talhão 1 ontem”. Pode fazer pausas: ele continua ouvindo até você tocar em parar. Você confere antes de salvar.
+            {cattle
+              ? "Fale o valor, o que foi e o lote. Ex.: “sal mineral 800 reais lote março ontem”, ou diga “geral” para custo da fazenda toda. Pode fazer pausas: ele continua ouvindo até você tocar em parar. Você confere antes de salvar."
+              : "Fale o valor, o que foi e o talhão. Ex.: “diesel 450 reais talhão 1 ontem”. Pode fazer pausas: ele continua ouvindo até você tocar em parar. Você confere antes de salvar."}
           </DialogDescription>
         </DialogHeader>
 
@@ -221,7 +237,7 @@ export function VoiceCostDialog({
                 </div>
               </div>
               <div>
-                <Label>Talhão</Label>
+                <Label>{cattle ? "Lote" : "Talhão"}</Label>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {fields.map((f) => (
                     <Button key={f.id} type="button" size="sm" variant={target === f.id ? "default" : "outline"} onClick={() => { setTarget(f.id); setFromMemory(false); }}>
@@ -229,16 +245,16 @@ export function VoiceCostDialog({
                     </Button>
                   ))}
                   <Button type="button" size="sm" variant={target === "all" ? "default" : "outline"} onClick={() => { setTarget("all"); setFromMemory(false); }}>
-                    Todos (pela área)
+                    {cattle ? "Geral da fazenda" : "Todos (pela área)"}
                   </Button>
                 </div>
               </div>
               {fromMemory && target !== "" && (
-                <p className="text-sm text-muted-foreground">Talhão: o mesmo do último lançamento. Toque em outro para trocar.</p>
+                <p className="text-sm text-muted-foreground">{cattle ? "Lote" : "Talhão"}: o mesmo do último lançamento. Toque em outro para trocar.</p>
               )}
               {(unknownIssues.length > 0 || target === "") && (
                 <p className="text-sm font-medium text-amber-700">
-                  {[...unknownIssues, ...(target === "" && !unknownIssues.some((i) => i.startsWith("Não achei o talhão")) ? ["Escolha o talhão"] : [])].join(" · ")}
+                  {[...unknownIssues, ...(target === "" && !unknownIssues.some((i) => i.startsWith("Não achei o talhão")) ? [`Escolha o ${noun}`] : [])].join(" · ")}
                 </p>
               )}
               {valid && <p className="text-sm text-muted-foreground">Vai lançar <b>{BRL.format(n)}</b> em <b>{category}</b>.</p>}
