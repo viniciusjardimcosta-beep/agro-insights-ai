@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { toUserMessage } from "@/lib/errors";
 import { LEGAL_DISCLAIMER, PRIVACY_CONTACT } from "@/lib/privacy";
 import { useSubscription } from "@/hooks/use-subscription";
 import { CreditCard } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { getActivities, setPecuariaEnabled } from "@/lib/cattle.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -91,6 +93,8 @@ function SettingsPage() {
       </div>
 
       <SubscriptionSummaryCard />
+
+      <ActivitiesCard />
 
       <Card>
         <CardHeader>
@@ -184,6 +188,44 @@ function SubscriptionSummaryCard() {
         <Button variant="outline" asChild>
           <Link to="/configuracoes/assinatura">Ver assinatura</Link>
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActivitiesCard() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["activities"], queryFn: () => getActivities() });
+  const [busy, setBusy] = useState(false);
+  const on = q.data?.pecuaria === true;
+
+  async function toggle(next: boolean) {
+    setBusy(true);
+    try {
+      await setPecuariaEnabled({ data: { enabled: next } });
+      await qc.invalidateQueries({ queryKey: ["activities"] });
+      toast.success(next ? "Pecuária ligada. Ela aparece no menu." : "Pecuária desligada.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Atividades da fazenda</CardTitle>
+        <CardDescription>Mostre no menu só o que você usa.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-medium">Também crio gado (recria e engorda)</p>
+            <p className="text-sm text-muted-foreground">Em teste. Liga a tela de Pecuária, com lotes, custos e vendas.</p>
+          </div>
+          <Switch checked={on} disabled={busy || q.isLoading} onCheckedChange={toggle} aria-label="Ligar a pecuária" />
+        </div>
       </CardContent>
     </Card>
   );

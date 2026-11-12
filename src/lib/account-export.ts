@@ -7,7 +7,7 @@
 // - `user_id` interno é removido de cada registro: o dono já é identificado
 //   uma única vez no bloco `profile`.
 
-export const EXPORT_VERSION = "1.0";
+export const EXPORT_VERSION = "1.1";
 
 /** Chaves nunca exportadas, mesmo que existam nas linhas do banco. */
 export const FORBIDDEN_EXPORT_KEYS = [
@@ -55,6 +55,10 @@ export type ExportSource = {
   alerts: Row[] | null;
   threads: Row[] | null;
   messages: Row[] | null;
+  /** Pecuária (opcional: só existe quando o módulo está no banco). */
+  cattleLots?: Row[] | null;
+  cattleCosts?: Row[] | null;
+  cattleSales?: Row[] | null;
   /** Assinatura do titular — sem identificadores internos de gateway. */
   subscription?: Row | null;
 };
@@ -71,6 +75,9 @@ export type ExportPayload = {
   scenarios: Row[];
   alerts: Row[];
   ai_threads: Row[];
+  cattle_lots: Row[];
+  cattle_costs: Row[];
+  cattle_sales: Row[];
   subscription: Row | null;
 };
 
@@ -104,6 +111,9 @@ export function buildExportPayload(src: ExportSource, generatedAt = new Date().t
     scenarios: clean(src.scenarios),
     alerts: clean(src.alerts),
     ai_threads: threads,
+    cattle_lots: clean(src.cattleLots),
+    cattle_costs: clean(src.cattleCosts),
+    cattle_sales: clean(src.cattleSales),
     subscription: src.subscription ? stripForbidden(src.subscription) : null,
   };
 }

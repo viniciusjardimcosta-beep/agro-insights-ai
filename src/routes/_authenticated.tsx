@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing, Settings, ShieldCheck, Menu } from "lucide-react";
+import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing, Settings, ShieldCheck, Menu, Beef } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { listAlerts } from "@/lib/alerts.functions";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/use-subscription";
 import { amIAdmin } from "@/lib/admin.functions";
+import { getActivities } from "@/lib/cattle.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -39,6 +40,9 @@ const NAV = [
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
+/** Só aparece para quem ligou a pecuária em Configurações (teste fechado). */
+const PECUARIA_ITEM = { to: "/pecuaria", label: "Pecuária", icon: Beef } as const;
+
 /** Atalhos fixos no menu de baixo do celular; as demais telas ficam em "Mais". */
 const MOBILE_MAIN = ["/dashboard", "/custos", "/talhoes", "/alertas"] as const;
 
@@ -50,6 +54,8 @@ function AuthLayout() {
   const alertsQ = useQuery({ queryKey: ["alerts"], queryFn: () => listAlerts(), staleTime: 30_000 });
   // Apenas UX: a autorização real é feita no servidor em cada função admin.
   const adminQ = useQuery({ queryKey: ["admin", "me"], queryFn: () => amIAdmin(), staleTime: 300_000 });
+  const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => getActivities(), staleTime: 300_000 });
+  const navItems = activitiesQ.data?.pecuaria ? [...NAV.slice(0, 6), PECUARIA_ITEM, ...NAV.slice(6)] : [...NAV];
   const alertCount = countUnacknowledged((alertsQ.data ?? []) as unknown as { status: "active" | "acknowledged" | "resolved" }[]);
 
   async function logout() {
@@ -74,7 +80,7 @@ function AuthLayout() {
           AgroIntel <span className="text-sidebar-primary">AI</span>
         </div>
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV.map((item) => {
+          {navItems.map((item) => {
             const active = pathname.startsWith(item.to);
             return (
               <Link
@@ -144,7 +150,7 @@ function AuthLayout() {
       {/* Mobile bottom nav: 4 atalhos + "Mais" com todas as telas */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t bg-background py-2 md:hidden">
         {MOBILE_MAIN.map((to) => {
-          const item = NAV.find((n) => n.to === to)!;
+          const item = navItems.find((n) => n.to === to)!;
           const active = pathname.startsWith(item.to);
           return (
             <Link
@@ -180,7 +186,7 @@ function AuthLayout() {
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl pb-8 md:hidden">
           <SheetHeader><SheetTitle>Todas as telas</SheetTitle></SheetHeader>
           <div className="mt-4 grid grid-cols-3 gap-3">
-            {NAV.map((item) => {
+            {navItems.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
                 <Link
