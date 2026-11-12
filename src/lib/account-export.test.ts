@@ -109,13 +109,15 @@ describe("exportação da pecuária", () => {
   it("inclui lotes, custos e vendas, e fica vazio quando não há", () => {
     const empty = buildExportPayload({ profile: null, properties: [], fields: [], costs: [], prices: [], diagnostics: [], scenarios: [], alerts: [], threads: [], messages: [] });
     expect(empty.cattle_lots).toEqual([]);
+    expect(empty.cattle_losses).toEqual([]);
     const full = buildExportPayload({
       profile: null, properties: [], fields: [], costs: [], prices: [], diagnostics: [], scenarios: [], alerts: [], threads: [], messages: [],
-      cattleLots: [{ id: "l1", name: "Lote 1", user_id: "u1" }], cattleCosts: [{ id: "c1", amount: 10 }], cattleSales: [{ id: "s1", amount: 20 }],
+      cattleLots: [{ id: "l1", name: "Lote 1", user_id: "u1" }], cattleCosts: [{ id: "c1", amount: 10 }], cattleSales: [{ id: "s1", amount: 20 }], cattleLosses: [{ id: "b1", head_count: 1 }],
     });
     expect(full.cattle_lots).toHaveLength(1);
     expect(full.cattle_costs[0]).toEqual({ id: "c1", amount: 10 });
     expect(full.cattle_sales).toHaveLength(1);
+    expect(full.cattle_losses).toHaveLength(1);
     expect(full.cattle_lots[0]).not.toHaveProperty("user_id");
   });
 });

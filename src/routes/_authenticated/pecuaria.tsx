@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
-import { Banknote, Beef, Camera, Mic, Pencil, Plus, Trash2, HandCoins } from "lucide-react";
+import { Banknote, Beef, Camera, Mic, Pencil, Plus, Trash2, HandCoins, HeartCrack } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  addCattleCost, addCattleSale, deleteCattleCost, deleteCattleSale, deleteLot, listCattle, saveLot,
+  addCattleCost, addCattleLoss, addCattleSale, deleteCattleCost, deleteCattleLoss, deleteCattleSale, deleteLot, listCattle, saveLot,
 } from "@/lib/cattle.functions";
 import {
-  CATTLE_COST_CATEGORIES, CATTLE_PHASES, pricePerArroba, summarizeFarm, summarizeLot,
-  type CattleCost, type CattleSale, type Lot,
+  CATTLE_COST_CATEGORIES, CATTLE_PHASES, avgArrobasPerHead, breakEvenPerArroba, pricePerArroba, summarizeFarm, summarizeLot,
+  type CattleCost, type CattleLoss, type CattleSale, type Lot,
 } from "@/lib/cattle";
 import { parseMoney } from "@/lib/cost-import";
 import { VoiceCostDialog } from "@/components/voice-cost-dialog";
@@ -44,6 +44,7 @@ function Page() {
   const delLot = useServerFn(deleteLot);
   const delCost = useServerFn(deleteCattleCost);
   const delSale = useServerFn(deleteCattleSale);
+  const delLoss = useServerFn(deleteCattleLoss);
 
   const [lotOpen, setLotOpen] = useState(false);
   const [editing, setEditing] = useState<Lot | null>(null);
@@ -51,6 +52,8 @@ function Page() {
   const [costLot, setCostLot] = useState<string>("geral");
   const [saleOpen, setSaleOpen] = useState(false);
   const [saleLot, setSaleLot] = useState<string>("");
+  const [lossOpen, setLossOpen] = useState(false);
+  const [lossLot, setLossLot] = useState<string>("");
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
 
@@ -58,9 +61,11 @@ function Page() {
   const lots = (data?.lots ?? []) as Lot[];
   const costs = (data?.costs ?? []) as CattleCost[];
   const sales = (data?.sales ?? []) as CattleSale[];
+  const losses = (data?.losses ?? []) as CattleLoss[];
+  const lossesReady = data?.lossesReady ?? false;
   const today = todayIso();
-  const farm = useMemo(() => summarizeFarm(lots, costs, sales, today), [lots, costs, sales, today]);
-  const activeLots = lots.filter((l) => summarizeLot(l, costs, sales, today).headsLeft > 0);
+  const farm = useMemo(() => summarizeFarm(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
+  const activeLots = lots.filter((l) => summarizeLot(l, costs, sales, today, losses).headsLeft > 0);
 
   async function refresh() { await qc.invalidateQueries({ queryKey: ["cattle"] }); }
   async function run(fn: () => Promise<unknown>, ok: string) {
@@ -130,9 +135,10 @@ function Page() {
 
           <div className="space-y-4">
             {lots.map((lot) => {
-              const s = summarizeLot(lot, costs, sales, today);
+              const s = summarizeLot(lot, costs, sales, today, losses);
               const lotCosts = costs.filter((c) => c.lot_id === lot.id);
               const lotSales = sales.filter((x) => x.lot_id === lot.id);
+              const lotLosses = losses.filter((x) => x.lot_id === lot.id);
               return (
                 <Card key={lot.id}>
                   <CardContent className="space-y-3 p-4">
@@ -144,7 +150,7 @@ function Page() {
                           <Badge variant={s.fullySold ? "secondary" : "default"}>{s.fullySold ? "Vendido" : "Na fazenda"}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {lot.head_count} cabeças · entrada {fmtDate(lot.entry_date)}
+                          {lot.head_count} cabeças{s.headsLost > 0 ? ` (${s.headsLost} baixa${s.headsLost > 1 ? "s" : ""})` : ""} · entrada {fmtDate(lot.entry_date)}
                           {lot.entry_avg_weight_kg ? ` · ${NUM.format(Number(lot.entry_avg_weight_kg))} kg em média` : ""} · {s.days} dias
                         </p>
                       </div>
@@ -175,17 +181,28 @@ function Page() {
                       <p className="text-xs text-muted-foreground">Informe as arrobas na venda para ver o preço da arroba e o custo por arroba.</p>
                     )}
 
+                    {s.headsLeft > 0 && <BreakEven summary={s} defaultArrobas={avgArrobasPerHead(lot.id, sales)} />}
+
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" onClick={() => { setCostLot(lot.id); setCostOpen(true); }}><Banknote className="mr-1.5 h-4 w-4" />Custo</Button>
                       {s.headsLeft > 0 && (
                         <Button size="sm" variant="outline" onClick={() => { setSaleLot(lot.id); setSaleOpen(true); }}><HandCoins className="mr-1.5 h-4 w-4" />Venda</Button>
                       )}
+                      {s.headsLeft > 0 && lossesReady && (
+                        <Button size="sm" variant="outline" onClick={() => { setLossLot(lot.id); setLossOpen(true); }}><HeartCrack className="mr-1.5 h-4 w-4" />Baixa</Button>
+                      )}
                     </div>
 
-                    {(lotCosts.length > 0 || lotSales.length > 0) && (
+                    {(lotCosts.length > 0 || lotSales.length > 0 || lotLosses.length > 0) && (
                       <details className="rounded-md border bg-muted/30 p-3 text-sm">
-                        <summary className="cursor-pointer font-medium">Lançamentos ({lotCosts.length} custos, {lotSales.length} vendas)</summary>
+                        <summary className="cursor-pointer font-medium">Lançamentos ({lotCosts.length} custos, {lotSales.length} vendas{lotLosses.length > 0 ? `, ${lotLosses.length} baixas` : ""})</summary>
                         <ul className="mt-2 space-y-1.5">
+                          {lotLosses.map((x) => (
+                            <li key={x.id} className="flex items-center justify-between gap-2">
+                              <span>{fmtDate(x.date)} · Baixa de {x.head_count} cab.{x.notes ? ` · ${x.notes}` : ""}</span>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir baixa" onClick={() => { if (confirm("Excluir esta baixa?")) run(() => delLoss({ data: { id: x.id } }), "Baixa excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            </li>
+                          ))}
                           {lotSales.map((x) => (
                             <li key={x.id} className="flex items-center justify-between gap-2">
                               <span>{fmtDate(x.date)} · Venda de {x.head_count} cab.{x.arrobas ? ` · ${NUM.format(Number(x.arrobas))} @` : ""}</span>
@@ -241,7 +258,8 @@ function Page() {
       />
       <LotDialog open={lotOpen} onOpenChange={setLotOpen} lot={editing} onSaved={refresh} />
       <CostDialog open={costOpen} onOpenChange={setCostOpen} lots={lots} initialLot={costLot} onSaved={refresh} />
-      <SaleDialog open={saleOpen} onOpenChange={setSaleOpen} lots={activeLots} costs={costs} sales={sales} initialLot={saleLot} onSaved={refresh} />
+      <SaleDialog open={saleOpen} onOpenChange={setSaleOpen} lots={activeLots} costs={costs} sales={sales} losses={losses} initialLot={saleLot} onSaved={refresh} />
+      <LossDialog open={lossOpen} onOpenChange={setLossOpen} lots={activeLots} costs={costs} sales={sales} losses={losses} initialLot={lossLot} onSaved={refresh} />
     </div>
   );
 }
@@ -414,8 +432,8 @@ function CostDialog({ open, onOpenChange, lots, initialLot, onSaved }: { open: b
 }
 
 // ---------------------------------------------------------------- venda
-function SaleDialog({ open, onOpenChange, lots, costs, sales, initialLot, onSaved }: {
-  open: boolean; onOpenChange: (v: boolean) => void; lots: Lot[]; costs: CattleCost[]; sales: CattleSale[]; initialLot: string; onSaved: () => Promise<void>;
+function SaleDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot, onSaved }: {
+  open: boolean; onOpenChange: (v: boolean) => void; lots: Lot[]; costs: CattleCost[]; sales: CattleSale[]; losses: CattleLoss[]; initialLot: string; onSaved: () => Promise<void>;
 }) {
   const add = useServerFn(addCattleSale);
   const [lotId, setLotId] = useState("");
@@ -426,7 +444,7 @@ function SaleDialog({ open, onOpenChange, lots, costs, sales, initialLot, onSave
   const [busy, setBusy] = useState(false);
   const [seed, setSeed] = useState(false);
 
-  const left = (id: string) => { const l = lots.find((x) => x.id === id); return l ? summarizeLot(l, costs, sales, todayIso()).headsLeft : 0; };
+  const left = (id: string) => { const l = lots.find((x) => x.id === id); return l ? summarizeLot(l, costs, sales, todayIso(), losses).headsLeft : 0; };
 
   if (open !== seed) {
     setSeed(open);
@@ -479,6 +497,93 @@ function SaleDialog({ open, onOpenChange, lots, costs, sales, initialLot, onSave
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando..." : "Registrar venda"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------- ponto de equilíbrio
+function BreakEven({ summary, defaultArrobas }: { summary: ReturnType<typeof summarizeLot>; defaultArrobas: number | null }) {
+  const [txt, setTxt] = useState(defaultArrobas ? String(defaultArrobas).replace(".", ",") : "");
+  const per = parseMoney(txt);
+  const be = per !== null && per > 0 ? breakEvenPerArroba(summary, per) : null;
+  return (
+    <div className="rounded-md border border-dashed bg-muted/30 p-3 text-sm">
+      <p className="font-medium">Quanto preciso vender a arroba para não ter prejuízo?</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Label htmlFor={`be-${summary.invested}-${summary.headsLeft}`} className="text-muted-foreground">Arrobas por cabeça na venda</Label>
+        <Input id={`be-${summary.invested}-${summary.headsLeft}`} className="h-8 w-24" inputMode="decimal" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Ex.: 18" />
+      </div>
+      {be === null ? (
+        <p className="mt-2 text-xs text-muted-foreground">Informe as arrobas que espera por cabeça para ver o preço mínimo.</p>
+      ) : be === 0 ? (
+        <p className="mt-2 font-medium text-primary">O que já foi vendido cobriu todo o custo do lote.</p>
+      ) : (
+        <p className="mt-2">Preço mínimo da arroba: <b>{BRL.format(be)}</b> <span className="text-xs text-muted-foreground">(considera o que já foi vendido e as {summary.headsLeft} cabeças que sobraram)</span></p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- baixa
+function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot, onSaved }: {
+  open: boolean; onOpenChange: (v: boolean) => void; lots: Lot[]; costs: CattleCost[]; sales: CattleSale[]; losses: CattleLoss[]; initialLot: string; onSaved: () => Promise<void>;
+}) {
+  const add = useServerFn(addCattleLoss);
+  const [lotId, setLotId] = useState("");
+  const [date, setDate] = useState(todayIso());
+  const [heads, setHeads] = useState("1");
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [seed, setSeed] = useState(false);
+
+  const left = (id: string) => { const l = lots.find((x) => x.id === id); return l ? summarizeLot(l, costs, sales, todayIso(), losses).headsLeft : 0; };
+
+  if (open !== seed) {
+    setSeed(open);
+    if (open) { setLotId(initialLot); setDate(todayIso()); setHeads("1"); setNotes(""); }
+  }
+
+  const headsN = Number.parseInt(heads, 10);
+  const valid = lotId !== "" && headsN > 0 && headsN <= left(lotId) && /^\d{4}-\d{2}-\d{2}$/.test(date);
+
+  async function submit() {
+    if (!valid) return;
+    setBusy(true);
+    try {
+      await add({ data: { lot_id: lotId, date, head_count: headsN, notes: notes.trim() || null } });
+      await onSaved();
+      toast.success("Baixa registrada");
+      onOpenChange(false);
+    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Registrar baixa</DialogTitle>
+          <DialogDescription>Animal que morreu ou se perdeu. O custo do lote continua e passa a ser dividido entre os que sobraram.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Lote</Label>
+            <Select value={lotId} onValueChange={setLotId}>
+              <SelectTrigger><SelectValue placeholder="Escolha o lote" /></SelectTrigger>
+              <SelectContent>{lots.map((l) => <SelectItem key={l.id} value={l.id}>{l.name} ({left(l.id)} cab.)</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label htmlFor="l-heads">Quantas cabeças</Label><Input id="l-heads" inputMode="numeric" value={heads} onChange={(e) => setHeads(e.target.value.replace(/\D/g, ""))} /></div>
+            <div><Label htmlFor="l-date">Data</Label><Input id="l-date" type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} /></div>
+          </div>
+          <div><Label htmlFor="l-notes">O que aconteceu (opcional)</Label><Input id="l-notes" maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex.: picada de cobra, doença" /></div>
+          {headsN > left(lotId) && lotId !== "" && <p className="text-sm font-medium text-amber-700">Este lote só tem {left(lotId)} cabeças na fazenda.</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando..." : "Registrar baixa"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
