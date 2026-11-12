@@ -59,6 +59,7 @@ export type ExportSource = {
   cattleLots?: Row[] | null;
   cattleCosts?: Row[] | null;
   cattleSales?: Row[] | null;
+  cattleLosses?: Row[] | null;
   /** Assinatura do titular — sem identificadores internos de gateway. */
   subscription?: Row | null;
 };
@@ -78,6 +79,7 @@ export type ExportPayload = {
   cattle_lots: Row[];
   cattle_costs: Row[];
   cattle_sales: Row[];
+  cattle_losses: Row[];
   subscription: Row | null;
 };
 
@@ -114,6 +116,7 @@ export function buildExportPayload(src: ExportSource, generatedAt = new Date().t
     cattle_lots: clean(src.cattleLots),
     cattle_costs: clean(src.cattleCosts),
     cattle_sales: clean(src.cattleSales),
+    cattle_losses: clean(src.cattleLosses),
     subscription: src.subscription ? stripForbidden(src.subscription) : null,
   };
 }

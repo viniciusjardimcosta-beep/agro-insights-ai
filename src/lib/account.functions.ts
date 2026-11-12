@@ -29,7 +29,7 @@ export const exportMyData = createServerFn({ method: "POST" })
     });
 
     try {
-      const [profile, properties, fields, costs, prices, diagnostics, scenarios, alerts, threads, messages, subscription, cattleLots, cattleCosts, cattleSales] =
+      const [profile, properties, fields, costs, prices, diagnostics, scenarios, alerts, threads, messages, subscription, cattleLots, cattleCosts, cattleSales, cattleLosses] =
         await Promise.all([
           sb.from("profiles").select("*").eq("id", context.userId).maybeSingle(),
           sb.from("properties").select("*").order("created_at", { ascending: true }),
@@ -46,6 +46,7 @@ export const exportMyData = createServerFn({ method: "POST" })
           sb.from("cattle_lots").select("*").order("created_at", { ascending: true }),
           sb.from("cattle_costs").select("*").order("date", { ascending: true }),
           sb.from("cattle_sales").select("*").order("date", { ascending: true }),
+          sb.from("cattle_losses").select("*").order("date", { ascending: true }),
         ]);
 
       const src: ExportSource = {
@@ -63,6 +64,7 @@ export const exportMyData = createServerFn({ method: "POST" })
         cattleLots: (cattleLots.data ?? []) as ExportSource["cattleLots"],
         cattleCosts: (cattleCosts.data ?? []) as ExportSource["cattleCosts"],
         cattleSales: (cattleSales.data ?? []) as ExportSource["cattleSales"],
+        cattleLosses: (cattleLosses.data ?? []) as ExportSource["cattleLosses"],
       };
 
       const payload = buildExportPayload(src);
