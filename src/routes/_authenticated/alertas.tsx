@@ -71,7 +71,9 @@ function AlertCard({
   const sev = SEV[(alert.severity as keyof typeof SEV) ?? "medium"] ?? SEV.medium;
   const resolved = alert.status === "resolved";
   // Dados que ainda faltam são "próximos passos", não problemas: tom neutro, sem número de pontos assustador.
-  const isNextStep = /^(missing_price|missing_cost):/.test(String((alert as { alert_key?: string }).alert_key ?? ""));
+  const alertKey = String((alert as { alert_key?: string }).alert_key ?? "");
+  const isNextStep = /^(missing_price|missing_cost):/.test(alertKey);
+  const stepCost = /^missing_cost:/.test(alertKey);
   return (
     <div className="space-y-2 rounded-lg border p-4 text-sm">
       <div className="flex items-start justify-between gap-2">
@@ -118,12 +120,22 @@ function AlertCard({
         </div>
       )}
       <div className="flex flex-wrap gap-2 pt-1">
-        {!resolved && alert.action_route && (
+        {!resolved && isNextStep && (
+          // Próximo passo: leva direto à tela já com a ação aberta. Some sozinho quando o dado é lançado.
+          <Button asChild size="sm">
+            {stepCost ? (
+              <Link to={"/custos" as never} search={{ acao: "falar" } as never}>Lançar custo</Link>
+            ) : (
+              <Link to={"/precos" as never} search={{ acao: "novo" } as never}>Cadastrar preço</Link>
+            )}
+          </Button>
+        )}
+        {!resolved && !isNextStep && alert.action_route && (
           <Button asChild size="sm" variant="outline">
             <Link to={alert.action_route as never}>Ver</Link>
           </Button>
         )}
-        {alert.status === "active" && (
+        {alert.status === "active" && !isNextStep && (
           <Button size="sm" disabled={acking} onClick={() => onAck(alert.id)}>
             Reconhecer
           </Button>

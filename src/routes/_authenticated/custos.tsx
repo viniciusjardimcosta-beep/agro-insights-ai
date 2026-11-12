@@ -1,7 +1,7 @@
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Camera, Copy, FileSpreadsheet, Mic, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import { lastCategory, lastTarget, rememberLast } from "@/lib/last-used";
 import { toast } from "sonner";
@@ -27,6 +27,8 @@ const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields()
 
 export const Route = createFileRoute("/_authenticated/custos")({
   head: () => ({ meta: [{ title: "Custos — AgroIntel AI" }] }),
+  // ?acao=falar abre o "Falar custo" direto (vem dos alertas de próximo passo).
+  validateSearch: (s: Record<string, unknown>): { acao?: "falar" } => (s.acao === "falar" ? { acao: "falar" } : {}),
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
@@ -41,6 +43,8 @@ function Page() {
   const saveSplit = useServerFn(createCostSplit);
   const del = useServerFn(deleteCost);
   const undo = useServerFn(undoImportedCosts);
+  const { acao } = Route.useSearch();
+  const navigate = useNavigate({ from: "/custos" });
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -53,6 +57,12 @@ function Page() {
   const [amountStr, setAmountStr] = useState<string>("");
   const [formKey, setFormKey] = useState(0);
   const [category, setCategory] = useState<string>(COST_CATEGORIES[0]);
+
+  useEffect(() => {
+    if (acao !== "falar" || loadingFields) return;
+    if (fields.length > 0) setVoiceOpen(true);
+    navigate({ search: {}, replace: true });
+  }, [acao, loadingFields, fields.length, navigate]);
 
   function openNew() {
     if (fields.length === 0) { toast.error("Cadastre um talhão primeiro"); return; }

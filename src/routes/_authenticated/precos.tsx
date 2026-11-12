@@ -1,8 +1,8 @@
 import { formatDateBR } from "@/lib/format-pt";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ const q = queryOptions({ queryKey: ["prices"], queryFn: () => listPrices() });
 
 export const Route = createFileRoute("/_authenticated/precos")({
   head: () => ({ meta: [{ title: "Preços — AgroIntel AI" }] }),
+  // ?acao=novo abre o "Novo preço" direto (vem dos alertas de próximo passo).
+  validateSearch: (s: Record<string, unknown>): { acao?: "novo" } => (s.acao === "novo" ? { acao: "novo" } : {}),
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
@@ -30,9 +32,17 @@ function Page() {
   const qc = useQueryClient();
   const save = useServerFn(upsertPrice);
   const del = useServerFn(deletePrice);
+  const { acao } = Route.useSearch();
+  const navigate = useNavigate({ from: "/precos" });
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
   const [crop, setCrop] = useState<string>("soja");
+
+  useEffect(() => {
+    if (acao !== "novo" || isLoading) return;
+    setEditing(null); setCrop("soja"); setOpen(true);
+    navigate({ search: {}, replace: true });
+  }, [acao, isLoading, navigate]);
 
   function openNew() { setEditing(null); setCrop("soja"); setOpen(true); }
   function openEdit(p: Price) { setEditing(p); setCrop(p.crop); setOpen(true); }
