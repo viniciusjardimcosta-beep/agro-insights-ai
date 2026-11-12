@@ -141,7 +141,7 @@ function extractAmount(text: string): { amount: number | null; rest: string } {
   return { amount: null, rest: t };
 }
 
-const FILLER = new Set(["os", "as", "um", "uma", "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas", "por", "para", "pra", "e", "a", "o", "com", "foi", "gastei", "gasto", "paguei", "comprei", "lancar", "lancamento", "custo", "valor"]);
+const FILLER = new Set(["os", "as", "um", "uma", "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas", "por", "para", "pra", "e", "a", "o", "com", "foi", "gastei", "gasto", "paguei", "comprei", "lancar", "lancamento", "custo", "valor", "sao", "foram"]);
 const DROP = new Set(["r$", "rs", "reais", "real", "conto", "contos", "hoje", "ontem", "anteontem", "dia", "mil", "todos", "todas", "talhoes", "fazenda", "toda", "inteira", "geral", ...MONTHS]);
 const TALHAO_WORD = /^(?:ta[lr][hi]a?o(?:es|s)?|talhado|talhau|tailao|gleba|lote)$/;
 

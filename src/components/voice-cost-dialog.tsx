@@ -257,6 +257,9 @@ export function VoiceCostDialog({
                   {[...unknownIssues, ...(target === "" && !unknownIssues.some((i) => i.startsWith("Não achei o talhão")) ? [`Escolha o ${noun}`] : [])].join(" · ")}
                 </p>
               )}
+              {issues.includes("Categoria não reconhecida") && category === "Outros" && (
+                <p className="text-sm text-muted-foreground">Não entendi a categoria. Se precisar, escolha acima antes de salvar.</p>
+              )}
               {valid && <p className="text-sm text-muted-foreground">Vai lançar <b>{BRL.format(n)}</b> em <b>{category}</b>.</p>}
             </div>
           )}

@@ -74,9 +74,9 @@ export function parseNotebookResponse(text: string, today: Date = new Date()): N
     if (amount === null || amount <= 0 || amount > 1e9) { ignored++; continue; }
     const description = String(r.description ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
     const date = resolveNotebookDate(r.date, today);
-    const byText = normalizeCategory(`${description} ${r.category ?? ""}`);
+    const byDesc = normalizeCategory(description);
     const asked = normalizeCategory(r.category);
-    const cat = asked.confident && asked.category !== "Outros" ? asked : byText.confident ? byText : asked;
+    const cat = byDesc.confident ? byDesc : asked.confident && asked.category !== "Outros" ? asked : byDesc;
     items.push({
       description,
       amount: Math.round(amount * 100) / 100,

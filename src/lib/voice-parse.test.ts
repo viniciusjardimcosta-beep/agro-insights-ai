@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSpokenCost, wordsToNumber } from "./voice-parse";
+import { cleanDescription, parseSpokenCost, wordsToNumber } from "./voice-parse";
 
 const fields = [{ id: "f1", name: "Talhão 1" }, { id: "f2", name: "Talhão 2" }, { id: "f3", name: "Sede" }];
 const now = new Date(2026, 10, 9); // 09/11/2026
@@ -104,5 +104,11 @@ describe("pecuária: lotes no lugar de talhões", () => {
     const r = parseSpokenCost("arame 1500 reais geral", lots, now);
     expect(r.target).toBe("all");
     expect(r.category).toBe("Cercas e infraestrutura");
+  });
+});
+
+describe("ruído de reconhecimento", () => {
+  it("não guarda 'São' como descrição", () => {
+    expect(cleanDescription("São 1200 geral")).toBe("");
   });
 });
