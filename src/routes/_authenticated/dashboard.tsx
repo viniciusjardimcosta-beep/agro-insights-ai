@@ -12,6 +12,7 @@ import { seedDemoData } from "@/lib/demo.functions";
 import { aggregateFarm, BRL, cropsMissingPrice, NUM } from "@/lib/calc";
 import { ExecutiveReportButton } from "@/components/executive-report-button";
 import { OnboardingCard } from "@/components/onboarding-card";
+import { PecuariaInviteCard } from "@/components/pecuaria-invite-card";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AgroIntel AI" }] }),
@@ -112,6 +113,8 @@ function Dashboard() {
       </div>
 
       {isEmpty && <OnboardingCard />}
+
+      <PecuariaInviteCard />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
