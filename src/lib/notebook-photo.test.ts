@@ -70,3 +70,10 @@ describe("isAlreadyLogged", () => {
   });
   it("sem talhão escolhido não avisa", () => expect(isAlreadyLogged({ date: "2026-11-08", category: "Sementes", amount: 20000 }, "", existing)).toBe(false));
 });
+
+describe("categoria pela descrição", () => {
+  it("roçada vira Cercas e infraestrutura mesmo se a IA disser Serviços contratados", () => {
+    const r = parseNotebookResponse('{"items":[{"description":"Roção","amount":1200,"category":"Serviços contratados"}]}', new Date("2026-11-12"));
+    expect(r.items[0].category).toBe("Cercas e infraestrutura");
+  });
+});
