@@ -20,6 +20,7 @@ export const NOTEBOOK_SYSTEM = `Você lê fotos de cadernos de anotações de cu
 Extraia cada lançamento de custo escrito. Regras:
 - Devolva APENAS um JSON válido, sem markdown: {"items":[{"description":"...","amount":0,"date":"DD/MM ou DD/MM/AAAA ou null","category":"..."}]}
 - description: o que foi comprado/pago, curto (ex.: "Diesel trator", "Semente"). Copie o que está escrito, sem inventar.
+- Quando a letra for ambígua, prefira a palavra mais comum de fazenda (ex.: "Ração" em vez de "Roção", "Sal mineral", "Vacina", "Diesel", "Semente", "Adubo", "Calcário", "Frete", "Arame"). Palavra que não existe em português quase sempre é letra mal lida.
 - amount: número em reais, ponto como decimal e sem separador de milhar (20000 e não 20.000). Se não der para ler o valor com segurança, NÃO inclua o item.
 - date: exatamente como escrita (ex.: "08/11"). Se não houver data naquele lançamento, use null. Nunca invente data.
 - category: uma destas: ${COST_CATEGORY_NAMES.join(", ")}. Se não tiver certeza, use "Outros".

@@ -72,8 +72,15 @@ describe("isAlreadyLogged", () => {
 });
 
 describe("categoria pela descrição", () => {
-  it("roçada vira Cercas e infraestrutura mesmo se a IA disser Serviços contratados", () => {
-    const r = parseNotebookResponse('{"items":[{"description":"Roção","amount":1200,"category":"Serviços contratados"}]}', new Date("2026-11-12"));
+  it("roçada (escrita certa) vira Cercas e infraestrutura mesmo se a IA disser Serviços contratados", () => {
+    const r = parseNotebookResponse('{"items":[{"description":"Roçada","amount":1200,"category":"Serviços contratados"}]}', new Date("2026-11-12"));
     expect(r.items[0].category).toBe("Cercas e infraestrutura");
+  });
+});
+
+describe("ração", () => {
+  it("ração vai para Alimentação mesmo se a IA disser Outros", () => {
+    const r = parseNotebookResponse('{"items":[{"description":"Ração","amount":1200,"category":"Outros"}]}', new Date("2026-11-12"));
+    expect(r.items[0].category).toBe("Alimentação");
   });
 });
