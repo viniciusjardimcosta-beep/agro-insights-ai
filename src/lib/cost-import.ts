@@ -181,7 +181,7 @@ const CATEGORY_KEYWORDS: [(typeof COST_CATEGORY_NAMES)[number], string[]][] = [
   ["Diesel", ["diesel", "combustivel", "s10", "s500", "oleo combust"]],
   ["Arrendamento", ["arrend", "aluguel de terra", "aluguel da terra", "parceria"]],
   ["Mão de obra", ["mao de obra", "salario", "funcionario", "diaria", "empregado", "trabalhador", "equipe", "encargo", "folha", "pagamento de pessoal"]],
-  ["Cercas e infraestrutura", ["cerca", "arame", "moirao", "mourao", "porteira", "tabua", "esticador", "rocada", "rocad", "rocag", "rocao", "curral", "brete", "galpao", "bebedouro", "cocho", "mangueira", "limpeza de campo", "limpeza de pasto", "benfeitoria", "infraestrutura", "dobradica"]],
+  ["Cercas e infraestrutura", ["cerca", "arame", "moirao", "mourao", "porteira", "tabua", "esticador", "rocada", "curral", "brete", "galpao", "bebedouro", "cocho", "mangueira", "limpeza de campo", "limpeza de pasto", "benfeitoria", "infraestrutura", "dobradica"]],
   ["Sanidade", ["vacina", "vermifug", "medicament", "remedio", "veterinari", "carrapat", "antibiotic", "vitamina", "ivermectina", "brucelose", "aftosa", "sanidade", "seringa", "sanitari"]],
   ["Alimentação", ["sal mineral", "mineral", "proteinado", "racao", "silagem", "suplement", "farelo", "feno", "capim", "alimentacao", "nutricao", "trato dos animais"]],
   ["Serviços contratados", ["servico", "terceiriz", "empreit", "alambrador", "contratad", "frete", "prestador"]],
