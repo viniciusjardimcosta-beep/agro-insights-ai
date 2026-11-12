@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { importCosts } from "@/lib/data.functions";
+import { addCattleCosts } from "@/lib/cattle.functions";
 import { getPhotoUsage, readNotebookPhoto } from "@/lib/photo.functions";
 import { COST_CATEGORY_NAMES } from "@/lib/cost-import";
 import { lastTarget } from "@/lib/last-used";
@@ -41,12 +42,16 @@ export function PhotoCostDialog({
   onOpenChange,
   fields,
   costs,
+  cattle = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   fields: FieldLite[];
   costs: CostLite[];
+  /** Pecuária: "fields" são lotes, "todos" vira custo geral da fazenda e o salvamento vai para a pecuária. */
+  cattle?: boolean;
 }) {
+  const addCattle = useServerFn(addCattleCosts);
   const qc = useQueryClient();
   const read = useServerFn(readNotebookPhoto);
   const usage = useServerFn(getPhotoUsage);
@@ -66,7 +71,7 @@ export function PhotoCostDialog({
   useEffect(() => {
     if (!open) return;
     usage().then(setUsed).catch(() => setUsed(null));
-    setTarget((t) => t || lastTarget(fields.map((f) => f.id)) || (fields.length === 1 ? fields[0].id : ""));
+    setTarget((t) => t || (cattle ? "" : lastTarget(fields.map((f) => f.id))) || (fields.length === 1 ? fields[0].id : ""));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function reset() {
@@ -99,7 +104,7 @@ export function PhotoCostDialog({
     () => costs.map((c) => ({ field_id: c.field_id, date: c.date, category: c.category, amount: Number(c.amount) })),
     [costs],
   );
-  const dup = (rows ?? []).map((r) => isAlreadyLogged({ date: r.date, category: r.category, amount: num(r.amountStr) }, target, existing));
+  const dup = (rows ?? []).map((r) => isAlreadyLogged({ date: r.date, category: r.category, amount: num(r.amountStr) }, cattle && target === "all" ? "geral" : target, existing));
   const isPicked = (r: Row, i: number) => (r.picked === null ? !dup[i] : r.picked);
   const chosen = (rows ?? []).filter((r, i) => isPicked(r, i) && num(r.amountStr) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(r.date));
   const total = chosen.reduce((s, r) => s + num(r.amountStr), 0);
@@ -113,6 +118,16 @@ export function PhotoCostDialog({
     if (!canSave) return;
     setBusy(true);
     try {
+      if (cattle) {
+        const out = await addCattle({
+          data: { rows: chosen.map((r) => ({ lot_id: target === "all" ? null : target, category: r.category, description: r.description || null, amount: num(r.amountStr), date: r.date })) },
+        });
+        await qc.invalidateQueries();
+        toast.success(`${out.lines} lançamento(s) salvos`);
+        reset();
+        onOpenChange(false);
+        return;
+      }
       const out = await save({
         data: {
           source: "foto",
@@ -140,7 +155,7 @@ export function PhotoCostDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Lançar custos pela foto do caderno</DialogTitle>
+          <DialogTitle>{cattle ? "Lançar custos da pecuária pela foto do caderno" : "Lançar custos pela foto do caderno"}</DialogTitle>
           <DialogDescription>
             Tire uma foto da página (ou escolha uma da galeria). O app lê o que está escrito e você confere antes de salvar. A foto não fica guardada.
           </DialogDescription>
@@ -172,12 +187,12 @@ export function PhotoCostDialog({
             )}
             {rows.length > 0 && (
               <div>
-                <p className="mb-1 text-sm font-medium">Talhão (vale para todos os itens)</p>
+                <p className="mb-1 text-sm font-medium">{cattle ? "Lote (vale para todos os itens)" : "Talhão (vale para todos os itens)"}</p>
                 <div className="flex flex-wrap gap-2">
                   {fields.map((f) => (
                     <Button key={f.id} type="button" size="sm" variant={target === f.id ? "default" : "outline"} onClick={() => setTarget(f.id)}>{f.name}</Button>
                   ))}
-                  <Button type="button" size="sm" variant={target === "all" ? "default" : "outline"} onClick={() => setTarget("all")}>Todos (pela área)</Button>
+                  <Button type="button" size="sm" variant={target === "all" ? "default" : "outline"} onClick={() => setTarget("all")}>{cattle ? "Geral da fazenda" : "Todos (pela área)"}</Button>
                 </div>
               </div>
             )}
@@ -217,7 +232,7 @@ export function PhotoCostDialog({
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" onClick={reset}>Ler outra foto</Button>
               <Button size="lg" className="font-semibold" disabled={!canSave} onClick={confirm}>
-                {busy ? "Salvando..." : target === "" && chosen.length > 0 ? "Escolha o talhão" : `Salvar ${chosen.length} lançamento(s) · ${BRL.format(total)}`}
+                {busy ? "Salvando..." : target === "" && chosen.length > 0 ? (cattle ? "Escolha o lote" : "Escolha o talhão") : `Salvar ${chosen.length} lançamento(s) · ${BRL.format(total)}`}
               </Button>
             </div>
           </div>

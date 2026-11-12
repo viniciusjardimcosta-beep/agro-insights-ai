@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
-import { Banknote, Beef, Pencil, Plus, Trash2, HandCoins } from "lucide-react";
+import { Banknote, Beef, Camera, Mic, Pencil, Plus, Trash2, HandCoins } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import {
   type CattleCost, type CattleSale, type Lot,
 } from "@/lib/cattle";
 import { parseMoney } from "@/lib/cost-import";
+import { VoiceCostDialog } from "@/components/voice-cost-dialog";
+import { PhotoCostDialog } from "@/components/photo-cost-dialog";
 import { BRL, NUM } from "@/lib/calc";
 
 const qCattle = queryOptions({ queryKey: ["cattle"], queryFn: () => listCattle() });
@@ -49,6 +51,8 @@ function Page() {
   const [costLot, setCostLot] = useState<string>("geral");
   const [saleOpen, setSaleOpen] = useState(false);
   const [saleLot, setSaleLot] = useState<string>("");
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   const data = q.data;
   const lots = (data?.lots ?? []) as Lot[];
@@ -83,12 +87,18 @@ function Page() {
           <h1 className="text-3xl font-bold">Pecuária</h1>
           <p className="text-sm text-muted-foreground">Recria e engorda: cadastre o lote, lance os custos e registre a venda. O app mostra o resultado e o custo por arroba.</p>
         </div>
-        <div className="grid grid-cols-2 gap-2 md:flex">
-          <Button className="col-span-2 font-semibold md:col-span-1" onClick={() => { setEditing(null); setLotOpen(true); }}>
+        <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
+          <Button className="col-span-2 font-semibold md:col-span-1" variant={lots.length === 0 ? "default" : "outline"} onClick={() => { setEditing(null); setLotOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" />Novo lote
           </Button>
+          <Button className="col-span-2 font-semibold md:col-span-1" variant={lots.length === 0 ? "outline" : "default"} onClick={() => setVoiceOpen(true)}>
+            <Mic className="mr-2 h-4 w-4" />Falar custo
+          </Button>
+          <Button variant="outline" onClick={() => setPhotoOpen(true)}>
+            <Camera className="mr-2 h-4 w-4" />Foto do caderno
+          </Button>
           <Button variant="outline" onClick={() => { setCostLot(activeLots[0]?.id ?? "geral"); setCostOpen(true); }}>
-            <Banknote className="mr-2 h-4 w-4" />Lançar custo
+            <Banknote className="mr-2 h-4 w-4" />Digitar custo
           </Button>
           <Button variant="outline" disabled={activeLots.length === 0} onClick={() => { setSaleLot(activeLots[0]?.id ?? ""); setSaleOpen(true); }}>
             <HandCoins className="mr-2 h-4 w-4" />Registrar venda
@@ -161,6 +171,10 @@ function Page() {
                       )}
                     </div>
 
+                    {s.headsSold > 0 && s.arrobasSold === null && (
+                      <p className="text-xs text-muted-foreground">Informe as arrobas na venda para ver o preço da arroba e o custo por arroba.</p>
+                    )}
+
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" onClick={() => { setCostLot(lot.id); setCostOpen(true); }}><Banknote className="mr-1.5 h-4 w-4" />Custo</Button>
                       {s.headsLeft > 0 && (
@@ -217,6 +231,14 @@ function Page() {
         </>
       )}
 
+      <VoiceCostDialog open={voiceOpen} onOpenChange={setVoiceOpen} fields={lots.map((l) => ({ id: l.id, name: l.name }))} cattle />
+      <PhotoCostDialog
+        open={photoOpen}
+        onOpenChange={setPhotoOpen}
+        fields={lots.map((l) => ({ id: l.id, name: l.name }))}
+        costs={costs.map((c) => ({ field_id: c.lot_id ?? "geral", date: c.date, category: c.category, amount: c.amount }))}
+        cattle
+      />
       <LotDialog open={lotOpen} onOpenChange={setLotOpen} lot={editing} onSaved={refresh} />
       <CostDialog open={costOpen} onOpenChange={setCostOpen} lots={lots} initialLot={costLot} onSaved={refresh} />
       <SaleDialog open={saleOpen} onOpenChange={setSaleOpen} lots={activeLots} costs={costs} sales={sales} initialLot={saleLot} onSaved={refresh} />

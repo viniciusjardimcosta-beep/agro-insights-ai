@@ -87,3 +87,22 @@ describe("parseSpokenCost", () => {
     expect(r.issues.join(" ")).not.toContain("talhão");
   });
 });
+
+describe("pecuária: lotes no lugar de talhões", () => {
+  const lots = [{ id: "L1", name: "Garrotes de março" }, { id: "L2", name: "Lote 2" }];
+  const now = new Date(2026, 10, 12);
+  it("acha o lote pela última palavra do nome", () => {
+    const r = parseSpokenCost("sal mineral 800 reais lote março", lots, now);
+    expect(r.target).toBe("L1");
+    expect(r.amount).toBe(800);
+    expect(r.category).toBe("Alimentação");
+  });
+  it("acha o lote pelo nome completo", () => {
+    expect(parseSpokenCost("vacina 300 reais garrotes de março", lots, now).target).toBe("L1");
+  });
+  it("'geral' vira custo geral da fazenda", () => {
+    const r = parseSpokenCost("arame 1500 reais geral", lots, now);
+    expect(r.target).toBe("all");
+    expect(r.category).toBe("Cercas e infraestrutura");
+  });
+});
