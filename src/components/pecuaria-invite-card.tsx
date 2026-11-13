@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Beef } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 import { getActivities, setPecuariaEnabled } from "@/lib/cattle.functions";
 
-const DISMISS_KEY = "agrointel:pecuaria-invite-dismissed";
+// A dispensa vale por conta: quem cria outra conta no mesmo aparelho volta a ver o convite.
+const dismissKey = (userId: string) => `agrointel:pecuaria-invite-dismissed:${userId}`;
 
-function wasDismissed(): boolean {
-  try { return window.localStorage.getItem(DISMISS_KEY) === "1"; } catch { return false; }
+function wasDismissed(userId: string): boolean {
+  try { return window.localStorage.getItem(dismissKey(userId)) === "1"; } catch { return false; }
 }
 
 /** Convite para quem ainda não ligou a pecuária: um toque liga e já leva à tela. Some para quem já usa ou dispensou. */
@@ -19,9 +21,21 @@ export function PecuariaInviteCard() {
   const navigate = useNavigate();
   const q = useQuery({ queryKey: ["activities"], queryFn: () => getActivities(), staleTime: 300_000 });
   const [busy, setBusy] = useState(false);
-  const [hidden, setHidden] = useState(() => (typeof window === "undefined" ? true : wasDismissed()));
+  const [userId, setUserId] = useState<string | null>(null);
+  const [hidden, setHidden] = useState(false);
 
-  if (hidden || !q.data || q.data.pecuaria) return null;
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!alive) return;
+      const id = data.user?.id ?? null;
+      setUserId(id);
+      setHidden(id ? wasDismissed(id) : true);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  if (!userId || hidden || !q.data || q.data.pecuaria) return null;
 
   async function enable() {
     setBusy(true);
@@ -37,7 +51,9 @@ export function PecuariaInviteCard() {
   }
 
   function dismiss() {
-    try { window.localStorage.setItem(DISMISS_KEY, "1"); } catch { /* sem armazenamento: some só nesta visita */ }
+    if (userId) {
+      try { window.localStorage.setItem(dismissKey(userId), "1"); } catch { /* sem armazenamento: some só nesta visita */ }
+    }
     setHidden(true);
   }
 
