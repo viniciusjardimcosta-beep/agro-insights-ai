@@ -179,7 +179,7 @@ function Page() {
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-lg font-semibold">{lot.name}</h2>
                           <Badge variant="outline">{PHASE_LABEL[lot.phase] ?? lot.phase}</Badge>
-                          {lot.sex && <Badge variant="outline">{SEX_LABEL[lot.sex]}{ageMonthsNow(lot, today) !== null ? ` · ${ageMonthsNow(lot, today)} meses` : ""}</Badge>}
+                          {lot.sex && <Badge variant="outline">{SEX_LABEL[lot.sex]}{ageMonthsNow(lot, today) !== null ? ` · ${ageMonthsNow(lot, today)} ${ageMonthsNow(lot, today) === 1 ? "mês" : "meses"}` : ""}</Badge>}
                           <Badge variant={s.fullySold ? "secondary" : "default"}>{s.fullySold ? "Vendido" : "Na fazenda"}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -228,7 +228,7 @@ function Page() {
 
                     {(lotCosts.length > 0 || lotSales.length > 0 || lotLosses.length > 0) && (
                       <details className="rounded-md border bg-muted/30 p-3 text-sm">
-                        <summary className="cursor-pointer font-medium">Lançamentos ({lotCosts.length} custos, {lotSales.length} vendas{lotLosses.length > 0 ? `, ${lotLosses.length} baixas` : ""})</summary>
+                        <summary className="cursor-pointer font-medium">Lançamentos ({lotCosts.length} custos, {lotSales.length} vendas{lotLosses.length > 0 ? `, ${lotLosses.length} ${lotLosses.length === 1 ? "baixa" : "baixas"}` : ""})</summary>
                         <ul className="mt-2 space-y-1.5">
                           {lotLosses.map((x) => (
                             <li key={x.id} className="flex items-center justify-between gap-2">
@@ -375,7 +375,7 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
           const g = groups[i];
           const sx = g.sex === "macho" || g.sex === "femea" ? g.sex : null;
           const ag = g.age === "" ? null : Math.min(360, Number.parseInt(g.age, 10));
-          const label = [sx ? SEX_LABEL[sx] : null, ag !== null ? `${ag} meses` : null].filter(Boolean).join(" ");
+          const label = [sx ? SEX_LABEL[sx] : null, ag !== null ? `${ag} ${ag === 1 ? "mês" : "meses"}` : null].filter(Boolean).join(" ");
           await save({ data: { name: label ? `${name.trim()} – ${label}` : name.trim(), phase: phase as (typeof CATTLE_PHASES)[number], head_count: groupHeads[i], entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: amounts[i], sex: sx, entry_age_months: ag } });
         }
         await onSaved();
