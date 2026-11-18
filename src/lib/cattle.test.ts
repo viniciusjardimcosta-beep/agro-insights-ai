@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageBracket, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, daysBetween, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock, splitByHeads, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "./cattle";
+import { ageBracket, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, daysBetween, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock, offspringBySire, splitByHeads, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "./cattle";
 
 const lot: Lot = { id: "L1", name: "Lote 1", phase: "engorda", head_count: 10, entry_date: "2026-06-01", entry_avg_weight_kg: 300, purchase_amount: 30000, status: "ativo", notes: null };
 const costs: CattleCost[] = [
@@ -192,5 +192,24 @@ describe("dividir o valor pago entre grupos", () => {
     expect(r[1]).toBe(75000);
     const q = splitByHeads(100, [1, 1, 1]);
     expect(Math.round((q[0] + q[1] + q[2]) * 100)).toBe(10000);
+  });
+});
+
+describe("filhos por touro", () => {
+  const mk = (o: Partial<Lot> & { id: string }): Lot => ({ name: o.id, phase: "recria", head_count: 5, entry_date: "2026-01-01", entry_avg_weight_kg: null, purchase_amount: 0, status: "ativo", notes: null, ...o }) as Lot;
+  it("agrupa por pai, ignora maiúsculas e o que já saiu", () => {
+    const lots = [
+      mk({ id: "a", sex: "femea", sire_name: "Tufão", head_count: 4 }),
+      mk({ id: "b", sex: "femea", sire_name: "tufão", head_count: 3 }),
+      mk({ id: "c", sex: "macho", sire_name: "Tufão", head_count: 2 }),
+      mk({ id: "d", sex: "femea", sire_name: "Rei", head_count: 5 }),
+      mk({ id: "e", sex: "femea", head_count: 9 }),
+    ];
+    const sales: CattleSale[] = [{ id: "s", lot_id: "d", date: "2026-02-01", head_count: 5, arrobas: null, amount: 1 }];
+    const r = offspringBySire(lots, [], sales, "2026-03-01");
+    expect(r).toHaveLength(1);
+    expect(r[0].sire).toBe("Tufão");
+    expect(r[0].femeas).toBe(7);
+    expect(r[0].machos).toBe(2);
   });
 });

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
-import { Banknote, Beef, Camera, Mic, Pencil, Plus, Trash2, HandCoins, HeartCrack } from "lucide-react";
+import { Banknote, Beef, Camera, Mic, Pencil, Plus, Trash2, HandCoins, HeartCrack, Baby } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  addCattleCost, addCattleLoss, addCattleSale, deleteCattleCost, deleteCattleLoss, deleteCattleSale, deleteLot, listCattle, saveLot,
+  addCattleBirth, addCattleCost, addCattleLoss, addCattleSale, deleteCattleCost, deleteCattleLoss, deleteCattleSale, deleteLot, listCattle, saveLot,
 } from "@/lib/cattle.functions";
 import {
-  CATTLE_COST_CATEGORIES, CATTLE_PHASES, LOSS_CAUSES, ageMonthsNow, avgArrobasPerHead, splitByHeads, breakEvenPerArroba, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock,
+  CATTLE_COST_CATEGORIES, CATTLE_PHASES, LOSS_CAUSES, ageMonthsNow, avgArrobasPerHead, splitByHeads, breakEvenPerArroba, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock, offspringBySire,
   type CattleCost, type CattleLoss, type CattleSale, type Lot,
 } from "@/lib/cattle";
 import { parseMoney } from "@/lib/cost-import";
@@ -54,6 +54,8 @@ function Page() {
   const [costLot, setCostLot] = useState<string>("geral");
   const [saleOpen, setSaleOpen] = useState(false);
   const [saleLot, setSaleLot] = useState<string>("");
+  const [birthOpen, setBirthOpen] = useState(false);
+  const [birthLot, setBirthLot] = useState<string>("");
   const [lossOpen, setLossOpen] = useState(false);
   const [lossLot, setLossLot] = useState<string>("");
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -67,6 +69,7 @@ function Page() {
   const lossesReady = data?.lossesReady ?? false;
   const today = todayIso();
   const stock = useMemo(() => summarizeStock(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
+  const sires = useMemo(() => offspringBySire(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
   const farm = useMemo(() => summarizeFarm(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
   const activeLots = lots.filter((l) => summarizeLot(l, costs, sales, today, losses).headsLeft > 0);
 
@@ -108,6 +111,11 @@ function Page() {
           <Button variant="outline" onClick={() => { setCostLot(activeLots[0]?.id ?? "geral"); setCostOpen(true); }}>
             <Banknote className="mr-2 h-4 w-4" />Digitar custo
           </Button>
+          {activeLots.some((l) => l.phase === "cria") && (
+            <Button variant="outline" onClick={() => { setBirthLot(activeLots.find((l) => l.phase === "cria")?.id ?? ""); setBirthOpen(true); }}>
+              <Baby className="mr-2 h-4 w-4" />Nascimento
+            </Button>
+          )}
           <Button variant="outline" disabled={activeLots.length === 0} onClick={() => { setSaleLot(activeLots[0]?.id ?? ""); setSaleOpen(true); }}>
             <HandCoins className="mr-2 h-4 w-4" />Registrar venda
           </Button>
@@ -165,6 +173,20 @@ function Page() {
             </Card>
           )}
 
+          {sires.some((g) => g.femeas > 0) && (
+            <Card>
+              <CardContent className="space-y-2 p-4">
+                <h2 className="font-semibold">Cuidado na cobertura</h2>
+                <p className="text-xs text-muted-foreground">Filhas de cada touro que ainda estão na fazenda. Não use o pai para cobrir as filhas.</p>
+                <ul className="space-y-1 text-sm">
+                  {sires.filter((g) => g.femeas > 0).map((g) => (
+                    <li key={g.sire}><span className="font-medium">{g.sire}</span>: {NUM.format(g.femeas)} {g.femeas === 1 ? "filha" : "filhas"}{g.machos > 0 ? ` · ${NUM.format(g.machos)} ${g.machos === 1 ? "filho" : "filhos"}` : ""}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="space-y-4">
             {lots.map((lot) => {
               const s = summarizeLot(lot, costs, sales, today, losses);
@@ -179,6 +201,7 @@ function Page() {
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-lg font-semibold">{lot.name}</h2>
                           <Badge variant="outline">{PHASE_LABEL[lot.phase] ?? lot.phase}</Badge>
+                          {lot.born_here && <Badge variant="outline">Nascido aqui{lot.sire_name ? ` · Pai: ${lot.sire_name}` : ""}</Badge>}
                           {lot.sex && <Badge variant="outline">{SEX_LABEL[lot.sex]}{ageMonthsNow(lot, today) !== null ? ` · ${ageMonthsNow(lot, today)} ${ageMonthsNow(lot, today) === 1 ? "mês" : "meses"}` : ""}</Badge>}
                           <Badge variant={s.fullySold ? "secondary" : "default"}>{s.fullySold ? "Vendido" : "Na fazenda"}</Badge>
                         </div>
@@ -220,6 +243,9 @@ function Page() {
                       <Button size="sm" variant="outline" onClick={() => { setCostLot(lot.id); setCostOpen(true); }}><Banknote className="mr-1.5 h-4 w-4" />Custo</Button>
                       {s.headsLeft > 0 && (
                         <Button size="sm" variant="outline" onClick={() => { setSaleLot(lot.id); setSaleOpen(true); }}><HandCoins className="mr-1.5 h-4 w-4" />Venda</Button>
+                      )}
+                      {s.headsLeft > 0 && lot.phase === "cria" && (
+                        <Button size="sm" variant="outline" onClick={() => { setBirthLot(lot.id); setBirthOpen(true); }}><Baby className="mr-1.5 h-4 w-4" />Nascimento</Button>
                       )}
                       {s.headsLeft > 0 && lossesReady && (
                         <Button size="sm" variant="outline" onClick={() => { setLossLot(lot.id); setLossOpen(true); }}><HeartCrack className="mr-1.5 h-4 w-4" />Baixa</Button>
@@ -292,6 +318,7 @@ function Page() {
       <LotDialog open={lotOpen} onOpenChange={setLotOpen} lot={editing} onSaved={refresh} />
       <CostDialog open={costOpen} onOpenChange={setCostOpen} lots={lots} initialLot={costLot} onSaved={refresh} />
       <SaleDialog open={saleOpen} onOpenChange={setSaleOpen} lots={activeLots} costs={costs} sales={sales} losses={losses} initialLot={saleLot} onSaved={refresh} />
+      <BirthDialog open={birthOpen} onOpenChange={setBirthOpen} dams={activeLots.filter((l) => l.phase === "cria")} sires={[...new Set([...lots.filter((l) => l.phase === "reprodutor").map((l) => l.name), ...lots.map((l) => l.sire_name ?? "").filter(Boolean)])]} initialLot={birthLot} onSaved={refresh} />
       <LossDialog open={lossOpen} onOpenChange={setLossOpen} lots={activeLots} costs={costs} sales={sales} losses={losses} initialLot={lossLot} onSaved={refresh} />
     </div>
   );
@@ -700,6 +727,80 @@ function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando..." : "Registrar baixa"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------- nascimento
+function BirthDialog({ open, onOpenChange, dams, sires, initialLot, onSaved }: {
+  open: boolean; onOpenChange: (v: boolean) => void; dams: Lot[]; sires: string[]; initialLot: string; onSaved: () => Promise<void>;
+}) {
+  const add = useServerFn(addCattleBirth);
+  const [damId, setDamId] = useState("");
+  const [date, setDate] = useState(todayIso());
+  const [sex, setSex] = useState<"macho" | "femea">("femea");
+  const [heads, setHeads] = useState("1");
+  const [sire, setSire] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [seed, setSeed] = useState(false);
+
+  if (open !== seed) {
+    setSeed(open);
+    if (open) { setDamId(initialLot); setDate(todayIso()); setSex("femea"); setHeads("1"); setSire(""); }
+  }
+
+  const headsN = Number.parseInt(heads, 10);
+  const valid = damId !== "" && headsN > 0 && /^\d{4}-\d{2}-\d{2}$/.test(date);
+
+  async function submit() {
+    if (!valid) return;
+    setBusy(true);
+    try {
+      await add({ data: { dam_lot_id: damId, date, sex, head_count: headsN, sire_name: sire.trim() || null } });
+      await onSaved();
+      toast.success(sex === "femea" ? "Bezerra registrada" : "Bezerro registrado");
+      onOpenChange(false);
+    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Registrar nascimento</DialogTitle>
+          <DialogDescription>O bezerro entra no estoque com a data de nascimento e o touro pai.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Matrizes (mãe)</Label>
+            <Select value={damId} onValueChange={setDamId}>
+              <SelectTrigger><SelectValue placeholder="Escolha o lote de matrizes" /></SelectTrigger>
+              <SelectContent>{dams.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Sexo</Label>
+            <div className="mt-1 flex gap-2">
+              <Button type="button" variant={sex === "femea" ? "default" : "outline"} onClick={() => setSex("femea")}>Fêmea</Button>
+              <Button type="button" variant={sex === "macho" ? "default" : "outline"} onClick={() => setSex("macho")}>Macho</Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label htmlFor="b-heads">Quantos nasceram</Label><Input id="b-heads" inputMode="numeric" value={heads} onChange={(e) => setHeads(e.target.value.replace(/\D/g, ""))} /></div>
+            <div><Label htmlFor="b-date">Data de nascimento</Label><Input id="b-date" type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} /></div>
+          </div>
+          <div>
+            <Label htmlFor="b-sire">Touro pai (opcional)</Label>
+            <Input id="b-sire" list="b-sires" maxLength={80} value={sire} onChange={(e) => setSire(e.target.value)} placeholder="Nome ou brinco do touro" autoComplete="off" />
+            <datalist id="b-sires">{sires.map((n) => <option key={n} value={n} />)}</datalist>
+            <p className="mt-1 text-xs text-muted-foreground">Para fêmeas, o app mostra as filhas de cada touro e ajuda a evitar cobertura com o pai.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando..." : "Registrar nascimento"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

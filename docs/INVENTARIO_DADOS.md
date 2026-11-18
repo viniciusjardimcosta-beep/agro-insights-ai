@@ -111,7 +111,7 @@ Dados no Stripe (cliente, faturas) seguem as regras do Stripe e podem ter obriga
 
 Tabelas novas, todas por usuário, com RLS (`auth.uid() = user_id`) e exclusão em cascata ao encerrar a conta:
 
-- `cattle_lots`: lotes de animais (nome, fase cria/recria/engorda/reprodutor, cabeças, data e valor de compra, peso médio, sexo e idade na entrada — estes três opcionais).
+- `cattle_lots`: lotes de animais (nome, fase cria/recria/engorda/reprodutor, cabeças, data e valor de compra, peso médio, sexo e idade na entrada — estes três opcionais; nascimentos: nascido na fazenda, nome do touro pai e lote de matrizes da mãe).
 - `cattle_costs`: custos de um lote ou gerais da fazenda (categoria, descrição, valor, data).
 - `cattle_sales`: vendas (lote, data, cabeças, arrobas opcionais, valor).
 - `cattle_losses`: baixas de animais (lote, data, cabeças, causa opcional: morte/roubo/sumiço/outro, observação opcional).

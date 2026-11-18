@@ -25,6 +25,8 @@ export type Lot = {
   entry_avg_weight_kg: number | null; purchase_amount: number; status: string; notes: string | null;
   /** Detalhes opcionais do rebanho: sem eles o lote só não entra no quadro de estoque por idade e sexo. */
   sex?: CattleSex | null; entry_age_months?: number | null;
+  /** Nascimento na fazenda: touro pai (texto livre) e lote de matrizes da mãe. */
+  born_here?: boolean; sire_name?: string | null; dam_lot_id?: string | null;
 };
 export type CattleSex = "macho" | "femea";
 export type CattleCost = { id: string; lot_id: string | null; category: string; description: string | null; amount: number; date: string };
@@ -214,4 +216,22 @@ export function splitByHeads(total: number, heads: number[]): number[] {
   const parts = heads.map((h) => Math.floor((cents * h) / sum));
   parts[parts.length - 1] += cents - parts.reduce((a, b) => a + b, 0);
   return parts.map((c) => c / 100);
+}
+
+export type SireGroup = { sire: string; femeas: number; machos: number };
+
+/** Filhas (e filhos) de cada touro que ainda estão na fazenda. Serve para não cobrir filha com o pai. */
+export function offspringBySire(lots: Lot[], costs: CattleCost[], sales: CattleSale[], todayIso: string, losses: CattleLoss[] = []): SireGroup[] {
+  const map = new Map<string, SireGroup>();
+  for (const lot of lots) {
+    const sire = lot.sire_name?.trim();
+    if (!sire) continue;
+    const left = summarizeLot(lot, costs, sales, todayIso, losses).headsLeft;
+    if (left <= 0) continue;
+    const key = sire.toLowerCase();
+    const g = map.get(key) ?? { sire, femeas: 0, machos: 0 };
+    if (lot.sex === "femea") g.femeas += left; else g.machos += left;
+    map.set(key, g);
+  }
+  return [...map.values()].sort((a, b) => b.femeas - a.femeas || a.sire.localeCompare(b.sire));
 }
