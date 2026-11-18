@@ -92,6 +92,8 @@ function SettingsPage() {
         <p className="text-muted-foreground">Portabilidade, privacidade e encerramento da conta.</p>
       </div>
 
+      <AccountCard />
+
       <SubscriptionSummaryCard />
 
       <ActivitiesCard />
@@ -226,6 +228,27 @@ function ActivitiesCard() {
           </div>
           <Switch checked={on} disabled={busy || q.isLoading} onCheckedChange={toggle} aria-label="Ligar a pecuária" />
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccountCard() {
+  const q = useQuery({
+    queryKey: ["account-info"],
+    queryFn: async () => (await supabase.auth.getUser()).data.user,
+    staleTime: 60_000,
+  });
+  const u = q.data;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Minha conta</CardTitle>
+        <CardDescription>Os dados com que você entrou no app.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-1 text-sm">
+        <p><span className="text-muted-foreground">E-mail: </span><span className="font-medium">{u?.email ?? (q.isLoading ? "Carregando..." : "—")}</span></p>
+        {u?.created_at && <p><span className="text-muted-foreground">Conta criada em: </span>{new Date(u.created_at).toLocaleDateString("pt-BR")}</p>}
       </CardContent>
     </Card>
   );
