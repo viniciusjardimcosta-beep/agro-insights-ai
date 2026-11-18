@@ -15,7 +15,7 @@ import {
   addCattleCost, addCattleLoss, addCattleSale, deleteCattleCost, deleteCattleLoss, deleteCattleSale, deleteLot, listCattle, saveLot,
 } from "@/lib/cattle.functions";
 import {
-  CATTLE_COST_CATEGORIES, CATTLE_PHASES, LOSS_CAUSES, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock,
+  CATTLE_COST_CATEGORIES, CATTLE_PHASES, LOSS_CAUSES, ageMonthsNow, avgArrobasPerHead, splitByHeads, breakEvenPerArroba, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock,
   type CattleCost, type CattleLoss, type CattleSale, type Lot,
 } from "@/lib/cattle";
 import { parseMoney } from "@/lib/cost-import";
@@ -329,6 +329,8 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
   const [paid, setPaid] = useState("");
   const [sex, setSex] = useState<string>("");
   const [ageM, setAgeM] = useState("");
+  // Vários grupos (sexo + idade + quantidade) de uma vez; cada grupo vira um lote. Só para lote novo.
+  const [groups, setGroups] = useState<{ sex: string; age: string; heads: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [seed, setSeed] = useState<string | null>(null);
 
@@ -344,14 +346,17 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
       setWeight(lot?.entry_avg_weight_kg ? String(lot.entry_avg_weight_kg).replace(".", ",") : "");
       setPaid(lot ? String(lot.purchase_amount).replace(".", ",") : "");
       setSex(lot?.sex ?? "");
+      setGroups([]);
       setAgeM(lot?.entry_age_months !== null && lot?.entry_age_months !== undefined ? String(lot.entry_age_months) : "");
     }
   }
 
-  const headsN = Number.parseInt(heads, 10);
+  const useGroups = !lot && groups.length > 0;
+  const groupHeads = groups.map((g) => Number.parseInt(g.heads, 10) || 0);
+  const headsN = useGroups ? groupHeads.reduce((a, b) => a + b, 0) : Number.parseInt(heads, 10);
   const paidN = parseMoney(paid);
   const weightN = weight.trim() === "" ? null : parseMoney(weight);
-  const valid = name.trim() !== "" && headsN > 0 && paidN !== null && /^\d{4}-\d{2}-\d{2}$/.test(entry) && (weight.trim() === "" || (weightN !== null && weightN > 0));
+  const valid = name.trim() !== "" && headsN > 0 && (!useGroups || groupHeads.every((h) => h > 0)) && paidN !== null && /^\d{4}-\d{2}-\d{2}$/.test(entry) && (weight.trim() === "" || (weightN !== null && weightN > 0));
 
   // Só envia sexo/idade se o produtor mexeu nesses campos (ou se o lote já tinha): o modo simples não muda nada.
   function detailFields() {
@@ -364,6 +369,20 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
     if (!valid || paidN === null) return;
     setBusy(true);
     try {
+      if (useGroups) {
+        const amounts = splitByHeads(paidN, groupHeads);
+        for (let i = 0; i < groups.length; i++) {
+          const g = groups[i];
+          const sx = g.sex === "macho" || g.sex === "femea" ? g.sex : null;
+          const ag = g.age === "" ? null : Math.min(360, Number.parseInt(g.age, 10));
+          const label = [sx ? SEX_LABEL[sx] : null, ag !== null ? `${ag} meses` : null].filter(Boolean).join(" ");
+          await save({ data: { name: label ? `${name.trim()} – ${label}` : name.trim(), phase: phase as (typeof CATTLE_PHASES)[number], head_count: groupHeads[i], entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: amounts[i], sex: sx, entry_age_months: ag } });
+        }
+        await onSaved();
+        toast.success(`${groups.length} lotes cadastrados`);
+        onOpenChange(false);
+        return;
+      }
       await save({ data: { id: lot?.id, name: name.trim(), phase: phase as (typeof CATTLE_PHASES)[number], head_count: headsN, entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: paidN, ...detailFields() } });
       await onSaved();
       toast.success(lot ? "Lote atualizado" : "Lote cadastrado");
@@ -388,17 +407,17 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
                 <SelectContent>{CATTLE_PHASES.map((p) => <SelectItem key={p} value={p}>{PHASE_LABEL[p]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label htmlFor="lot-heads">Cabeças</Label><Input id="lot-heads" inputMode="numeric" value={heads} onChange={(e) => setHeads(e.target.value.replace(/\D/g, ""))} placeholder="Ex.: 50" /></div>
+            <div><Label htmlFor="lot-heads">Cabeças</Label><Input id="lot-heads" inputMode="numeric" value={useGroups ? String(headsN) : heads} disabled={useGroups} onChange={(e) => setHeads(e.target.value.replace(/\D/g, ""))} placeholder="Ex.: 50" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label htmlFor="lot-date">Data de entrada</Label><Input id="lot-date" type="date" value={entry} max={todayIso()} onChange={(e) => setEntry(e.target.value)} /></div>
             <div><Label htmlFor="lot-weight">Peso médio (kg), se souber</Label><Input id="lot-weight" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Ex.: 300" /></div>
           </div>
           <div><Label htmlFor="lot-paid">Valor total pago no lote (R$)</Label><Input id="lot-paid" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="Ex.: 150.000" /></div>
-          <details className="rounded-md border p-3" open={sex !== "" || ageM !== ""}>
+          <details className="rounded-md border p-3" open={sex !== "" || ageM !== "" || groups.length > 0}>
             <summary className="cursor-pointer text-sm font-medium">Mais detalhes (opcional)</summary>
             <p className="mt-2 text-xs text-muted-foreground">Informe sexo e idade para ver o estoque por faixa de idade. Se não quiser, deixe em branco: nada muda.</p>
-            <div className="mt-3 grid grid-cols-2 gap-3">
+            {!useGroups && <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <Label>Sexo</Label>
                 <Select value={sex === "" ? "nenhum" : sex} onValueChange={(v) => setSex(v === "nenhum" ? "" : v)}>
@@ -411,7 +430,33 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
                 </Select>
               </div>
               <div><Label htmlFor="lot-age">Idade na entrada (meses)</Label><Input id="lot-age" inputMode="numeric" value={ageM} onChange={(e) => setAgeM(e.target.value.replace(/\D/g, "").slice(0, 3))} placeholder="Ex.: 10" /></div>
-            </div>
+            </div>}
+            {!lot && (
+              <div className="mt-3 space-y-2">
+                {useGroups && <p className="text-xs text-muted-foreground">Lote com animais diferentes? Informe cada grupo. O valor pago é dividido pelas cabeças e cada grupo vira um lote.</p>}
+                {groups.map((g, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2">
+                    <div>
+                      <Label className="text-xs">Sexo</Label>
+                      <Select value={g.sex === "" ? "nenhum" : g.sex} onValueChange={(v) => setGroups(groups.map((x, j) => j === i ? { ...x, sex: v === "nenhum" ? "" : v } : x))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nenhum">—</SelectItem>
+                          <SelectItem value="macho">Macho</SelectItem>
+                          <SelectItem value="femea">Fêmea</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div><Label className="text-xs">Idade (meses)</Label><Input inputMode="numeric" value={g.age} onChange={(e) => setGroups(groups.map((x, j) => j === i ? { ...x, age: e.target.value.replace(/\D/g, "").slice(0, 3) } : x))} placeholder="10" /></div>
+                    <div><Label className="text-xs">Cabeças</Label><Input inputMode="numeric" value={g.heads} onChange={(e) => setGroups(groups.map((x, j) => j === i ? { ...x, heads: e.target.value.replace(/\D/g, "") } : x))} placeholder="20" /></div>
+                    <Button type="button" size="icon" variant="ghost" aria-label="Remover grupo" onClick={() => setGroups(groups.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                ))}
+                <Button type="button" size="sm" variant="outline" onClick={() => setGroups([...groups, { sex: sex, age: ageM, heads: "" }, ...(groups.length === 0 ? [{ sex: "", age: "", heads: "" }] : [])])}>
+                  <Plus className="mr-1.5 h-4 w-4" />{groups.length === 0 ? "Tenho animais de sexos/idades diferentes" : "Adicionar grupo"}
+                </Button>
+              </div>
+            )}
           </details>
         </div>
         <DialogFooter>

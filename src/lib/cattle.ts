@@ -205,3 +205,13 @@ export function summarizeStock(lots: Lot[], costs: CattleCost[], sales: CattleSa
   }
   return { rows, total, matrizes, reprodutores, detailed };
 }
+
+/** Divide um valor em centavos proporcional às cabeças de cada grupo; a sobra de arredondamento vai para o último. */
+export function splitByHeads(total: number, heads: number[]): number[] {
+  const sum = heads.reduce((a, b) => a + b, 0);
+  if (sum <= 0) return heads.map(() => 0);
+  const cents = Math.round(total * 100);
+  const parts = heads.map((h) => Math.floor((cents * h) / sum));
+  parts[parts.length - 1] += cents - parts.reduce((a, b) => a + b, 0);
+  return parts.map((c) => c / 100);
+}

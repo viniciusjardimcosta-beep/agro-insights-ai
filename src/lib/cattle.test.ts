@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageBracket, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, daysBetween, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "./cattle";
+import { ageBracket, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, daysBetween, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock, splitByHeads, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "./cattle";
 
 const lot: Lot = { id: "L1", name: "Lote 1", phase: "engorda", head_count: 10, entry_date: "2026-06-01", entry_avg_weight_kg: 300, purchase_amount: 30000, status: "ativo", notes: null };
 const costs: CattleCost[] = [
@@ -182,5 +182,15 @@ describe("estoque por faixa de idade e sexo", () => {
     const q = summarizeStock([L({ id: "a", sex: "macho", entry_age_months: 5 })], [], sales, "2026-03-01");
     expect(q.total).toBe(0);
     expect(q.detailed).toBe(false);
+  });
+});
+
+describe("dividir o valor pago entre grupos", () => {
+  it("proporcional às cabeças e soma exata", () => {
+    const r = splitByHeads(100000, [10, 30]);
+    expect(r[0]).toBe(25000);
+    expect(r[1]).toBe(75000);
+    const q = splitByHeads(100, [1, 1, 1]);
+    expect(Math.round((q[0] + q[1] + q[2]) * 100)).toBe(10000);
   });
 });
