@@ -2,7 +2,8 @@
 // A conta é por lote: investido = compra + custos do lote; resultado = venda - parte do investido que corresponde às cabeças vendidas.
 
 export const ARROBA_KG = 15;
-export const CATTLE_PHASES = ["recria", "engorda"] as const;
+// cria = matrizes (vacas de cria); reprodutor = touros. Recria e engorda são os lotes de venda.
+export const CATTLE_PHASES = ["cria", "recria", "engorda", "reprodutor"] as const;
 export type CattlePhase = (typeof CATTLE_PHASES)[number];
 
 /** Categorias de custo mais usadas na pecuária (a lista geral de custos continua valendo). */
@@ -22,12 +23,17 @@ export const CATTLE_COST_CATEGORIES = [
 export type Lot = {
   id: string; name: string; phase: string; head_count: number; entry_date: string;
   entry_avg_weight_kg: number | null; purchase_amount: number; status: string; notes: string | null;
+  /** Detalhes opcionais do rebanho: sem eles o lote só não entra no quadro de estoque por idade e sexo. */
+  sex?: CattleSex | null; entry_age_months?: number | null;
 };
+export type CattleSex = "macho" | "femea";
 export type CattleCost = { id: string; lot_id: string | null; category: string; description: string | null; amount: number; date: string };
 export type CattleSale = { id: string; lot_id: string; date: string; head_count: number; arrobas: number | null; amount: number };
 
 /** Baixa = animal que morreu ou se perdeu. O dinheiro já gasto fica no lote: quem sobra "carrega" o custo. */
-export type CattleLoss = { id: string; lot_id: string; date: string; head_count: number; notes?: string | null };
+export const LOSS_CAUSES = ["morte", "roubo", "sumico", "outro"] as const;
+export type LossCause = (typeof LOSS_CAUSES)[number];
+export type CattleLoss = { id: string; lot_id: string; date: string; head_count: number; notes?: string | null; cause?: LossCause | null };
 
 const cents = (n: number) => Math.round(n * 100) / 100;
 const sum = (xs: number[]) => cents(xs.reduce((a, b) => a + b, 0));
@@ -145,4 +151,57 @@ export function summarizeFarm(lots: Lot[], costs: CattleCost[], sales: CattleSal
 /** Preço por arroba a partir do valor e das arrobas; null se faltar dado. */
 export function pricePerArroba(amount: number, arrobas: number | null): number | null {
   return arrobas && arrobas > 0 && amount > 0 ? cents(amount / arrobas) : null;
+}
+
+// ---------------------------------------------------------------- estoque por faixa de idade e sexo
+export const AGE_BRACKETS = [
+  { key: "0-12", label: "0 a 12 meses", max: 12 },
+  { key: "13-24", label: "13 a 24 meses", max: 24 },
+  { key: "25-36", label: "25 a 36 meses", max: 36 },
+  { key: "36+", label: "Mais de 36 meses", max: Infinity },
+] as const;
+export type AgeBracketKey = (typeof AGE_BRACKETS)[number]["key"];
+
+const MONTH_DAYS = 30.4375;
+
+/** Idade de hoje, em meses inteiros: idade informada na entrada + meses desde a entrada. null se a idade não foi informada. */
+export function ageMonthsNow(lot: Pick<Lot, "entry_date" | "entry_age_months">, todayIso: string): number | null {
+  if (lot.entry_age_months === null || lot.entry_age_months === undefined) return null;
+  return lot.entry_age_months + Math.floor(daysBetween(lot.entry_date, todayIso) / MONTH_DAYS);
+}
+
+export function ageBracket(months: number): AgeBracketKey {
+  return (AGE_BRACKETS.find((b) => months <= b.max) ?? AGE_BRACKETS[3]).key;
+}
+
+export type StockRow = { key: AgeBracketKey | "sem-idade"; label: string; macho: number; femea: number; semSexo: number; total: number };
+export type StockSummary = {
+  rows: StockRow[]; // 4 faixas + "idade não informada"
+  total: number;
+  matrizes: number;
+  reprodutores: number;
+  /** true quando pelo menos um lote com animais tem sexo ou idade: é o que liga o quadro na tela (modo detalhado). */
+  detailed: boolean;
+};
+
+/** Quadro de estoque: cabeças que ainda estão na fazenda (descontadas vendas e baixas), por faixa de idade e sexo. */
+export function summarizeStock(lots: Lot[], costs: CattleCost[], sales: CattleSale[], todayIso: string, losses: CattleLoss[] = []): StockSummary {
+  const rows: StockRow[] = [
+    ...AGE_BRACKETS.map((b) => ({ key: b.key as StockRow["key"], label: b.label, macho: 0, femea: 0, semSexo: 0, total: 0 })),
+    { key: "sem-idade", label: "Idade não informada", macho: 0, femea: 0, semSexo: 0, total: 0 },
+  ];
+  let total = 0, matrizes = 0, reprodutores = 0, detailed = false;
+  for (const lot of lots) {
+    const left = summarizeLot(lot, costs, sales, todayIso, losses).headsLeft;
+    if (left <= 0) continue;
+    const months = ageMonthsNow(lot, todayIso);
+    if (months !== null || lot.sex) detailed = true;
+    const row = rows.find((r) => r.key === (months === null ? "sem-idade" : ageBracket(months)))!;
+    if (lot.sex === "macho") row.macho += left; else if (lot.sex === "femea") row.femea += left; else row.semSexo += left;
+    row.total += left;
+    total += left;
+    if (lot.phase === "cria") matrizes += left;
+    if (lot.phase === "reprodutor") reprodutores += left;
+  }
+  return { rows, total, matrizes, reprodutores, detailed };
 }
