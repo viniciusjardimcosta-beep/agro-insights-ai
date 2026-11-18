@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { dbError, isIsoDate } from "@/lib/db-utils";
-import { CATTLE_PHASES } from "@/lib/cattle";
+import { CATTLE_PHASES, LOSS_CAUSES } from "@/lib/cattle";
 
 const isoDate = z.string().refine(isIsoDate, "Data inválida (use AAAA-MM-DD)");
 const NOT_FOUND = "Recurso não encontrado";
@@ -83,6 +83,9 @@ const lotInput = z.object({
   entry_avg_weight_kg: z.number().gt(0).max(2000).nullable().optional(),
   purchase_amount: z.number().min(0).max(1e12),
   notes: z.string().max(500).nullable().optional(),
+  // Detalhes opcionais (modo detalhado): o modo simples não envia nada disso.
+  sex: z.enum(["macho", "femea"]).nullable().optional(),
+  entry_age_months: z.number().int().min(0).max(360).nullable().optional(),
 });
 
 export const saveLot = createServerFn({ method: "POST" })
@@ -98,7 +101,11 @@ export const saveLot = createServerFn({ method: "POST" })
     }
     const row = { ...data, user_id: context.userId, entry_avg_weight_kg: data.entry_avg_weight_kg ?? null, notes: data.notes ?? null };
     const { error } = await context.supabase.from("cattle_lots").upsert(row);
-    if (error) throw dbError(error);
+    if (error) {
+      const detail = data.sex !== undefined || data.entry_age_months !== undefined || data.phase === "cria" || data.phase === "reprodutor";
+      if (detail && (isMissing(error) || error.code === "23514")) throw new Error("Os detalhes do rebanho (sexo, idade, matrizes e reprodutores) ainda não estão disponíveis nesta conta.");
+      throw dbError(error);
+    }
     return { ok: true };
   });
 
@@ -210,6 +217,7 @@ const lossInput = z.object({
   date: isoDate,
   head_count: z.number().int().min(1).max(100000),
   notes: z.string().trim().max(300).nullable().optional(),
+  cause: z.enum(LOSS_CAUSES).nullable().optional(),
 });
 
 export const addCattleLoss = createServerFn({ method: "POST" })
@@ -222,7 +230,7 @@ export const addCattleLoss = createServerFn({ method: "POST" })
     const lost = await lostHeads(context, data.lot_id);
     const left = Math.max(0, lot.head_count - sold - lost);
     if (data.head_count > left) throw new Error(`Só restam ${left} cabeças neste lote.`);
-    const { error } = await context.supabase.from("cattle_losses").insert({ ...data, notes: data.notes || null, user_id: context.userId });
+    const { error } = await context.supabase.from("cattle_losses").insert({ ...data, cause: data.cause || undefined, notes: data.notes || null, user_id: context.userId });
     if (error) {
       if (isMissing(error)) throw new Error("O registro de baixas ainda não está disponível nesta conta.");
       throw dbError(error);

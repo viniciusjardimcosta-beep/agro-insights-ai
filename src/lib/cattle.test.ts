@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avgArrobasPerHead, breakEvenPerArroba, daysBetween, pricePerArroba, summarizeFarm, summarizeLot, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "./cattle";
+import { ageBracket, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, daysBetween, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "./cattle";
 
 const lot: Lot = { id: "L1", name: "Lote 1", phase: "engorda", head_count: 10, entry_date: "2026-06-01", entry_avg_weight_kg: 300, purchase_amount: 30000, status: "ativo", notes: null };
 const costs: CattleCost[] = [
@@ -131,5 +131,56 @@ describe("ponto de equilíbrio da arroba", () => {
     expect(avgArrobasPerHead("L1", [{ id: "s1", lot_id: "L1", date: "2026-10-01", head_count: 4, arrobas: 72, amount: 1 }])).toBe(18);
     expect(avgArrobasPerHead("L1", [{ id: "s1", lot_id: "L1", date: "2026-10-01", head_count: 4, arrobas: null, amount: 1 }])).toBeNull();
     expect(avgArrobasPerHead("L1", [])).toBeNull();
+  });
+});
+
+describe("estoque por faixa de idade e sexo", () => {
+  const base = { entry_avg_weight_kg: null, purchase_amount: 0, status: "ativo", notes: null, phase: "recria" } as const;
+  const L = (o: Partial<Lot> & { id: string }): Lot => ({ name: o.id, head_count: 10, entry_date: "2026-01-01", ...base, ...o }) as Lot;
+  it("limites das faixas", () => {
+    expect(ageBracket(0)).toBe("0-12");
+    expect(ageBracket(12)).toBe("0-12");
+    expect(ageBracket(13)).toBe("13-24");
+    expect(ageBracket(24)).toBe("13-24");
+    expect(ageBracket(25)).toBe("25-36");
+    expect(ageBracket(36)).toBe("25-36");
+    expect(ageBracket(37)).toBe("36+");
+  });
+  it("a idade avança sozinha com o tempo", () => {
+    const lot = L({ id: "a", entry_date: "2026-01-01", entry_age_months: 11 });
+    expect(ageMonthsNow(lot, "2026-01-01")).toBe(11);
+    expect(ageMonthsNow(lot, "2026-03-05")).toBe(13); // +2 meses
+    expect(ageBracket(ageMonthsNow(lot, "2026-03-05")!)).toBe("13-24");
+    expect(ageMonthsNow(L({ id: "b" }), "2026-03-05")).toBeNull();
+  });
+  it("quadro soma só o que ainda está na fazenda", () => {
+    const lots = [
+      L({ id: "m", sex: "macho", entry_age_months: 6, head_count: 10 }),
+      L({ id: "f", sex: "femea", entry_age_months: 30, head_count: 20, phase: "cria" }),
+      L({ id: "t", sex: "macho", entry_age_months: 48, head_count: 2, phase: "reprodutor" }),
+      L({ id: "x", head_count: 5 }),
+    ];
+    const sales: CattleSale[] = [{ id: "s", lot_id: "m", date: "2026-02-01", head_count: 4, arrobas: null, amount: 1 }];
+    const losses: CattleLoss[] = [{ id: "l", lot_id: "f", date: "2026-02-01", head_count: 1 }];
+    const q = summarizeStock(lots, [], sales, "2026-01-02", losses);
+    expect(q.detailed).toBe(true);
+    expect(q.total).toBe(6 + 19 + 2 + 5);
+    expect(q.rows[0].macho).toBe(6);
+    expect(q.rows[2].femea).toBe(19);
+    expect(q.rows[3].macho).toBe(2);
+    expect(q.rows[4].semSexo).toBe(5);
+    expect(q.matrizes).toBe(19);
+    expect(q.reprodutores).toBe(2);
+  });
+  it("sem sexo nem idade em nenhum lote, o modo detalhado fica desligado", () => {
+    const q = summarizeStock([L({ id: "a" }), L({ id: "b" })], [], [], "2026-01-02");
+    expect(q.detailed).toBe(false);
+    expect(q.total).toBe(20);
+  });
+  it("lote já vendido não conta", () => {
+    const sales: CattleSale[] = [{ id: "s", lot_id: "a", date: "2026-02-01", head_count: 10, arrobas: null, amount: 1 }];
+    const q = summarizeStock([L({ id: "a", sex: "macho", entry_age_months: 5 })], [], sales, "2026-03-01");
+    expect(q.total).toBe(0);
+    expect(q.detailed).toBe(false);
   });
 });

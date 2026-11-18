@@ -15,7 +15,7 @@ import {
   addCattleCost, addCattleLoss, addCattleSale, deleteCattleCost, deleteCattleLoss, deleteCattleSale, deleteLot, listCattle, saveLot,
 } from "@/lib/cattle.functions";
 import {
-  CATTLE_COST_CATEGORIES, CATTLE_PHASES, avgArrobasPerHead, breakEvenPerArroba, pricePerArroba, summarizeFarm, summarizeLot,
+  CATTLE_COST_CATEGORIES, CATTLE_PHASES, LOSS_CAUSES, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock,
   type CattleCost, type CattleLoss, type CattleSale, type Lot,
 } from "@/lib/cattle";
 import { parseMoney } from "@/lib/cost-import";
@@ -36,7 +36,9 @@ const todayIso = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
-const PHASE_LABEL: Record<string, string> = { recria: "Recria", engorda: "Engorda" };
+const PHASE_LABEL: Record<string, string> = { cria: "Cria (matrizes)", recria: "Recria", engorda: "Engorda", reprodutor: "Reprodutores (touros)" };
+const SEX_LABEL: Record<string, string> = { macho: "Macho", femea: "Fêmea" };
+const CAUSE_LABEL: Record<string, string> = { morte: "Morte", roubo: "Roubo", sumico: "Sumiço", outro: "Outro" };
 
 function Page() {
   const q = useQuery(qCattle);
@@ -64,6 +66,7 @@ function Page() {
   const losses = (data?.losses ?? []) as CattleLoss[];
   const lossesReady = data?.lossesReady ?? false;
   const today = todayIso();
+  const stock = useMemo(() => summarizeStock(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
   const farm = useMemo(() => summarizeFarm(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
   const activeLots = lots.filter((l) => summarizeLot(l, costs, sales, today, losses).headsLeft > 0);
 
@@ -133,6 +136,35 @@ function Page() {
             <Stat label="Custos gerais da fazenda" value={BRL.format(farm.generalCosts)} hint={farm.generalCosts > 0 ? `Resultado depois deles: ${BRL.format(farm.resultAfterGeneral)}` : "Cerca, trator, roçada..."} />
           </div>
 
+          {stock.detailed && (
+            <Card>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="font-semibold">Estoque por idade e sexo</h2>
+                  <span className="text-sm text-muted-foreground">
+                    {NUM.format(stock.total)} cab.{stock.matrizes > 0 ? ` · ${NUM.format(stock.matrizes)} matrizes` : ""}{stock.reprodutores > 0 ? ` · ${NUM.format(stock.reprodutores)} touros` : ""}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-left text-muted-foreground"><th className="py-1 pr-3 font-medium">Faixa</th><th className="px-2 text-right font-medium">Machos</th><th className="px-2 text-right font-medium">Fêmeas</th><th className="pl-2 text-right font-medium">Total</th></tr></thead>
+                    <tbody>
+                      {stock.rows.filter((r) => r.total > 0 || r.key !== "sem-idade").map((r) => (
+                        <tr key={r.key} className="border-t">
+                          <td className="py-1.5 pr-3">{r.label}</td>
+                          <td className="px-2 text-right">{NUM.format(r.macho)}</td>
+                          <td className="px-2 text-right">{NUM.format(r.femea)}</td>
+                          <td className="pl-2 text-right font-medium">{NUM.format(r.total)}{r.semSexo > 0 ? <span className="font-normal text-muted-foreground"> ({r.semSexo} sem sexo)</span> : null}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-muted-foreground">A faixa de idade se atualiza sozinha com o passar do tempo.</p>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="space-y-4">
             {lots.map((lot) => {
               const s = summarizeLot(lot, costs, sales, today, losses);
@@ -147,6 +179,7 @@ function Page() {
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-lg font-semibold">{lot.name}</h2>
                           <Badge variant="outline">{PHASE_LABEL[lot.phase] ?? lot.phase}</Badge>
+                          {lot.sex && <Badge variant="outline">{SEX_LABEL[lot.sex]}{ageMonthsNow(lot, today) !== null ? ` · ${ageMonthsNow(lot, today)} meses` : ""}</Badge>}
                           <Badge variant={s.fullySold ? "secondary" : "default"}>{s.fullySold ? "Vendido" : "Na fazenda"}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -199,7 +232,7 @@ function Page() {
                         <ul className="mt-2 space-y-1.5">
                           {lotLosses.map((x) => (
                             <li key={x.id} className="flex items-center justify-between gap-2">
-                              <span>{fmtDate(x.date)} · Baixa de {x.head_count} cab.{x.notes ? ` · ${x.notes}` : ""}</span>
+                              <span>{fmtDate(x.date)} · Baixa de {x.head_count} cab.{x.cause ? ` · ${CAUSE_LABEL[x.cause] ?? x.cause}` : ""}{x.notes ? ` · ${x.notes}` : ""}</span>
                               <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir baixa" onClick={() => { if (confirm("Excluir esta baixa?")) run(() => delLoss({ data: { id: x.id } }), "Baixa excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </li>
                           ))}
@@ -294,6 +327,8 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
   const [entry, setEntry] = useState(todayIso());
   const [weight, setWeight] = useState("");
   const [paid, setPaid] = useState("");
+  const [sex, setSex] = useState<string>("");
+  const [ageM, setAgeM] = useState("");
   const [busy, setBusy] = useState(false);
   const [seed, setSeed] = useState<string | null>(null);
 
@@ -308,6 +343,8 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
       setEntry(lot?.entry_date ?? todayIso());
       setWeight(lot?.entry_avg_weight_kg ? String(lot.entry_avg_weight_kg).replace(".", ",") : "");
       setPaid(lot ? String(lot.purchase_amount).replace(".", ",") : "");
+      setSex(lot?.sex ?? "");
+      setAgeM(lot?.entry_age_months !== null && lot?.entry_age_months !== undefined ? String(lot.entry_age_months) : "");
     }
   }
 
@@ -316,11 +353,18 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
   const weightN = weight.trim() === "" ? null : parseMoney(weight);
   const valid = name.trim() !== "" && headsN > 0 && paidN !== null && /^\d{4}-\d{2}-\d{2}$/.test(entry) && (weight.trim() === "" || (weightN !== null && weightN > 0));
 
+  // Só envia sexo/idade se o produtor mexeu nesses campos (ou se o lote já tinha): o modo simples não muda nada.
+  function detailFields() {
+    const hadDetail = lot?.sex != null || lot?.entry_age_months != null;
+    if (sex === "" && ageM === "" && !hadDetail) return {};
+    return { sex: sex === "macho" || sex === "femea" ? sex : null, entry_age_months: ageM === "" ? null : Math.min(360, Number.parseInt(ageM, 10)) } as const;
+  }
+
   async function submit() {
     if (!valid || paidN === null) return;
     setBusy(true);
     try {
-      await save({ data: { id: lot?.id, name: name.trim(), phase: phase as "recria" | "engorda", head_count: headsN, entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: paidN } });
+      await save({ data: { id: lot?.id, name: name.trim(), phase: phase as (typeof CATTLE_PHASES)[number], head_count: headsN, entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: paidN, ...detailFields() } });
       await onSaved();
       toast.success(lot ? "Lote atualizado" : "Lote cadastrado");
       onOpenChange(false);
@@ -351,6 +395,24 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
             <div><Label htmlFor="lot-weight">Peso médio (kg), se souber</Label><Input id="lot-weight" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Ex.: 300" /></div>
           </div>
           <div><Label htmlFor="lot-paid">Valor total pago no lote (R$)</Label><Input id="lot-paid" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="Ex.: 150.000" /></div>
+          <details className="rounded-md border p-3" open={sex !== "" || ageM !== ""}>
+            <summary className="cursor-pointer text-sm font-medium">Mais detalhes (opcional)</summary>
+            <p className="mt-2 text-xs text-muted-foreground">Informe sexo e idade para ver o estoque por faixa de idade. Se não quiser, deixe em branco: nada muda.</p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <Label>Sexo</Label>
+                <Select value={sex === "" ? "nenhum" : sex} onValueChange={(v) => setSex(v === "nenhum" ? "" : v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nenhum">Não informar</SelectItem>
+                    <SelectItem value="macho">Macho</SelectItem>
+                    <SelectItem value="femea">Fêmea</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label htmlFor="lot-age">Idade na entrada (meses)</Label><Input id="lot-age" inputMode="numeric" value={ageM} onChange={(e) => setAgeM(e.target.value.replace(/\D/g, "").slice(0, 3))} placeholder="Ex.: 10" /></div>
+            </div>
+          </details>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
@@ -535,6 +597,7 @@ function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
   const [date, setDate] = useState(todayIso());
   const [heads, setHeads] = useState("1");
   const [notes, setNotes] = useState("");
+  const [cause, setCause] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [seed, setSeed] = useState(false);
 
@@ -542,7 +605,7 @@ function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
 
   if (open !== seed) {
     setSeed(open);
-    if (open) { setLotId(initialLot); setDate(todayIso()); setHeads("1"); setNotes(""); }
+    if (open) { setLotId(initialLot); setDate(todayIso()); setHeads("1"); setNotes(""); setCause(""); }
   }
 
   const headsN = Number.parseInt(heads, 10);
@@ -552,7 +615,7 @@ function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
     if (!valid) return;
     setBusy(true);
     try {
-      await add({ data: { lot_id: lotId, date, head_count: headsN, notes: notes.trim() || null } });
+      await add({ data: { lot_id: lotId, date, head_count: headsN, notes: notes.trim() || null, ...(cause ? { cause: cause as (typeof LOSS_CAUSES)[number] } : {}) } });
       await onSaved();
       toast.success("Baixa registrada");
       onOpenChange(false);
@@ -564,7 +627,7 @@ function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
       <DialogContent className="max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar baixa</DialogTitle>
-          <DialogDescription>Animal que morreu ou se perdeu. O custo do lote continua e passa a ser dividido entre os que sobraram.</DialogDescription>
+          <DialogDescription>Animal que morreu, foi roubado ou sumiu. O custo do lote continua e passa a ser dividido entre os que sobraram.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -577,6 +640,14 @@ function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
           <div className="grid grid-cols-2 gap-3">
             <div><Label htmlFor="l-heads">Quantas cabeças</Label><Input id="l-heads" inputMode="numeric" value={heads} onChange={(e) => setHeads(e.target.value.replace(/\D/g, ""))} /></div>
             <div><Label htmlFor="l-date">Data</Label><Input id="l-date" type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} /></div>
+          </div>
+          <div>
+            <Label>O que foi? (opcional)</Label>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {LOSS_CAUSES.map((c) => (
+                <Button key={c} type="button" size="sm" variant={cause === c ? "default" : "outline"} onClick={() => setCause(cause === c ? "" : c)}>{CAUSE_LABEL[c]}</Button>
+              ))}
+            </div>
           </div>
           <div><Label htmlFor="l-notes">O que aconteceu (opcional)</Label><Input id="l-notes" maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex.: picada de cobra, doença" /></div>
           {headsN > left(lotId) && lotId !== "" && <p className="text-sm font-medium text-amber-700">Este lote só tem {left(lotId)} cabeças na fazenda.</p>}
