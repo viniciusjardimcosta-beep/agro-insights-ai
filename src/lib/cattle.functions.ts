@@ -252,3 +252,43 @@ export const deleteCattleLoss = createServerFn({ method: "POST" })
     await refreshLotStatus(context, lotId, lot.head_count);
     return { ok: true };
   });
+
+// ---------------- Nascimentos ----------------
+const birthInput = z.object({
+  dam_lot_id: z.string().uuid(),
+  date: isoDate,
+  sex: z.enum(["macho", "femea"]),
+  head_count: z.number().int().min(1).max(1000),
+  sire_name: z.string().trim().max(80).nullable().optional(),
+});
+
+/** Registra nascimento: cria um lote de bezerros (idade 0) ligado ao lote de matrizes e ao touro pai. */
+export const addCattleBirth = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => birthInput.parse(input))
+  .handler(async ({ context, data }) => {
+    const { data: dam } = await context.supabase.from("cattle_lots").select("id, phase").eq("id", data.dam_lot_id).maybeSingle();
+    if (!dam) throw new Error(NOT_FOUND);
+    const [y, m, d] = data.date.split("-");
+    const row = {
+      user_id: context.userId,
+      name: `${data.sex === "femea" ? "Bezerras" : "Bezerros"} nascidos ${d}/${m}/${y}`,
+      phase: "recria",
+      head_count: data.head_count,
+      entry_date: data.date,
+      entry_avg_weight_kg: null,
+      purchase_amount: 0,
+      notes: null,
+      sex: data.sex,
+      entry_age_months: 0,
+      born_here: true,
+      sire_name: data.sire_name || null,
+      dam_lot_id: data.dam_lot_id,
+    };
+    const { error } = await context.supabase.from("cattle_lots").insert(row);
+    if (error) {
+      if (isMissing(error)) throw new Error("O registro de nascimentos ainda não está disponível nesta conta.");
+      throw dbError(error);
+    }
+    return { ok: true };
+  });
