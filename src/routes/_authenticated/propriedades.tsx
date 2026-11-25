@@ -107,6 +107,11 @@ function Page() {
                     <h3 className="text-lg font-semibold">{p.name}</h3>
                     <p className="text-sm text-muted-foreground">{[p.city, p.state].filter(Boolean).join(" / ") || "Local não informado"}</p>
                     <p className="mt-2 text-sm"><span className="font-medium">{NUM.format(Number(p.total_area))}</span> ha{isFarmActivity(p.activity) ? ` · ${FARM_ACTIVITY_LABEL[p.activity]}` : ""}</p>
+                    {data.length >= 2 && !isFarmActivity(p.activity) && (
+                      <button type="button" onClick={() => openEdit(p)} className="mt-2 block rounded-md border border-warning/40 bg-warning/10 px-2 py-1 text-left text-xs text-foreground">
+                        Toque aqui e escolha o que você faz nesta fazenda (plantio, pecuária ou os dois). Assim o painel mostra só o que é dela.
+                      </button>
+                    )}
                     {(fieldsByFarm.get(p.id) ?? 0) === 0 && p.activity !== "pecuaria" && (
                       <p className="mt-2 text-xs text-muted-foreground">
                         Sem talhões. Se for plantio, <Link to="/talhoes" className="text-primary underline">cadastre o talhão</Link> para esta área entrar no Dashboard.

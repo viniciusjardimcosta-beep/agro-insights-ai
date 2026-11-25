@@ -217,10 +217,11 @@ function Page() {
                       {c.description || (c.notes ? <span className="italic">{c.notes}</span> : null)}
                     </TableCell>
                     <TableCell className="text-right font-medium">{BRL.format(Number(c.amount))}</TableCell>
-                    <TableCell className="text-right">
-                      <Button size="icon" variant="ghost" title="Repetir este lançamento" aria-label="Repetir este lançamento" onClick={() => openRepeat(c)}><Copy className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => onDelete(c.id)}><Trash2 className="h-4 w-4" /></Button>
+                    {/* Fixa à direita: com nomes longos a tabela rolava e os botões de editar/excluir sumiam no celular. */}
+                    <TableCell className="sticky right-0 whitespace-nowrap bg-background px-1 text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.2)] md:px-4">
+                      <Button size="icon" variant="ghost" className="h-8 w-8" title="Repetir este lançamento" aria-label="Repetir este lançamento" onClick={() => openRepeat(c)}><Copy className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Editar" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Excluir" onClick={() => onDelete(c.id)}><Trash2 className="h-4 w-4" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
