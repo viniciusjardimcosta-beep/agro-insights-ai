@@ -4,6 +4,8 @@ import { Link } from "@tanstack/react-router";
 import { Beef } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useFarm } from "@/lib/farm-selection";
+import { cattleOfFarm } from "@/lib/farms";
 import { BRL, NUM } from "@/lib/calc";
 import { listCattle } from "@/lib/cattle.functions";
 import { summarizeFarm, summarizeStock, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "@/lib/cattle";
@@ -18,10 +20,11 @@ const todayIso = () => {
 /** Início de quem só cria gado: o resumo do rebanho no lugar dos números de lavoura. */
 export function RanchHome() {
   const q = useQuery(qCattle);
-  const lots = (q.data?.lots ?? []) as Lot[];
-  const costs = (q.data?.costs ?? []) as CattleCost[];
-  const sales = (q.data?.sales ?? []) as CattleSale[];
-  const losses = (q.data?.losses ?? []) as CattleLoss[];
+  const farmSel = useFarm();
+  const { lots, costs, sales, losses } = cattleOfFarm(
+    { lots: (q.data?.lots ?? []) as Lot[], costs: (q.data?.costs ?? []) as CattleCost[], sales: (q.data?.sales ?? []) as CattleSale[], losses: (q.data?.losses ?? []) as CattleLoss[] },
+    farmSel.selected?.id ?? null,
+  );
   const today = todayIso();
   const farm = useMemo(() => summarizeFarm(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
   const stock = useMemo(() => summarizeStock(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
@@ -29,7 +32,7 @@ export function RanchHome() {
   if (q.isLoading) return <p className="text-sm text-muted-foreground">Carregando painel...</p>;
 
   const cards = [
-    { label: "Na fazenda agora", value: `${NUM.format(farm.activeHeads)} cabeças`, hint: `${BRL.format(farm.investedInActive)} investidos nelas` },
+    { label: "Na fazenda agora", value: `${NUM.format(farm.activeHeads)} ${farm.activeHeads === 1 ? "cabeça" : "cabeças"}`, hint: `${BRL.format(farm.investedInActive)} investidos nelas` },
     { label: "Vendido", value: BRL.format(farm.soldAmount), hint: "" },
     { label: "Resultado dos lotes vendidos", value: BRL.format(farm.lotsResult), hint: "", tone: farm.lotsResult < 0 ? "neg" : "pos" },
     { label: "Custos gerais da fazenda", value: BRL.format(farm.generalCosts), hint: "Cerca, trator, roçada..." },
@@ -40,7 +43,7 @@ export function RanchHome() {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Resumo do seu rebanho.</p>
+          <p className="text-sm text-muted-foreground">{farmSel.selected ? `Rebanho de ${farmSel.selected.name}.` : "Resumo do seu rebanho."}</p>
         </div>
         <Button asChild><Link to="/pecuaria"><Beef className="mr-2 h-4 w-4" />Abrir Pecuária</Link></Button>
       </div>

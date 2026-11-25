@@ -14,7 +14,7 @@ import { ExecutiveReportButton } from "@/components/executive-report-button";
 import { OnboardingCard } from "@/components/onboarding-card";
 import { PecuariaInviteCard } from "@/components/pecuaria-invite-card";
 import { RanchHome } from "@/components/ranch-home";
-import { getActivities } from "@/lib/cattle.functions";
+import { useFarm } from "@/lib/farm-selection";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AgroIntel AI" }] }),
@@ -45,18 +45,23 @@ function scoreColor(score: number) {
 function Dashboard() {
   const { data, isLoading, error } = useQuery(snapshotQuery);
   const { data: latestDiag } = useQuery(latestDiagnosticQuery);
-  const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => getActivities(), staleTime: 300_000 });
+  const farmSel = useFarm();
   const qc = useQueryClient();
   const seed = useServerFn(seedDemoData);
   const [seeding, setSeeding] = useState(false);
 
   // Quem só cria gado vê o resumo do rebanho, não os números de lavoura.
-  if (activitiesQ.data && !activitiesQ.data.lavoura) return <RanchHome />;
+  if (!farmSel.flags.lavoura) return <RanchHome />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando painel...</p>;
   if (error) return <p className="text-sm text-destructive">Erro ao carregar painel: {(error as Error).message}</p>;
 
   const snapshot = data ?? { fields: [], costs: [], prices: [], properties: [] };
-  const farm = aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never);
+  // Fazenda escolhida no topo: só os talhões dela e os custos desses talhões.
+  const allFields = snapshot.fields as { id: string; property_id?: string }[];
+  const shownFields = farmSel.selected ? allFields.filter((f) => f.property_id === farmSel.selected!.id) : allFields;
+  const shownIds = new Set(shownFields.map((f) => f.id));
+  const shownCosts = farmSel.selected ? (snapshot.costs as { field_id: string }[]).filter((c) => shownIds.has(c.field_id)) : snapshot.costs;
+  const farm = aggregateFarm(shownFields as never, shownCosts as never, snapshot.prices as never);
 
   async function loadDemo() {
     setSeeding(true);
@@ -72,9 +77,10 @@ function Dashboard() {
   }
 
   const isEmpty = snapshot.fields.length === 0;
+  const farmHasNoFields = !isEmpty && shownFields.length === 0;
   const alerts: { tone: "warn" | "info"; text: string }[] = [];
   if (farm.totalArea > 0) {
-    const noPrice = cropsMissingPrice(snapshot.fields as never, farm.priceByCrop);
+    const noPrice = cropsMissingPrice(shownFields as never, farm.priceByCrop);
     if (noPrice.length > 0)
       alerts.push({
         tone: "warn",
@@ -98,7 +104,7 @@ function Dashboard() {
     { label: "Receita estimada", value: BRL.format(farm.totalRevenue), icon: TrendingUp },
     { label: "Lucro estimado", value: BRL.format(farm.totalProfit), icon: Coins, tone: farm.totalProfit < 0 ? "neg" : "pos" },
     { label: "Lucro por hectare", value: BRL.format(farm.profitPerHa), icon: BarChart3, tone: farm.profitPerHa < 0 ? "neg" : "pos" },
-    { label: "Talhões", value: String(snapshot.fields.length), icon: Sprout },
+    { label: "Talhões", value: String(shownFields.length), icon: Sprout },
   ];
 
   return (
@@ -106,7 +112,9 @@ function Dashboard() {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Resumo financeiro da sua safra.</p>
+          <p className="text-sm text-muted-foreground">
+            {farmSel.selected ? `Resumo financeiro de ${farmSel.selected.name}.` : "Resumo financeiro da sua safra."}
+          </p>
         </div>
         {isEmpty && (
           <Button onClick={loadDemo} disabled={seeding} variant="outline" size="sm">
@@ -120,6 +128,12 @@ function Dashboard() {
       {isEmpty && <OnboardingCard />}
 
       {!isEmpty && <PecuariaInviteCard />}
+
+      {farmHasNoFields && (
+        <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          Esta fazenda ainda não tem talhões. <Link to="/talhoes" className="text-primary underline">Cadastre o talhão</Link> para ver os números dela aqui.
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (

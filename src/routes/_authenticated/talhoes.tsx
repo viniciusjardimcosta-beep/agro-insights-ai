@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listFields, upsertField, deleteField, listProperties } from "@/lib/data.functions";
 import { CROPS, NUM } from "@/lib/calc";
+import { useFarm } from "@/lib/farm-selection";
 
 const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields() });
 const qProps = queryOptions({ queryKey: ["properties"], queryFn: () => listProperties() });
@@ -30,7 +31,9 @@ type Field = {
 };
 
 function Page() {
-  const { data: fields = [], isLoading: loadingFields, error: fieldsError } = useQuery(qFields);
+  const { data: allFields = [], isLoading: loadingFields, error: fieldsError } = useQuery(qFields);
+  const farm = useFarm();
+  const fields = farm.selected ? (allFields as Field[]).filter((f) => f.property_id === farm.selected!.id) : allFields;
   const { data: props = [], isLoading: loadingProps, error: propsError } = useQuery(qProps);
   const qc = useQueryClient();
   const save = useServerFn(upsertField);
@@ -43,7 +46,7 @@ function Page() {
   function openNew() {
     if (props.length === 0) { toast.error("Cadastre uma fazenda primeiro"); return; }
     setEditing(null);
-    setPropertyId(props[0].id);
+    setPropertyId(farm.selected?.id ?? props[0].id);
     setCrop("soja");
     setOpen(true);
   }
@@ -104,7 +107,7 @@ function Page() {
 
       {fields.length === 0 ? (
         props.length > 0 && (
-          <Card className="border-dashed"><CardContent className="py-12 text-center text-muted-foreground">Nenhum talhão cadastrado.</CardContent></Card>
+          <Card className="border-dashed"><CardContent className="py-12 text-center text-muted-foreground">{farm.selected ? "Esta fazenda ainda não tem talhões." : "Nenhum talhão cadastrado."}</CardContent></Card>
         )
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

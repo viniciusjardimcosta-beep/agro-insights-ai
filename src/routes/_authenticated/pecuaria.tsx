@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
-import { Banknote, Beef, Camera, Mic, Pencil, Plus, Trash2, HandCoins, HeartCrack, Baby } from "lucide-react";
+import { Banknote, Beef, Camera, Mic, Pencil, Plus, Trash2, HandCoins, HeartCrack } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,9 @@ import { parseMoney } from "@/lib/cost-import";
 import { VoiceCostDialog } from "@/components/voice-cost-dialog";
 import { PhotoCostDialog } from "@/components/photo-cost-dialog";
 import { BRL, NUM } from "@/lib/calc";
+import { CalfIcon } from "@/components/calf-icon";
+import { useFarm } from "@/lib/farm-selection";
+import { cattleOfFarm } from "@/lib/farms";
 
 const qCattle = queryOptions({ queryKey: ["cattle"], queryFn: () => listCattle() });
 
@@ -37,6 +40,7 @@ const todayIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+const headsLabel = (n: number) => `${NUM.format(n)} ${n === 1 ? "cabeça" : "cabeças"}`;
 const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
 const PHASE_LABEL: Record<string, string> = { cria: "Cria (matrizes)", recria: "Recria", engorda: "Engorda", reprodutor: "Reprodutores (touros)" };
 const SEX_LABEL: Record<string, string> = { macho: "Macho", femea: "Fêmea" };
@@ -65,10 +69,12 @@ function Page() {
   const [photoOpen, setPhotoOpen] = useState(false);
 
   const data = q.data;
-  const lots = (data?.lots ?? []) as Lot[];
-  const costs = (data?.costs ?? []) as CattleCost[];
-  const sales = (data?.sales ?? []) as CattleSale[];
-  const losses = (data?.losses ?? []) as CattleLoss[];
+  const farmSel = useFarm();
+  const { lots, costs, sales, losses } = cattleOfFarm(
+    { lots: (data?.lots ?? []) as Lot[], costs: (data?.costs ?? []) as CattleCost[], sales: (data?.sales ?? []) as CattleSale[], losses: (data?.losses ?? []) as CattleLoss[] },
+    farmSel.selected?.id ?? null,
+  );
+  const lotsWithoutFarm = farmSel.farms.length >= 2 && !farmSel.selected ? ((data?.lots ?? []) as Lot[]).filter((l) => !l.property_id).length : 0;
   const lossesReady = data?.lossesReady ?? false;
   const today = todayIso();
   const stock = useMemo(() => summarizeStock(lots, costs, sales, today, losses), [lots, costs, sales, today, losses]);
@@ -116,7 +122,7 @@ function Page() {
           </Button>
           {activeLots.some((l) => l.phase === "cria") && (
             <Button variant="outline" onClick={() => { setBirthLot(activeLots.find((l) => l.phase === "cria")?.id ?? ""); setBirthOpen(true); }}>
-              <Baby className="mr-2 h-4 w-4" />Nascimento
+              <CalfIcon className="mr-2 h-4 w-4" />Nascimento
             </Button>
           )}
           <Button variant="outline" disabled={activeLots.length === 0} onClick={() => { setSaleLot(activeLots[0]?.id ?? ""); setSaleOpen(true); }}>
@@ -124,6 +130,17 @@ function Page() {
           </Button>
         </div>
       </div>
+
+      {lotsWithoutFarm > 0 && (
+        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          {lotsWithoutFarm === 1 ? "1 lote ainda não tem fazenda" : `${lotsWithoutFarm} lotes ainda não têm fazenda`}. Toque em editar no lote e escolha a fazenda para ele aparecer quando você olhar uma fazenda só.
+        </p>
+      )}
+      {farmSel.selected && (
+        <p className="text-sm text-muted-foreground">
+          Mostrando só <b>{farmSel.selected.name}</b>. Custos gerais da fazenda (cerca, trator...) aparecem em “Todas as fazendas”.
+        </p>
+      )}
 
       {lots.length === 0 ? (
         <Card className="border-dashed border-primary/40 bg-primary/5">
@@ -141,7 +158,7 @@ function Page() {
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Na fazenda agora" value={`${NUM.format(farm.activeHeads)} cabeças`} hint={`${BRL.format(farm.investedInActive)} investidos nelas`} />
+            <Stat label="Na fazenda agora" value={headsLabel(farm.activeHeads)} hint={`${BRL.format(farm.investedInActive)} investidos nelas`} />
             <Stat label="Vendido" value={BRL.format(farm.soldAmount)} />
             <Stat label="Resultado dos lotes vendidos" value={BRL.format(farm.lotsResult)} tone={farm.lotsResult} />
             <Stat label="Custos gerais da fazenda" value={BRL.format(farm.generalCosts)} hint={farm.generalCosts > 0 ? `Resultado depois deles: ${BRL.format(farm.resultAfterGeneral)}` : "Cerca, trator, roçada..."} />
@@ -209,7 +226,7 @@ function Page() {
                           <Badge variant={s.fullySold ? "secondary" : "default"}>{s.fullySold ? "Vendido" : "Na fazenda"}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {lot.head_count} cabeças{s.headsLost > 0 ? ` (${s.headsLost} baixa${s.headsLost > 1 ? "s" : ""})` : ""} · entrada {fmtDate(lot.entry_date)}
+                          {headsLabel(lot.head_count)}{s.headsLost > 0 ? ` (${s.headsLost} baixa${s.headsLost > 1 ? "s" : ""})` : ""} · entrada {fmtDate(lot.entry_date)}
                           {lot.entry_avg_weight_kg ? ` · ${NUM.format(Number(lot.entry_avg_weight_kg))} kg em média` : ""} · {s.days} dias
                         </p>
                       </div>
@@ -248,7 +265,7 @@ function Page() {
                         <Button size="sm" variant="outline" onClick={() => { setSaleLot(lot.id); setSaleOpen(true); }}><HandCoins className="mr-1.5 h-4 w-4" />Venda</Button>
                       )}
                       {s.headsLeft > 0 && lot.phase === "cria" && (
-                        <Button size="sm" variant="outline" onClick={() => { setBirthLot(lot.id); setBirthOpen(true); }}><Baby className="mr-1.5 h-4 w-4" />Nascimento</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setBirthLot(lot.id); setBirthOpen(true); }}><CalfIcon className="mr-1.5 h-4 w-4" />Nascimento</Button>
                       )}
                       {s.headsLeft > 0 && lossesReady && (
                         <Button size="sm" variant="outline" onClick={() => { setLossLot(lot.id); setLossOpen(true); }}><HeartCrack className="mr-1.5 h-4 w-4" />Baixa</Button>
@@ -318,7 +335,7 @@ function Page() {
         costs={costs.map((c) => ({ field_id: c.lot_id ?? "geral", date: c.date, category: c.category, amount: c.amount }))}
         cattle
       />
-      <LotDialog open={lotOpen} onOpenChange={setLotOpen} lot={editing} onSaved={refresh} />
+      <LotDialog open={lotOpen} onOpenChange={setLotOpen} lot={editing} onSaved={refresh} farms={farmSel.farms} defaultFarmId={farmSel.selected?.id ?? ""} />
       <CostDialog open={costOpen} onOpenChange={setCostOpen} lots={lots} initialLot={costLot} onSaved={refresh} />
       <SaleDialog open={saleOpen} onOpenChange={setSaleOpen} lots={activeLots} costs={costs} sales={sales} losses={losses} initialLot={saleLot} onSaved={refresh} />
       <BirthDialog open={birthOpen} onOpenChange={setBirthOpen} dams={activeLots.filter((l) => l.phase === "cria")} sires={[...new Set([...lots.filter((l) => l.phase === "reprodutor").map((l) => l.name), ...lots.map((l) => l.sire_name ?? "").filter(Boolean)])]} initialLot={birthLot} onSaved={refresh} />
@@ -349,7 +366,7 @@ function Line({ label, value, tone }: { label: string; value: string; tone?: num
 }
 
 // ---------------------------------------------------------------- lote
-function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpenChange: (v: boolean) => void; lot: Lot | null; onSaved: () => Promise<void> }) {
+function LotDialog({ open, onOpenChange, lot, onSaved, farms, defaultFarmId }: { open: boolean; onOpenChange: (v: boolean) => void; lot: Lot | null; onSaved: () => Promise<void>; farms: { id: string; name: string }[]; defaultFarmId: string }) {
   const save = useServerFn(saveLot);
   const [name, setName] = useState("");
   const [phase, setPhase] = useState<string>("engorda");
@@ -359,6 +376,7 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
   const [paid, setPaid] = useState("");
   const [sex, setSex] = useState<string>("");
   const [ageM, setAgeM] = useState("");
+  const [farmId, setFarmId] = useState("");
   // Vários grupos (sexo + idade + quantidade) de uma vez; cada grupo vira um lote. Só para lote novo.
   const [groups, setGroups] = useState<{ sex: string; age: string; heads: string }[]>([]);
   const [busy, setBusy] = useState(false);
@@ -376,6 +394,7 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
       setWeight(lot?.entry_avg_weight_kg ? String(lot.entry_avg_weight_kg).replace(".", ",") : "");
       setPaid(lot ? String(lot.purchase_amount).replace(".", ",") : "");
       setSex(lot?.sex ?? "");
+      setFarmId(lot ? (lot.property_id ?? "") : defaultFarmId);
       setGroups([]);
       setAgeM(lot?.entry_age_months !== null && lot?.entry_age_months !== undefined ? String(lot.entry_age_months) : "");
     }
@@ -395,6 +414,11 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
     return { sex: sex === "macho" || sex === "femea" ? sex : null, entry_age_months: ageM === "" ? null : Math.min(360, Number.parseInt(ageM, 10)) } as const;
   }
 
+  // Só manda a fazenda quando a pessoa tem mais de uma (senão o lote segue como sempre foi).
+  function farmField() {
+    return farms.length >= 2 ? { property_id: farmId || null } : {};
+  }
+
   async function submit() {
     if (!valid || paidN === null) return;
     setBusy(true);
@@ -406,14 +430,14 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
           const sx = g.sex === "macho" || g.sex === "femea" ? g.sex : null;
           const ag = g.age === "" ? null : Math.min(360, Number.parseInt(g.age, 10));
           const label = [sx ? SEX_LABEL[sx] : null, ag !== null ? `${ag} ${ag === 1 ? "mês" : "meses"}` : null].filter(Boolean).join(" ");
-          await save({ data: { name: label ? `${name.trim()} – ${label}` : name.trim(), phase: phase as (typeof CATTLE_PHASES)[number], head_count: groupHeads[i], entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: amounts[i], sex: sx, entry_age_months: ag } });
+          await save({ data: { name: label ? `${name.trim()} – ${label}` : name.trim(), phase: phase as (typeof CATTLE_PHASES)[number], head_count: groupHeads[i], entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: amounts[i], sex: sx, entry_age_months: ag, ...farmField() } });
         }
         await onSaved();
         toast.success(`${groups.length} lotes cadastrados`);
         onOpenChange(false);
         return;
       }
-      await save({ data: { id: lot?.id, name: name.trim(), phase: phase as (typeof CATTLE_PHASES)[number], head_count: headsN, entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: paidN, ...detailFields() } });
+      await save({ data: { id: lot?.id, name: name.trim(), phase: phase as (typeof CATTLE_PHASES)[number], head_count: headsN, entry_date: entry, entry_avg_weight_kg: weightN, purchase_amount: paidN, ...detailFields(), ...farmField() } });
       await onSaved();
       toast.success(lot ? "Lote atualizado" : "Lote cadastrado");
       onOpenChange(false);
@@ -429,6 +453,18 @@ function LotDialog({ open, onOpenChange, lot, onSaved }: { open: boolean; onOpen
         </DialogHeader>
         <div className="space-y-3">
           <div><Label htmlFor="lot-name">Nome do lote</Label><Input id="lot-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Garrotes de março" autoComplete="off" /></div>
+          {farms.length >= 2 && (
+            <div>
+              <Label>Fazenda</Label>
+              <Select value={farmId || "none"} onValueChange={(v) => setFarmId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {farms.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                  <SelectItem value="none">Sem fazenda definida</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Fase</Label>

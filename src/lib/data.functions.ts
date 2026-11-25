@@ -44,20 +44,27 @@ const propertyInput = z.object({
   city: z.string().max(120).optional().nullable(),
   state: z.string().max(2).optional().nullable(),
   total_area: z.number().min(0),
+  activity: z.enum(["plantio", "pecuaria", "ilp"]).nullable().optional(),
 });
 
 export const upsertProperty = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => propertyInput.parse(input))
   .handler(async ({ context, data }) => {
-    const row = { ...data, user_id: context.userId };
+    // activity só é enviada quando informada: sem a coluna nova no banco, o resto segue funcionando.
+    const { activity, ...rest } = data;
+    const row = { ...rest, ...(activity ? { activity } : {}), user_id: context.userId };
     if (data.id) {
       const { data: existing } = await context.supabase
         .from("properties").select("id").eq("id", data.id).maybeSingle();
       if (!existing) throw new Error(NOT_FOUND);
     }
     const { error } = await context.supabase.from("properties").upsert(row);
-    if (error) throw dbError(error);
+    if (error) {
+      if (activity && ["42703", "PGRST204"].includes((error as { code?: string }).code ?? ""))
+        throw new Error("A escolha de atividade por fazenda ainda não está disponível. Avise o suporte.");
+      throw dbError(error);
+    }
     await audit(context, data.id ? "property_updated" : "property_created", {
       entityType: "property",
       entityId: data.id ?? null,
@@ -315,6 +322,7 @@ const quickStartInput = z.object({
   area: z.number().gt(0).max(10_000_000),
   estimated_yield: z.number().min(0).max(100_000).optional().nullable(),
   price_per_bag: z.number().min(0).max(1_000_000).optional().nullable(),
+  withCattle: z.boolean().optional(),
 });
 
 // Primeiros passos em uma tela só: cria a propriedade, o primeiro talhão e (se informado) o preço da cultura.
@@ -334,6 +342,7 @@ export const quickStartFarm = createServerFn({ method: "POST" })
       if (pErr || !created) throw dbError(pErr ?? new Error("Falha ao criar a propriedade"));
       prop = created;
       await audit(context, "property_created", { entityType: "property", entityId: prop.id, propertyId: prop.id });
+      await context.supabase.from("properties").update({ activity: data.withCattle ? "ilp" : "plantio" }).eq("id", prop.id);
     }
     const { data: field, error: fErr } = await context.supabase
       .from("fields")
@@ -380,6 +389,8 @@ export const quickStartRanch = createServerFn({ method: "POST" })
       .single();
     if (error || !created) throw dbError(error ?? new Error("Falha ao criar a fazenda"));
     await audit(context, "property_created", { entityType: "property", entityId: created.id, propertyId: created.id });
+    // Opcional: se a coluna de atividade ainda não existe, a fazenda já foi criada e segue valendo a atividade da conta.
+    await context.supabase.from("properties").update({ activity: "pecuaria" }).eq("id", created.id);
     return { ok: true, property_id: created.id as string };
   });
 
