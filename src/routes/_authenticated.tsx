@@ -29,7 +29,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/inteligencia", label: "Inteligência", icon: Brain },
   { to: "/alertas", label: "Alertas", icon: BellRing },
-  { to: "/propriedades", label: "Propriedades", icon: MapPinned },
+  { to: "/propriedades", label: "Fazendas", icon: MapPinned },
   { to: "/talhoes", label: "Talhões", icon: Sprout },
   { to: "/custos", label: "Custos", icon: Banknote },
   { to: "/precos", label: "Preços", icon: TrendingUp },
@@ -46,6 +46,10 @@ const PECUARIA_ITEM = { to: "/pecuaria", label: "Pecuária", icon: Beef } as con
 /** Atalhos fixos no menu de baixo do celular; as demais telas ficam em "Mais". */
 const MOBILE_MAIN = ["/dashboard", "/custos", "/talhoes", "/alertas"] as const;
 
+/** Quem só cria gado vê só o que usa: o resto (talhões, preços de cultura, simulador...) é de lavoura. */
+const RANCH_ONLY_NAV: readonly string[] = ["/dashboard", "/propriedades", "/consultor", "/configuracoes"];
+const RANCH_ONLY_MOBILE = ["/dashboard", "/pecuaria", "/propriedades"] as const;
+
 function AuthLayout() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -55,7 +59,15 @@ function AuthLayout() {
   // Apenas UX: a autorização real é feita no servidor em cada função admin.
   const adminQ = useQuery({ queryKey: ["admin", "me"], queryFn: () => amIAdmin(), staleTime: 300_000 });
   const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => getActivities(), staleTime: 300_000 });
-  const navItems = activitiesQ.data?.pecuaria ? [...NAV.slice(0, 6), PECUARIA_ITEM, ...NAV.slice(6)] : [...NAV];
+  const lavoura = activitiesQ.data?.lavoura ?? true;
+  const pecuaria = activitiesQ.data?.pecuaria ?? false;
+  const mobileMain: readonly string[] = lavoura ? MOBILE_MAIN : RANCH_ONLY_MOBILE;
+  const navItems = (() => {
+    const base: (typeof NAV)[number][] = NAV.filter((n) => lavoura || RANCH_ONLY_NAV.includes(n.to));
+    const list: ((typeof NAV)[number] | typeof PECUARIA_ITEM)[] = [...base];
+    if (pecuaria) list.splice(lavoura ? base.findIndex((n) => n.to === "/custos") + 1 : 1, 0, PECUARIA_ITEM);
+    return list;
+  })();
   const alertCount = countUnacknowledged((alertsQ.data ?? []) as unknown as { status: "active" | "acknowledged" | "resolved" }[]);
 
   async function logout() {
@@ -149,8 +161,9 @@ function AuthLayout() {
 
       {/* Mobile bottom nav: 4 atalhos + "Mais" com todas as telas */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t bg-background py-2 md:hidden">
-        {MOBILE_MAIN.map((to) => {
-          const item = navItems.find((n) => n.to === to)!;
+        {mobileMain.map((to) => {
+          const item = navItems.find((n) => n.to === to);
+          if (!item) return null;
           const active = pathname.startsWith(item.to);
           return (
             <Link
@@ -174,7 +187,7 @@ function AuthLayout() {
           type="button"
           onClick={() => setMoreOpen(true)}
           className={`flex min-w-14 flex-col items-center gap-0.5 px-2 py-1 text-[11px] font-medium ${
-            MOBILE_MAIN.some((to) => pathname.startsWith(to)) ? "text-muted-foreground" : "text-primary"
+            mobileMain.some((to) => pathname.startsWith(to)) ? "text-muted-foreground" : "text-primary"
           }`}
         >
           <Menu className="h-5 w-5" />

@@ -41,7 +41,7 @@ function Page() {
   const [crop, setCrop] = useState<string>("soja");
 
   function openNew() {
-    if (props.length === 0) { toast.error("Cadastre uma propriedade primeiro"); return; }
+    if (props.length === 0) { toast.error("Cadastre uma fazenda primeiro"); return; }
     setEditing(null);
     setPropertyId(props[0].id);
     setCrop("soja");
@@ -97,7 +97,7 @@ function Page() {
       {props.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Cadastre uma <Link to="/propriedades" className="text-primary underline">propriedade</Link> antes de criar talhões.
+            Cadastre uma <Link to="/propriedades" className="text-primary underline">fazenda</Link> antes de criar talhões.
           </CardContent>
         </Card>
       )}
@@ -134,7 +134,7 @@ function Page() {
           <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo"} talhão</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
-              <Label>Propriedade</Label>
+              <Label>Fazenda</Label>
               <Select value={propertyId} onValueChange={setPropertyId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

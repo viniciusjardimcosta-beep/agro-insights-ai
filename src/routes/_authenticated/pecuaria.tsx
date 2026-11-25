@@ -27,6 +27,8 @@ const qCattle = queryOptions({ queryKey: ["cattle"], queryFn: () => listCattle()
 
 export const Route = createFileRoute("/_authenticated/pecuaria")({
   head: () => ({ meta: [{ title: "Pecuária — AgroIntel AI" }] }),
+  // ?acao=novo abre o cadastro do primeiro lote direto (vem da entrada de quem cria gado).
+  validateSearch: (s: Record<string, unknown>): { acao?: "novo" } => (s.acao === "novo" ? { acao: "novo" } : {}),
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
@@ -48,7 +50,8 @@ function Page() {
   const delSale = useServerFn(deleteCattleSale);
   const delLoss = useServerFn(deleteCattleLoss);
 
-  const [lotOpen, setLotOpen] = useState(false);
+  const search = Route.useSearch();
+  const [lotOpen, setLotOpen] = useState(search.acao === "novo");
   const [editing, setEditing] = useState<Lot | null>(null);
   const [costOpen, setCostOpen] = useState(false);
   const [costLot, setCostLot] = useState<string>("geral");

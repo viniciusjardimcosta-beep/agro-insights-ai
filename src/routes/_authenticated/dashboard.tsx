@@ -13,6 +13,8 @@ import { aggregateFarm, BRL, cropsMissingPrice, NUM } from "@/lib/calc";
 import { ExecutiveReportButton } from "@/components/executive-report-button";
 import { OnboardingCard } from "@/components/onboarding-card";
 import { PecuariaInviteCard } from "@/components/pecuaria-invite-card";
+import { RanchHome } from "@/components/ranch-home";
+import { getActivities } from "@/lib/cattle.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AgroIntel AI" }] }),
@@ -43,10 +45,13 @@ function scoreColor(score: number) {
 function Dashboard() {
   const { data, isLoading, error } = useQuery(snapshotQuery);
   const { data: latestDiag } = useQuery(latestDiagnosticQuery);
+  const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => getActivities(), staleTime: 300_000 });
   const qc = useQueryClient();
   const seed = useServerFn(seedDemoData);
   const [seeding, setSeeding] = useState(false);
 
+  // Quem só cria gado vê o resumo do rebanho, não os números de lavoura.
+  if (activitiesQ.data && !activitiesQ.data.lavoura) return <RanchHome />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando painel...</p>;
   if (error) return <p className="text-sm text-destructive">Erro ao carregar painel: {(error as Error).message}</p>;
 
@@ -114,7 +119,7 @@ function Dashboard() {
 
       {isEmpty && <OnboardingCard />}
 
-      <PecuariaInviteCard />
+      {!isEmpty && <PecuariaInviteCard />}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
@@ -182,7 +187,7 @@ function Dashboard() {
             <Sprout className="mx-auto h-10 w-10 text-muted-foreground" />
             <h3 className="mt-3 text-lg font-semibold">Nada cadastrado ainda</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Comece cadastrando uma propriedade e seus talhões, ou carregue dados de demonstração.
+              Comece cadastrando uma fazenda e seus talhões, ou carregue dados de demonstração.
             </p>
           </CardContent>
         </Card>

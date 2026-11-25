@@ -362,6 +362,27 @@ export const quickStartFarm = createServerFn({ method: "POST" })
     return { ok: true, property_id: prop.id, field_id: field.id };
   });
 
+const quickStartRanchInput = z.object({
+  name: z.string().trim().min(1).max(120),
+  state: z.string().length(2),
+  area: z.number().min(0).max(10_000_000).optional().nullable(),
+});
+
+// Primeiros passos de quem cria gado: só a fazenda (nome, estado e área de pasto, se souber). Sem cultura, sem talhão.
+export const quickStartRanch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => quickStartRanchInput.parse(input))
+  .handler(async ({ context, data }) => {
+    const { data: created, error } = await context.supabase
+      .from("properties")
+      .insert({ user_id: context.userId, name: data.name, state: data.state.toUpperCase(), total_area: data.area ?? 0 })
+      .select("id")
+      .single();
+    if (error || !created) throw dbError(error ?? new Error("Falha ao criar a fazenda"));
+    await audit(context, "property_created", { entityType: "property", entityId: created.id, propertyId: created.id });
+    return { ok: true, property_id: created.id as string };
+  });
+
 export const deleteCost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))

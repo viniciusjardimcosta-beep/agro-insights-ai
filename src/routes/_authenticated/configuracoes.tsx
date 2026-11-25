@@ -16,7 +16,7 @@ import { LEGAL_DISCLAIMER, PRIVACY_CONTACT } from "@/lib/privacy";
 import { useSubscription } from "@/hooks/use-subscription";
 import { CreditCard } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { getActivities, setPecuariaEnabled } from "@/lib/cattle.functions";
+import { getActivities, setActivities } from "@/lib/cattle.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -199,14 +199,15 @@ function ActivitiesCard() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["activities"], queryFn: () => getActivities() });
   const [busy, setBusy] = useState(false);
-  const on = q.data?.pecuaria === true;
+  const lavoura = q.data?.lavoura !== false;
+  const pecuaria = q.data?.pecuaria === true;
 
-  async function toggle(next: boolean) {
+  async function change(next: { lavoura: boolean; pecuaria: boolean }) {
     setBusy(true);
     try {
-      await setPecuariaEnabled({ data: { enabled: next } });
+      await setActivities({ data: next });
       await qc.invalidateQueries({ queryKey: ["activities"] });
-      toast.success(next ? "Pecuária ligada. Ela aparece no menu." : "Pecuária desligada.");
+      toast.success("Atividades atualizadas. O menu já mudou.");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -218,16 +219,24 @@ function ActivitiesCard() {
     <Card>
       <CardHeader>
         <CardTitle>Atividades da fazenda</CardTitle>
-        <CardDescription>Mostre no menu só o que você usa.</CardDescription>
+        <CardDescription>Mostre no menu só o que você usa. Os seus dados não são apagados ao desligar.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="font-medium">Também crio gado (recria e engorda)</p>
-            <p className="text-sm text-muted-foreground">Em teste. Liga a tela de Pecuária, com lotes, custos e vendas.</p>
+            <p className="font-medium">Plantio (lavoura)</p>
+            <p className="text-sm text-muted-foreground">Talhões, custos por área, preços das culturas e simulador.</p>
           </div>
-          <Switch checked={on} disabled={busy || q.isLoading} onCheckedChange={toggle} aria-label="Ligar a pecuária" />
+          <Switch checked={lavoura} disabled={busy || q.isLoading || (lavoura && !pecuaria)} onCheckedChange={(v) => change({ lavoura: v, pecuaria })} aria-label="Ligar o plantio" />
         </div>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-medium">Pecuária (cria, recria e engorda)</p>
+            <p className="text-sm text-muted-foreground">Lotes, custos, vendas, baixas, nascimentos e estoque por idade.</p>
+          </div>
+          <Switch checked={pecuaria} disabled={busy || q.isLoading || (pecuaria && !lavoura)} onCheckedChange={(v) => change({ lavoura, pecuaria: v })} aria-label="Ligar a pecuária" />
+        </div>
+        <p className="text-xs text-muted-foreground">Pelo menos uma atividade fica ligada.</p>
       </CardContent>
     </Card>
   );
