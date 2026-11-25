@@ -27,6 +27,8 @@ export type Lot = {
   sex?: CattleSex | null; entry_age_months?: number | null;
   /** Nascimento na fazenda: touro pai (texto livre) e lote de matrizes da mãe. */
   born_here?: boolean; sire_name?: string | null; dam_lot_id?: string | null;
+  /** Fazenda do lote (null/ausente = sem fazenda escolhida). */
+  property_id?: string | null;
 };
 export type CattleSex = "macho" | "femea";
 export type CattleCost = { id: string; lot_id: string | null; category: string; description: string | null; amount: number; date: string };

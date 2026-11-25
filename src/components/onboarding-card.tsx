@@ -144,6 +144,7 @@ function FarmForm({ withCattle, onBack }: { withCattle: boolean; onBack: () => v
           area: areaN,
           estimated_yield: yieldStr.trim() !== "" && num(yieldStr) >= 0 ? num(yieldStr) : null,
           price_per_bag: priceStr.trim() !== "" && num(priceStr) > 0 ? num(priceStr) : null,
+          withCattle,
         },
       });
       if (withCattle) await setActivities({ data: { lavoura: true, pecuaria: true } });

@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | Cadastro | nome, e-mail, senha (guardada como hash pelo serviço de login, nunca em texto) | `auth.users`, `profiles` | criar e acessar a conta | usuário |
 | Aceite legal | data de aceite dos Termos e da Política, versão aceita | `profiles` (`terms_accepted_at`, `privacy_accepted_at`) | comprovar consentimento/ciência | usuário |
-| Dados da fazenda | propriedade (nome, cidade, UF, área), talhões (cultura, área, safra, produtividade), custos (categoria, valor, data, descrição), preços | `properties`, `fields`, `costs`, `prices` | calcular lucro por hectare, relatórios | usuário |
+| Dados da fazenda | propriedade (nome, cidade, UF, área, atividade: plantio/pecuária/ILP), talhões (cultura, área, safra, produtividade), custos (categoria, valor, data, descrição), preços | `properties`, `fields`, `costs`, `prices` | calcular lucro por hectare, relatórios | usuário |
 | Resultados gerados | diagnósticos (nota, textos da IA), cenários simulados, alertas | `diagnostics`, `simulated_scenarios`, `intelligence_alerts` | funcionalidades do produto | usuário |
 | Conversas com a IA | perguntas do usuário e respostas | `ai_threads`, `ai_messages` | Consultor IA e histórico | usuário |
 | Assinatura | plano, status, datas de teste e de período, **identificadores do cliente e da assinatura no Stripe**, elegibilidade a plano fundador | `subscriptions`, `billing_checkouts`, `billing_eligibility`, `billing_events` | cobrança e acesso | usuário |
@@ -111,7 +111,7 @@ Dados no Stripe (cliente, faturas) seguem as regras do Stripe e podem ter obriga
 
 Tabelas novas, todas por usuário, com RLS (`auth.uid() = user_id`) e exclusão em cascata ao encerrar a conta:
 
-- `cattle_lots`: lotes de animais (nome, fase cria/recria/engorda/reprodutor, cabeças, data e valor de compra, peso médio, sexo e idade na entrada — estes três opcionais; nascimentos: nascido na fazenda, nome do touro pai e lote de matrizes da mãe).
+- `cattle_lots`: lotes de animais (nome, fase cria/recria/engorda/reprodutor, cabeças, data e valor de compra, peso médio, sexo e idade na entrada — estes três opcionais; nascimentos: nascido na fazenda, nome do touro pai e lote de matrizes da mãe; fazenda do lote).
 - `cattle_costs`: custos de um lote ou gerais da fazenda (categoria, descrição, valor, data).
 - `cattle_sales`: vendas (lote, data, cabeças, arrobas opcionais, valor).
 - `cattle_losses`: baixas de animais (lote, data, cabeças, causa opcional: morte/roubo/sumiço/outro, observação opcional).

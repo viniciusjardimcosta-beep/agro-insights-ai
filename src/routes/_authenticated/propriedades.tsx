@@ -12,6 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Link } from "@tanstack/react-router";
 import { listFields, listProperties, upsertProperty, deleteProperty } from "@/lib/data.functions";
 import { NUM } from "@/lib/calc";
+import { getActivities, setActivities } from "@/lib/cattle.functions";
+import { accountFlagsFor, FARM_ACTIVITIES, FARM_ACTIVITY_LABEL, isFarmActivity, type FarmActivity } from "@/lib/farms";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const q = queryOptions({ queryKey: ["properties"], queryFn: () => listProperties() });
 const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields() });
@@ -22,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/propriedades")({
   errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
 
-type Prop = { id: string; name: string; city: string | null; state: string | null; total_area: number };
+type Prop = { id: string; name: string; city: string | null; state: string | null; total_area: number; activity?: string | null };
 
 function Page() {
   const { data = [], isLoading, error } = useQuery(q);
@@ -32,11 +35,16 @@ function Page() {
   const qc = useQueryClient();
   const save = useServerFn(upsertProperty);
   const del = useServerFn(deleteProperty);
+  const saveActivities = useServerFn(setActivities);
+  const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => getActivities(), staleTime: 300_000 });
+  const account = { lavoura: activitiesQ.data?.lavoura ?? true, pecuaria: activitiesQ.data?.pecuaria ?? false };
+  const [activity, setActivity] = useState<FarmActivity>("plantio");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Prop | null>(null);
 
-  function openNew() { setEditing(null); setOpen(true); }
-  function openEdit(p: Prop) { setEditing(p); setOpen(true); }
+  const accountDefault: FarmActivity = account.lavoura && account.pecuaria ? "ilp" : account.pecuaria ? "pecuaria" : "plantio";
+  function openNew() { setEditing(null); setActivity(accountDefault); setOpen(true); }
+  function openEdit(p: Prop) { setEditing(p); setActivity(isFarmActivity(p.activity) ? p.activity : accountDefault); setOpen(true); }
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando fazendas...</p>;
   if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>;
@@ -52,8 +60,15 @@ function Page() {
           city: String(fd.get("city") || "") || null,
           state: String(fd.get("state") || "").toUpperCase().slice(0, 2) || null,
           total_area: Number(fd.get("total_area") || 0),
+          activity,
         },
       });
+      // Fazenda de pecuária (ou ILP) numa conta só de plantio: liga a Pecuária no menu. Nunca desliga nada.
+      const next = accountFlagsFor(activity, account);
+      if (next.lavoura !== account.lavoura || next.pecuaria !== account.pecuaria) {
+        await saveActivities({ data: next });
+        await qc.invalidateQueries({ queryKey: ["activities"] });
+      }
       setOpen(false);
       await qc.invalidateQueries({ queryKey: ["properties"] });
       await qc.invalidateQueries({ queryKey: ["farm-snapshot"] });
@@ -91,8 +106,8 @@ function Page() {
                   <div>
                     <h3 className="text-lg font-semibold">{p.name}</h3>
                     <p className="text-sm text-muted-foreground">{[p.city, p.state].filter(Boolean).join(" / ") || "Local não informado"}</p>
-                    <p className="mt-2 text-sm"><span className="font-medium">{NUM.format(Number(p.total_area))}</span> ha</p>
-                    {(fieldsByFarm.get(p.id) ?? 0) === 0 && (
+                    <p className="mt-2 text-sm"><span className="font-medium">{NUM.format(Number(p.total_area))}</span> ha{isFarmActivity(p.activity) ? ` · ${FARM_ACTIVITY_LABEL[p.activity]}` : ""}</p>
+                    {(fieldsByFarm.get(p.id) ?? 0) === 0 && p.activity !== "pecuaria" && (
                       <p className="mt-2 text-xs text-muted-foreground">
                         Sem talhões. Se for plantio, <Link to="/talhoes" className="text-primary underline">cadastre o talhão</Link> para esta área entrar no Dashboard.
                       </p>
@@ -118,6 +133,15 @@ function Page() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2"><Label>Município</Label><Input name="city" defaultValue={editing?.city ?? ""} /></div>
               <div className="space-y-2"><Label>Estado (UF)</Label><Input name="state" maxLength={2} defaultValue={editing?.state ?? ""} /></div>
+            </div>
+            <div className="space-y-2">
+              <Label>O que você faz nesta fazenda?</Label>
+              <Select value={activity} onValueChange={(v) => setActivity(v as FarmActivity)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FARM_ACTIVITIES.map((a) => <SelectItem key={a} value={a}>{FARM_ACTIVITY_LABEL[a]}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2"><Label>Área total (ha)</Label><Input name="total_area" type="number" step="0.01" min="0" required defaultValue={editing?.total_area} /></div>
             <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>

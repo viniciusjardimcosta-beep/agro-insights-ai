@@ -103,6 +103,8 @@ const lotInput = z.object({
   // Detalhes opcionais (modo detalhado): o modo simples não envia nada disso.
   sex: z.enum(["macho", "femea"]).nullable().optional(),
   entry_age_months: z.number().int().min(0).max(360).nullable().optional(),
+  // Fazenda do lote (só quando a pessoa tem mais de uma). Sem informar, o lote fica "sem fazenda".
+  property_id: z.string().uuid().nullable().optional(),
 });
 
 export const saveLot = createServerFn({ method: "POST" })
@@ -119,6 +121,7 @@ export const saveLot = createServerFn({ method: "POST" })
     const row = { ...data, user_id: context.userId, entry_avg_weight_kg: data.entry_avg_weight_kg ?? null, notes: data.notes ?? null };
     const { error } = await context.supabase.from("cattle_lots").upsert(row);
     if (error) {
+      if (data.property_id !== undefined && isMissing(error)) throw new Error("Escolher a fazenda do lote ainda não está disponível nesta conta. Avise o suporte.");
       const detail = data.sex !== undefined || data.entry_age_months !== undefined || data.phase === "cria" || data.phase === "reprodutor";
       if (detail && (isMissing(error) || error.code === "23514")) throw new Error("Os detalhes do rebanho (sexo, idade, matrizes e reprodutores) ainda não estão disponíveis nesta conta.");
       throw dbError(error);

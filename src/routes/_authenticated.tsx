@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { LayoutDashboard, MapPinned, Sprout, Banknote, TrendingUp, FileBarChart, Bot, LogOut, Activity, FlaskConical, Brain, BellRing, Settings, ShieldCheck, Menu, Beef } from "lucide-react";
@@ -14,6 +14,11 @@ import { toast } from "sonner";
 import { useSubscription } from "@/hooks/use-subscription";
 import { amIAdmin } from "@/lib/admin.functions";
 import { getActivities } from "@/lib/cattle.functions";
+import { listProperties } from "@/lib/data.functions";
+import { FarmContext, FarmSelector, type Farm } from "@/lib/farm-selection";
+import { ALL_FARMS, farmFlags, resolveSelected } from "@/lib/farms";
+
+const FARM_KEY = "agro-fazenda-escolhida";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -59,8 +64,22 @@ function AuthLayout() {
   // Apenas UX: a autorização real é feita no servidor em cada função admin.
   const adminQ = useQuery({ queryKey: ["admin", "me"], queryFn: () => amIAdmin(), staleTime: 300_000 });
   const activitiesQ = useQuery({ queryKey: ["activities"], queryFn: () => getActivities(), staleTime: 300_000 });
-  const lavoura = activitiesQ.data?.lavoura ?? true;
-  const pecuaria = activitiesQ.data?.pecuaria ?? false;
+  const propsQ = useQuery({ queryKey: ["properties"], queryFn: () => listProperties(), staleTime: 60_000 });
+  const farms = ((propsQ.data ?? []) as Farm[]).slice().reverse(); // mais antiga primeiro
+  const [pickedId, setPickedId] = useState<string>(ALL_FARMS);
+  // Lembra a fazenda escolhida neste aparelho (só conveniência; se falhar, volta para "todas").
+  useEffect(() => {
+    try { setPickedId(localStorage.getItem(FARM_KEY) || ALL_FARMS); } catch { /* sem armazenamento */ }
+  }, []);
+  const selected = farms.length >= 2 ? resolveSelected(farms, pickedId) : null;
+  const selectedId = selected?.id ?? ALL_FARMS;
+  function setSelectedId(id: string) {
+    setPickedId(id);
+    try { localStorage.setItem(FARM_KEY, id); } catch { /* sem armazenamento */ }
+  }
+  const account = { lavoura: activitiesQ.data?.lavoura ?? true, pecuaria: activitiesQ.data?.pecuaria ?? false };
+  const flags = selected ? farmFlags(selected.activity, account) : account;
+  const { lavoura, pecuaria } = flags;
   const mobileMain: readonly string[] = lavoura ? MOBILE_MAIN : RANCH_ONLY_MOBILE;
   const navItems = (() => {
     const base: (typeof NAV)[number][] = NAV.filter((n) => lavoura || RANCH_ONLY_NAV.includes(n.to));
@@ -76,12 +95,14 @@ function AuthLayout() {
     clearMonitoringUser();
     await queryClient.cancelQueries();
     queryClient.clear();
+    try { localStorage.removeItem(FARM_KEY); } catch { /* sem armazenamento */ }
     await supabase.auth.signOut();
     toast.success("Você saiu da conta.");
     navigate({ to: "/auth", replace: true });
   }
 
   return (
+    <FarmContext.Provider value={{ farms, selectedId, selected, setSelectedId, flags }}>
     <div className="min-h-screen bg-background">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col bg-sidebar text-sidebar-foreground md:flex">
@@ -91,6 +112,7 @@ function AuthLayout() {
           </span>
           AgroIntel <span className="text-sidebar-primary">AI</span>
         </div>
+        <FarmSelector className="shrink-0 px-3 pt-3" />
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {navItems.map((item) => {
             const active = pathname.startsWith(item.to);
@@ -145,8 +167,9 @@ function AuthLayout() {
           <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground">
             <Sprout className="h-4 w-4" />
           </span>
-          AgroIntel AI
+          <span className="hidden min-[400px]:inline">AgroIntel AI</span>
         </Link>
+        <FarmSelector className="mx-2 min-w-0 flex-1" />
         <Button variant="ghost" size="sm" onClick={logout}>
           <LogOut className="h-4 w-4" />
         </Button>
@@ -232,6 +255,7 @@ function AuthLayout() {
         </SheetContent>
       </Sheet>
     </div>
+    </FarmContext.Provider>
   );
 }
 /**

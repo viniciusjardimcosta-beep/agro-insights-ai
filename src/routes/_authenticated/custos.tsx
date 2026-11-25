@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useFarm } from "@/lib/farm-selection";
 import { listCosts, upsertCost, createCostSplit, deleteCost, undoImportedCosts, listFields } from "@/lib/data.functions";
 import { BRL, COST_CATEGORIES } from "@/lib/calc";
 import { splitByArea } from "@/lib/cost-split";
@@ -36,8 +37,13 @@ export const Route = createFileRoute("/_authenticated/custos")({
 type Cost = { created_at?: string; id: string; field_id: string; category: string; description: string | null; amount: number; date: string; notes: string | null; fields?: { name: string; crop: string } | null };
 
 function Page() {
-  const { data: costs = [], isLoading: loadingCosts, error: costsError } = useQuery(qCosts);
-  const { data: fields = [], isLoading: loadingFields, error: fieldsError } = useQuery(qFields);
+  const { data: allCosts = [], isLoading: loadingCosts, error: costsError } = useQuery(qCosts);
+  const { data: allFields = [], isLoading: loadingFields, error: fieldsError } = useQuery(qFields);
+  // Fazenda escolhida no topo: só os talhões dela e os custos desses talhões.
+  const farm = useFarm();
+  const fields = farm.selected ? allFields.filter((f) => (f as { property_id?: string }).property_id === farm.selected!.id) : allFields;
+  const fieldIds = new Set(fields.map((f) => f.id));
+  const costs = farm.selected ? allCosts.filter((c) => fieldIds.has((c as { field_id: string }).field_id)) : allCosts;
   const qc = useQueryClient();
   const save = useServerFn(upsertCost);
   const saveSplit = useServerFn(createCostSplit);
