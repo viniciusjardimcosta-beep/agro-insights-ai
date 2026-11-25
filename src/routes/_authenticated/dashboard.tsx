@@ -61,6 +61,10 @@ function Dashboard() {
   const shownFields = farmSel.selected ? allFields.filter((f) => f.property_id === farmSel.selected!.id) : allFields;
   const shownIds = new Set(shownFields.map((f) => f.id));
   const shownCosts = farmSel.selected ? (snapshot.costs as { field_id: string }[]).filter((c) => shownIds.has(c.field_id)) : snapshot.costs;
+  // "Área das fazendas" = o que a pessoa cadastrou em Fazendas (inclui pasto). "Área plantada" = soma dos talhões.
+  const farmsArea = ((snapshot.properties ?? []) as { id: string; total_area: number | string | null }[])
+    .filter((p) => !farmSel.selected || p.id === farmSel.selected.id)
+    .reduce((a, p) => a + Number(p.total_area ?? 0), 0);
   const farm = aggregateFarm(shownFields as never, shownCosts as never, snapshot.prices as never);
 
   async function loadDemo() {
@@ -99,7 +103,8 @@ function Dashboard() {
   }
 
   const cards = [
-    { label: "Área total", value: `${NUM.format(farm.totalArea)} ha`, icon: MapPinned },
+    { label: "Área das fazendas", value: `${NUM.format(farmsArea)} ha`, icon: MapPinned },
+    { label: "Área plantada", value: `${NUM.format(farm.totalArea)} ha`, icon: Sprout },
     { label: "Custo total", value: BRL.format(farm.totalCost), icon: Banknote },
     { label: "Receita estimada", value: BRL.format(farm.totalRevenue), icon: TrendingUp },
     { label: "Lucro estimado", value: BRL.format(farm.totalProfit), icon: Coins, tone: farm.totalProfit < 0 ? "neg" : "pos" },
