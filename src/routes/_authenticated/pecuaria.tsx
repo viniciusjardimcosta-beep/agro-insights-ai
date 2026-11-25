@@ -25,6 +25,9 @@ import { BRL, NUM } from "@/lib/calc";
 import { CalfIcon } from "@/components/calf-icon";
 import { useFarm } from "@/lib/farm-selection";
 import { cattleOfFarm } from "@/lib/farms";
+import { createSubmitLock } from "@/lib/submit-lock";
+
+const submitLock = createSubmitLock();
 
 const qCattle = queryOptions({ queryKey: ["cattle"], queryFn: () => listCattle() });
 
@@ -421,6 +424,7 @@ function LotDialog({ open, onOpenChange, lot, onSaved, farms, defaultFarmId }: {
 
   async function submit() {
     if (!valid || paidN === null) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       if (useGroups) {
@@ -441,7 +445,7 @@ function LotDialog({ open, onOpenChange, lot, onSaved, farms, defaultFarmId }: {
       await onSaved();
       toast.success(lot ? "Lote atualizado" : "Lote cadastrado");
       onOpenChange(false);
-    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { toast.error((e as Error).message); } finally { submitLock.release(); setBusy(false); }
   }
 
   return (
@@ -555,13 +559,14 @@ function CostDialog({ open, onOpenChange, lots, initialLot, onSaved }: { open: b
 
   async function submit(again: boolean) {
     if (!valid || n === null) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       await add({ data: { lot_id: target === "geral" ? null : target, category, amount: n, date, description: desc.trim() || null } });
       await onSaved();
       toast.success("Custo lançado");
       if (again) { setAmount(""); setDesc(""); } else onOpenChange(false);
-    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { toast.error((e as Error).message); } finally { submitLock.release(); setBusy(false); }
   }
 
   return (
@@ -632,13 +637,14 @@ function SaleDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
 
   async function submit() {
     if (!valid || amountN === null) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       await add({ data: { lot_id: lotId, date, head_count: headsN, arrobas: arrN, amount: amountN } });
       await onSaved();
       toast.success("Venda registrada");
       onOpenChange(false);
-    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { toast.error((e as Error).message); } finally { submitLock.release(); setBusy(false); }
   }
 
   return (
@@ -724,13 +730,14 @@ function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
 
   async function submit() {
     if (!valid) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       await add({ data: { lot_id: lotId, date, head_count: headsN, notes: notes.trim() || null, ...(cause ? { cause: cause as (typeof LOSS_CAUSES)[number] } : {}) } });
       await onSaved();
       toast.success("Baixa registrada");
       onOpenChange(false);
-    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { toast.error((e as Error).message); } finally { submitLock.release(); setBusy(false); }
   }
 
   return (
@@ -795,13 +802,14 @@ function BirthDialog({ open, onOpenChange, dams, sires, initialLot, onSaved }: {
 
   async function submit() {
     if (!valid) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       await add({ data: { dam_lot_id: damId, date, sex, head_count: headsN, sire_name: sire.trim() || null } });
       await onSaved();
       toast.success(sex === "femea" ? "Bezerra registrada" : "Bezerro registrado");
       onOpenChange(false);
-    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { toast.error((e as Error).message); } finally { submitLock.release(); setBusy(false); }
   }
 
   return (

@@ -15,6 +15,9 @@ import { COST_CATEGORY_NAMES } from "@/lib/cost-import";
 import { cleanDescription, parseSpokenCost } from "@/lib/voice-parse";
 import { lastTarget, rememberLast } from "@/lib/last-used";
 import { BRL } from "@/lib/calc";
+import { createSubmitLock } from "@/lib/submit-lock";
+
+const submitLock = createSubmitLock();
 
 type FieldLite = { id: string; name: string };
 
@@ -154,6 +157,7 @@ export function VoiceCostDialog({
 
   async function confirm(again: boolean) {
     if (!valid) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       const common = { category, description: cleanDescription(text).slice(0, 300) || null, amount: n, date, notes: "Lançado por voz." };
@@ -177,7 +181,7 @@ export function VoiceCostDialog({
     } catch (e) {
       toast.error("Erro", { description: (e as Error).message });
     } finally {
-      setBusy(false);
+      submitLock.release(); setBusy(false);
     }
   }
 

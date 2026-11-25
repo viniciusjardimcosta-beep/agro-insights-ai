@@ -16,6 +16,9 @@ import { lastTarget } from "@/lib/last-used";
 import { BRL } from "@/lib/calc";
 import { isAlreadyLogged, type NotebookItem } from "@/lib/notebook-photo";
 import type { ExistingCost } from "@/lib/cost-import";
+import { createSubmitLock } from "@/lib/submit-lock";
+
+const submitLock = createSubmitLock();
 
 type FieldLite = { id: string; name: string };
 type CostLite = { field_id: string; date: string; category: string; amount: number | string };
@@ -75,7 +78,7 @@ export function PhotoCostDialog({
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function reset() {
-    setRows(null); setIgnored(0); setReading(false); setBusy(false); setPreview(null); setZoom(false);
+    setRows(null); setIgnored(0); setReading(false); submitLock.release(); setBusy(false); setPreview(null); setZoom(false);
   }
 
   async function onFile(file: File | undefined) {
@@ -116,6 +119,7 @@ export function PhotoCostDialog({
 
   async function confirm() {
     if (!canSave) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       if (cattle) {
@@ -147,7 +151,7 @@ export function PhotoCostDialog({
     } catch (e) {
       toast.error("Erro ao salvar", { description: (e as Error).message });
     } finally {
-      setBusy(false);
+      submitLock.release(); setBusy(false);
     }
   }
 

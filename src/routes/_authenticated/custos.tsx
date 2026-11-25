@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { createSubmitLock } from "@/lib/submit-lock";
 import { useFarm } from "@/lib/farm-selection";
 import { listCosts, upsertCost, createCostSplit, deleteCost, undoImportedCosts, listFields } from "@/lib/data.functions";
 import { BRL, COST_CATEGORIES } from "@/lib/calc";
@@ -35,6 +36,8 @@ export const Route = createFileRoute("/_authenticated/custos")({
 });
 
 type Cost = { created_at?: string; id: string; field_id: string; category: string; description: string | null; amount: number; date: string; notes: string | null; fields?: { name: string; crop: string } | null };
+
+const submitLock = createSubmitLock();
 
 function Page() {
   const { data: allCosts = [], isLoading: loadingCosts, error: costsError } = useQuery(qCosts);
@@ -98,6 +101,7 @@ function Page() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const again = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "again";
+    if (!submitLock.take()) return; // duplo toque: o segundo é ignorado
     const common = {
       category,
       description: String(fd.get("description") || "") || null,
@@ -116,7 +120,7 @@ function Page() {
       rememberLast(target, category);
       await qc.invalidateQueries();
       if (again) { setAmountStr(""); setFormKey((k) => k + 1); } else { setOpen(false); }
-    } catch (e) { toast.error("Erro", { description: (e as Error).message }); }
+    } catch (e) { toast.error("Erro", { description: (e as Error).message }); } finally { submitLock.release(); }
   }
 
   async function onDelete(id: string) {

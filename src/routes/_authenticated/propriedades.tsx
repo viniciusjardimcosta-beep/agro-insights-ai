@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "@tanstack/react-router";
 import { listFields, listProperties, upsertProperty, deleteProperty } from "@/lib/data.functions";
+import { createSubmitLock } from "@/lib/submit-lock";
 import { NUM } from "@/lib/calc";
 import { getActivities, setActivities } from "@/lib/cattle.functions";
 import { accountFlagsFor, FARM_ACTIVITIES, FARM_ACTIVITY_LABEL, isFarmActivity, type FarmActivity } from "@/lib/farms";
@@ -26,6 +27,8 @@ export const Route = createFileRoute("/_authenticated/propriedades")({
 });
 
 type Prop = { id: string; name: string; city: string | null; state: string | null; total_area: number; activity?: string | null };
+
+const submitLock = createSubmitLock();
 
 function Page() {
   const { data = [], isLoading, error } = useQuery(q);
@@ -52,6 +55,7 @@ function Page() {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    if (!submitLock.take()) return; // duplo toque: o segundo é ignorado
     try {
       await save({
         data: {
@@ -73,7 +77,7 @@ function Page() {
       await qc.invalidateQueries({ queryKey: ["properties"] });
       await qc.invalidateQueries({ queryKey: ["farm-snapshot"] });
       toast.success("Fazenda salva");
-    } catch (e) { toast.error("Erro", { description: (e as Error).message }); }
+    } catch (e) { toast.error("Erro", { description: (e as Error).message }); } finally { submitLock.release(); }
   }
 
   async function onDelete(id: string) {
