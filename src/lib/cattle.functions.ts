@@ -21,9 +21,26 @@ export const getActivities = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase.from("profiles").select("activities").eq("id", context.userId).maybeSingle();
-    if (error || !data) return { pecuaria: false };
+    if (error || !data) return { lavoura: true, pecuaria: false };
     const list = (data as { activities?: string[] | null }).activities ?? [];
-    return { pecuaria: list.includes("pecuaria") };
+    // Lista vazia (conta antiga) conta como lavoura, como sempre foi.
+    return { lavoura: list.length === 0 || list.includes("lavoura"), pecuaria: list.includes("pecuaria") };
+  });
+
+/** Liga e desliga cada atividade (lavoura e pecuária têm o mesmo peso). Pelo menos uma precisa ficar ligada. */
+export const setActivities = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ lavoura: z.boolean(), pecuaria: z.boolean() }).refine((v) => v.lavoura || v.pecuaria, "Deixe pelo menos uma atividade ligada.").parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const activities = [...(data.lavoura ? ["lavoura"] : []), ...(data.pecuaria ? ["pecuaria"] : [])];
+    const { error } = await context.supabase.from("profiles").update({ activities }).eq("id", context.userId);
+    if (error) {
+      if (isMissing(error)) throw new Error(NOT_READY);
+      throw dbError(error);
+    }
+    return { ok: true };
   });
 
 export const setPecuariaEnabled = createServerFn({ method: "POST" })

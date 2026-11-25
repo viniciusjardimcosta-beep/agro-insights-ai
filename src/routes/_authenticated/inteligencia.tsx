@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/inteligencia")({
       { property: "og:title", content: "Central de Inteligência — AgroIntel AI" },
       {
         property: "og:description",
-        content: "O que merece sua atenção hoje, com base nos dados da sua propriedade.",
+        content: "O que merece sua atenção hoje, com base nos dados da sua fazenda.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -154,7 +154,7 @@ function InteligenciaPage() {
           </h1>
           <p className="text-muted-foreground">O que merece sua atenção hoje.</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {snap.propertyName ?? "Nenhuma propriedade cadastrada"}
+            {snap.propertyName ?? "Nenhuma fazenda cadastrada"}
             {" · "}
             {snap.lastAnalysisAt
               ? `Última análise em ${new Date(snap.lastAnalysisAt).toLocaleDateString("pt-BR")}`
@@ -174,10 +174,10 @@ function InteligenciaPage() {
           <CardContent className="space-y-3 py-8 text-center">
             <p className="font-medium">Ainda não há dados suficientes.</p>
             <p className="text-sm text-muted-foreground">
-              Cadastre sua propriedade e seus talhões para receber prioridades.
+              Cadastre sua fazenda e seus talhões para receber prioridades.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              <ActionButton link={{ label: "Cadastrar propriedade", to: "/propriedades" }} />
+              <ActionButton link={{ label: "Cadastrar fazenda", to: "/propriedades" }} />
               <ActionButton link={{ label: "Cadastrar talhões", to: "/talhoes" }} />
             </div>
           </CardContent>

@@ -9,13 +9,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { listProperties, upsertProperty, deleteProperty } from "@/lib/data.functions";
+import { Link } from "@tanstack/react-router";
+import { listFields, listProperties, upsertProperty, deleteProperty } from "@/lib/data.functions";
 import { NUM } from "@/lib/calc";
 
 const q = queryOptions({ queryKey: ["properties"], queryFn: () => listProperties() });
+const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields() });
 
 export const Route = createFileRoute("/_authenticated/propriedades")({
-  head: () => ({ meta: [{ title: "Propriedades — AgroIntel AI" }] }),
+  head: () => ({ meta: [{ title: "Fazendas — AgroIntel AI" }] }),
   component: Page,
   errorComponent: ({ error }) => <p className="text-destructive">{(error as Error).message}</p>,
 });
@@ -24,6 +26,9 @@ type Prop = { id: string; name: string; city: string | null; state: string | nul
 
 function Page() {
   const { data = [], isLoading, error } = useQuery(q);
+  const { data: fields = [] } = useQuery(qFields);
+  const fieldsByFarm = new Map<string, number>();
+  for (const f of fields as { property_id: string }[]) fieldsByFarm.set(f.property_id, (fieldsByFarm.get(f.property_id) ?? 0) + 1);
   const qc = useQueryClient();
   const save = useServerFn(upsertProperty);
   const del = useServerFn(deleteProperty);
@@ -33,7 +38,7 @@ function Page() {
   function openNew() { setEditing(null); setOpen(true); }
   function openEdit(p: Prop) { setEditing(p); setOpen(true); }
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando propriedades...</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando fazendas...</p>;
   if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -52,12 +57,12 @@ function Page() {
       setOpen(false);
       await qc.invalidateQueries({ queryKey: ["properties"] });
       await qc.invalidateQueries({ queryKey: ["farm-snapshot"] });
-      toast.success("Propriedade salva");
+      toast.success("Fazenda salva");
     } catch (e) { toast.error("Erro", { description: (e as Error).message }); }
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Excluir esta propriedade? Talhões e custos vinculados também serão excluídos.")) return;
+    if (!confirm("Excluir esta fazenda? Talhões e custos vinculados também serão excluídos.")) return;
     try {
       await del({ data: { id } });
       await qc.invalidateQueries();
@@ -69,14 +74,14 @@ function Page() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Propriedades</h1>
-          <p className="text-sm text-muted-foreground">Fazendas e áreas totais.</p>
+          <h1 className="text-3xl font-bold">Fazendas</h1>
+          <p className="text-sm text-muted-foreground">Suas fazendas e áreas totais.</p>
         </div>
-        <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nova propriedade</Button>
+        <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nova fazenda</Button>
       </div>
 
       {data.length === 0 ? (
-        <Card className="border-dashed"><CardContent className="py-12 text-center text-muted-foreground">Nenhuma propriedade cadastrada.</CardContent></Card>
+        <Card className="border-dashed"><CardContent className="py-12 text-center text-muted-foreground">Nenhuma fazenda cadastrada.</CardContent></Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {(data as Prop[]).map((p) => (
@@ -87,6 +92,11 @@ function Page() {
                     <h3 className="text-lg font-semibold">{p.name}</h3>
                     <p className="text-sm text-muted-foreground">{[p.city, p.state].filter(Boolean).join(" / ") || "Local não informado"}</p>
                     <p className="mt-2 text-sm"><span className="font-medium">{NUM.format(Number(p.total_area))}</span> ha</p>
+                    {(fieldsByFarm.get(p.id) ?? 0) === 0 && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Sem talhões. Se for plantio, <Link to="/talhoes" className="text-primary underline">cadastre o talhão</Link> para esta área entrar no Dashboard.
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button size="icon" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
@@ -102,7 +112,7 @@ function Page() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><span /></DialogTrigger>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Editar" : "Nova"} propriedade</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Editar" : "Nova"} fazenda</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2"><Label>Nome</Label><Input name="name" required defaultValue={editing?.name} /></div>
             <div className="grid grid-cols-2 gap-3">
