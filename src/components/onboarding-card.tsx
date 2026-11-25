@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { quickStartFarm, quickStartRanch } from "@/lib/data.functions";
 import { setActivities } from "@/lib/cattle.functions";
 import { CROPS } from "@/lib/calc";
+import { createSubmitLock } from "@/lib/submit-lock";
+
+const submitLock = createSubmitLock();
 
 const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI",
@@ -34,17 +37,17 @@ export function OnboardingCard() {
         <CardDescription>Assim o app mostra só o que você usa. Dá para mudar depois em Configurações.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <Button type="button" variant="outline" size="lg" className="h-auto w-full justify-start gap-3 py-4 text-left" onClick={() => setKind("plantio")}>
+        <Button type="button" variant="outline" size="lg" className="h-auto w-full min-w-0 justify-start gap-3 whitespace-normal py-4 text-left" onClick={() => setKind("plantio")}>
           <Sprout className="h-6 w-6 shrink-0 text-primary" />
-          <span><span className="block text-base font-semibold">Plantio</span><span className="block text-sm font-normal text-muted-foreground">Lavoura: soja, milho, trigo...</span></span>
+          <span className="min-w-0"><span className="block text-base font-semibold">Plantio</span><span className="block text-sm font-normal text-muted-foreground">Lavoura: soja, milho, trigo...</span></span>
         </Button>
-        <Button type="button" variant="outline" size="lg" className="h-auto w-full justify-start gap-3 py-4 text-left" onClick={() => setKind("pecuaria")}>
+        <Button type="button" variant="outline" size="lg" className="h-auto w-full min-w-0 justify-start gap-3 whitespace-normal py-4 text-left" onClick={() => setKind("pecuaria")}>
           <Beef className="h-6 w-6 shrink-0 text-primary" />
-          <span><span className="block text-base font-semibold">Pecuária</span><span className="block text-sm font-normal text-muted-foreground">Criação de gado: cria, recria e engorda.</span></span>
+          <span className="min-w-0"><span className="block text-base font-semibold">Pecuária</span><span className="block text-sm font-normal text-muted-foreground">Criação de gado: cria, recria e engorda.</span></span>
         </Button>
-        <Button type="button" variant="outline" size="lg" className="h-auto w-full justify-start gap-3 py-4 text-left" onClick={() => setKind("ilp")}>
+        <Button type="button" variant="outline" size="lg" className="h-auto w-full min-w-0 justify-start gap-3 whitespace-normal py-4 text-left" onClick={() => setKind("ilp")}>
           <span className="flex shrink-0 gap-0.5"><Sprout className="h-6 w-6 text-primary" /><Beef className="h-6 w-6 text-primary" /></span>
-          <span><span className="block text-base font-semibold">Plantio e pecuária (ILP)</span><span className="block text-sm font-normal text-muted-foreground">Lavoura e gado na mesma propriedade, como na entressafra.</span></span>
+          <span className="min-w-0"><span className="block text-base font-semibold">Plantio e pecuária (ILP)</span><span className="block text-sm font-normal text-muted-foreground">Lavoura e gado na mesma propriedade, como na entressafra.</span></span>
         </Button>
       </CardContent>
     </Card>
@@ -66,6 +69,7 @@ function RanchForm({ onBack }: { onBack: () => void }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid || busy) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       await create({ data: { name: name.trim(), state: uf, area: areaN > 0 ? areaN : null } });
@@ -76,7 +80,7 @@ function RanchForm({ onBack }: { onBack: () => void }) {
     } catch (err) {
       toast.error("Não foi possível salvar", { description: (err as Error).message });
     } finally {
-      setBusy(false);
+      submitLock.release(); setBusy(false);
     }
   }
 
@@ -134,6 +138,7 @@ function FarmForm({ withCattle, onBack }: { withCattle: boolean; onBack: () => v
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid || busy) return;
+    if (!submitLock.take()) return;
     setBusy(true);
     try {
       await create({
@@ -154,7 +159,7 @@ function FarmForm({ withCattle, onBack }: { withCattle: boolean; onBack: () => v
     } catch (err) {
       toast.error("Não foi possível salvar", { description: (err as Error).message });
     } finally {
-      setBusy(false);
+      submitLock.release(); setBusy(false);
     }
   }
 
