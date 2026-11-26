@@ -10,7 +10,7 @@ export function Reveal({ children, delay = 0, className = "" }: { children: Reac
     if (!el) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
     // Só o que ainda está abaixo da tela começa escondido; o que já está visível não pisca.
-    if (el.getBoundingClientRect().top < window.innerHeight) return;
+    if (window.innerWidth < 768 || el.getBoundingClientRect().top < window.innerHeight) return; // celular: sempre visível
     setShown(false);
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) { setShown(true); io.disconnect(); }
