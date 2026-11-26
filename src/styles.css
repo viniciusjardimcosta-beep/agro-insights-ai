@@ -2,6 +2,11 @@
 @source "../src";
 @import "tw-animate-css";
 
+/* Inter servida pelo próprio site (só latino, 3 pesos). */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/inter-latin-400.woff") format("woff"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/inter-latin-500.woff") format("woff"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/inter-latin-600.woff") format("woff"); }
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -61,7 +66,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
