@@ -5,6 +5,7 @@ import { Sprout, BarChart3, Banknote, MapPinned, Bot, ArrowRight, Mic, Beef, Che
 import { Button } from "@/components/ui/button";
 import { HeroField } from "@/components/hero-field";
 import { Reveal } from "@/components/reveal";
+import { PRIVACY_CONTACT } from "@/lib/privacy";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -186,6 +187,7 @@ function Index() {
           <nav className="flex gap-4">
             <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>
             <Link to="/termos" className="hover:text-foreground">Termos de uso</Link>
+            <a href={`mailto:${PRIVACY_CONTACT}`} className="hover:text-foreground">Contato</a>
           </nav>
           <span>Feito para o campo brasileiro 🌱</span>
         </div>
