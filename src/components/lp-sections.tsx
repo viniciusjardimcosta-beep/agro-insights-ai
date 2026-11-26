@@ -10,9 +10,9 @@ export function DashboardPanel() {
   ];
   const brl = (n: number) => `${n < 0 ? "−" : ""}R$ ${Math.abs(n).toLocaleString("pt-BR")}`;
   return (
-    <div className="w-full rounded-2xl border bg-card p-4 text-left shadow-[var(--shadow-card)] sm:p-5">
+    <div className="w-full rounded-2xl border bg-card p-4 text-left [font-variant-numeric:tabular-nums] shadow-[var(--shadow-card)] sm:p-5">
       <div className="flex items-center justify-between text-xs">
-        <span className="font-semibold text-foreground">Painel da fazenda</span>
+        <span><span className="block font-semibold text-foreground">Fazenda Boa Vista</span><span className="text-muted-foreground">Safra 25/26 · 120 ha</span></span>
         <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Exemplo com dados fictícios</span>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -104,6 +104,7 @@ export function AiChat() {
           <tbody>
             <tr className="border-t"><td className="py-1.5">Preço de hoje</td><td className="py-1.5 text-right font-medium">R$ 164.300</td></tr>
             <tr className="border-t"><td className="py-1.5">Soja −10%</td><td className="py-1.5 text-right font-medium">R$ 145.900</td></tr>
+            <tr className="border-t"><td className="py-1.5">Talhão 4</td><td className="py-1.5 text-right font-semibold text-[#b91c1c]">−R$ 4.500</td></tr>
           </tbody>
         </table>
       </div>

@@ -58,12 +58,12 @@ function Index() {
             </p>
             <div className="mt-8 flex items-center justify-center lg:justify-start">
               <Button asChild size="lg" className="h-12 px-6 text-base">
-                <Link to="/auth">Começar agora <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                <Link to="/auth">Começar teste grátis <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
             </div>
             <p className="mt-3 text-sm text-muted-foreground">Teste grátis de 7 dias ao criar a conta.</p>
             <ul className="mt-6 inline-block space-y-2 text-left text-sm">
-              {["Lance custos falando ou fotografando o caderno", "Veja o lucro por talhão e por lote", "Pergunte à IA com os números da sua fazenda"].map((t) => (
+              {["7 dias grátis", "Lança por voz ou foto", "Exporta e apaga quando quiser"].map((t) => (
                 <li key={t} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{t}</li>
               ))}
             </ul>
@@ -115,8 +115,8 @@ function Index() {
         </div>
       </section>
 
-      <section className="container mx-auto px-6 py-16 md:py-24">
-        <div className="grid items-center gap-8 md:grid-cols-2">
+      <section id="consultor" className="border-y bg-secondary/40">
+        <div className="container mx-auto grid items-center gap-8 px-6 py-16 md:grid-cols-2 md:py-24">
           <Reveal>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary"><Bot className="h-3.5 w-3.5" /> Consultor de IA</span>
             <h2 className="mt-4 text-3xl font-bold md:text-4xl">Pergunte, em vez de procurar</h2>
@@ -130,7 +130,7 @@ function Index() {
         </div>
       </section>
 
-      <section className="container mx-auto px-6 pb-16 md:pb-24">
+      <section id="faq" className="container mx-auto px-6 pb-16 md:pb-24">
         <Reveal className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold md:text-4xl">Seus dados são seus</h2>
           <p className="mt-3 text-muted-foreground">
@@ -162,34 +162,45 @@ function Index() {
           <div className="rounded-3xl bg-primary px-6 py-14 text-center text-primary-foreground">
             <h2 className="text-3xl font-bold">Pronto para ver os números da sua fazenda?</h2>
             <p className="mx-auto mt-3 max-w-xl opacity-90">Crie sua conta e comece pelo que você faz: plantio, pecuária ou os dois.</p>
-            <Button asChild size="lg" variant="secondary" className="mt-6 h-12 px-6"><Link to="/auth">Começar agora</Link></Button>
+            <Button asChild size="lg" variant="secondary" className="mt-6 h-12 px-6"><Link to="/auth">Começar teste grátis</Link></Button>
             <p className="mt-3 text-sm opacity-90">Teste grátis de 7 dias ao criar a conta.</p>
           </div>
         </Reveal>
       </section>
 
       <footer className="border-t">
-        <div className="container mx-auto grid gap-8 px-6 py-10 text-sm md:grid-cols-3">
+        <div className="container mx-auto grid gap-8 px-6 py-10 text-sm md:grid-cols-4">
           <div>
             <p className="flex items-center gap-2 font-display text-lg font-bold text-foreground">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Sprout className="h-4 w-4" /></span>
               AgroIntel <span className="text-primary">AI</span>
             </p>
-            <p className="mt-3 max-w-xs text-muted-foreground">Custos, lucro e resultado de lavoura e gado num só lugar. Feito para o campo brasileiro.</p>
+            <p className="mt-3 max-w-xs text-muted-foreground">Gestão de custos e lucro para lavoura e pecuária.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Produto</p>
+            <nav className="mt-3 flex flex-col gap-2 text-muted-foreground">
+              <a href="#modulos" className="hover:text-foreground">Lavoura</a>
+              <a href="#modulos" className="hover:text-foreground">Pecuária</a>
+              <a href="#consultor" className="hover:text-foreground">Consultor de IA</a>
+            </nav>
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Ajuda</p>
+            <nav className="mt-3 flex flex-col gap-2 text-muted-foreground">
+              <a href="#faq" className="hover:text-foreground">Perguntas frequentes</a>
+              <a href={`mailto:${PRIVACY_CONTACT}`} className="break-all hover:text-foreground">{PRIVACY_CONTACT}</a>
+            </nav>
           </div>
           <div>
             <p className="font-semibold text-foreground">Legal</p>
             <nav className="mt-3 flex flex-col gap-2 text-muted-foreground">
-              <Link to="/privacidade" className="hover:text-foreground">Política de privacidade</Link>
+              <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>
               <Link to="/termos" className="hover:text-foreground">Termos de uso</Link>
             </nav>
           </div>
-          <div>
-            <p className="font-semibold text-foreground">Contato</p>
-            <a href={`mailto:${PRIVACY_CONTACT}`} className="mt-3 block text-muted-foreground hover:text-foreground">{PRIVACY_CONTACT}</a>
-          </div>
         </div>
-        <div className="border-t py-4 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} AgroIntel AI</div>
+        <div className="border-t py-4 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} AgroIntel AI · Feito para o campo brasileiro 🌱</div>
       </footer>
     </div>
   );
@@ -222,7 +233,7 @@ function Modules() {
   const [tab, setTab] = useState<keyof typeof MODULES>("lavoura");
   const m = MODULES[tab];
   return (
-    <section className="container mx-auto px-6 pb-16 md:pb-24">
+    <section id="modulos" className="container mx-auto px-6 pb-16 md:pb-24">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 className="text-3xl font-bold md:text-4xl">Lavoura e pecuária, do mesmo jeito</h2>
         <p className="mt-3 text-muted-foreground">Plante, crie gado ou faça os dois. O app se ajusta ao que você faz.</p>
