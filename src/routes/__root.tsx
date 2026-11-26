@@ -106,11 +106,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // Inter (texto) vem do próprio site e é pré-carregada: o texto aparece sem esperar o Google.
+      { rel: "preload", href: "/fonts/inter-latin-400.woff", as: "font", type: "font/woff", crossOrigin: "anonymous" },
+      { rel: "preload", href: "/fonts/inter-latin-600.woff", as: "font", type: "font/woff", crossOrigin: "anonymous" },
+    ],
+    // Plus Jakarta Sans (títulos) carrega depois da página, sem bloquear o primeiro texto.
+    scripts: [
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&display=swap",
+        children:
+          "window.addEventListener('load',function(){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&display=swap';document.head.appendChild(l)})",
       },
     ],
   }),

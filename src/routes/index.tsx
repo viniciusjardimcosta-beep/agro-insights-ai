@@ -219,7 +219,7 @@ const MODULES = {
     label: "Lavoura", icon: Sprout,
     title: "Quanto cada talhão dá de lucro?",
     items: ["Custos lançados por talhão e categoria (ou divididos pela área)", "Receita estimada e lucro por hectare em tempo real", "Alertas quando um talhão gasta acima da média", "Simulador: e se o preço da soja cair?"],
-    img: { src: "/lp/dash.webp", alt: "Dashboard com custo total, receita e lucro por hectare", w: 1100, h: 504, phone: false },
+    img: { src: "/lp/dash-800.webp", srcSet: "/lp/dash-480.webp 480w, /lp/dash-800.webp 800w, /lp/dash.webp 1100w", sizes: "(min-width: 768px) 560px, 92vw", alt: "Dashboard com custo total, receita e lucro por hectare", w: 1100, h: 504, phone: false },
   },
   pecuaria: {
     label: "Pecuária", icon: Beef,
@@ -264,11 +264,11 @@ function Modules() {
         <div className="flex justify-center">
           {m.img.phone ? (
             <div className="w-[260px] overflow-hidden rounded-[1.6rem] border-4 border-foreground/80 bg-card shadow-[var(--shadow-card)]">
-              <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
+              <img src={m.img.src} srcSet={"srcSet" in m.img ? m.img.srcSet : undefined} sizes={"sizes" in m.img ? m.img.sizes : undefined} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
             </div>
           ) : (
             <div className="w-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)]">
-              <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
+              <img src={m.img.src} srcSet={"srcSet" in m.img ? m.img.srcSet : undefined} sizes={"sizes" in m.img ? m.img.sizes : undefined} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
             </div>
           )}
         </div>
