@@ -167,6 +167,34 @@ function Page() {
             <Stat label="Custos gerais da fazenda" value={BRL.format(farm.generalCosts)} hint={farm.generalCosts > 0 ? `Resultado depois deles: ${BRL.format(farm.resultAfterGeneral)}` : "Cerca, trator, roçada..."} />
           </div>
 
+          {activeLots.length > 0 && (
+            <Card>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="font-semibold">Rebanho na fazenda</h2>
+                  <span className="text-sm text-muted-foreground">{headsLabel(farm.activeHeads)} em {activeLots.length} {activeLots.length === 1 ? "lote" : "lotes"}</span>
+                </div>
+                <ul className="divide-y text-sm">
+                  {activeLots.map((l) => {
+                    const left = summarizeLot(l, costs, sales, today, losses).headsLeft;
+                    const age = ageMonthsNow(l, today);
+                    const detail = [l.sex ? SEX_LABEL[l.sex] : null, age !== null ? `${age} ${age === 1 ? "mês" : "meses"}` : null].filter(Boolean).join(" · ");
+                    return (
+                      <li key={l.id} className="flex items-baseline justify-between gap-3 py-1.5">
+                        <span className="min-w-0">
+                          <span className="font-medium">{l.name}</span>
+                          <span className="block text-xs text-muted-foreground">{PHASE_LABEL[l.phase] ?? l.phase} · {detail || "sem sexo nem idade"}</span>
+                        </span>
+                        <span className="shrink-0 font-medium">{headsLabel(left)}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {!stock.detailed && <p className="text-xs text-muted-foreground">Quer ver o estoque por idade e sexo? Toque no lápis do lote e abra “Mais detalhes”.</p>}
+              </CardContent>
+            </Card>
+          )}
+
           {stock.detailed && (
             <Card>
               <CardContent className="space-y-3 p-4">
