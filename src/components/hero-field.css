@@ -20,28 +20,43 @@
 
 .hf-herd { animation: hf-walk 70s linear infinite; }
 .hf-herd.slow { animation-duration: 95s; animation-delay: -30s; }
-.hf-bob { animation: hf-bob 1.6s ease-in-out infinite; }
-.hf-leg { transform-box: fill-box; transform-origin: 50% 0; animation: hf-step 1.6s ease-in-out infinite; }
-.hf-leg.b { animation-delay: -0.8s; }
-.hf-tail { transform-box: fill-box; transform-origin: 50% 0; animation: hf-tail 2.4s ease-in-out infinite; }
 
 .hf-clouds { animation: hf-drift 120s linear infinite; }
 .hf-parallax { transition: transform .1s linear; will-change: transform; }
 
-.hf-cow-body { fill: oklch(0.98 0.01 90); }
-.hf-cow-patch { fill: oklch(0.34 0.03 60); }
-.hf-cow-muzzle { fill: oklch(0.85 0.06 20); }
-.hf-cow-leg { fill: oklch(0.92 0.01 90); }
-.hf-cow-hoof { fill: oklch(0.3 0.02 60); }
 
 @keyframes hf-grow { to { transform: scaleY(1); } }
 @keyframes hf-sway { 0%,100% { transform: scaleY(1) rotate(-1.5deg); } 50% { transform: scaleY(1) rotate(1.5deg); } }
 @keyframes hf-pulse { 0%,100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.06); opacity: 1; } }
 @keyframes hf-walk { from { transform: translateX(-380px); } to { transform: translateX(1320px); } }
-@keyframes hf-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-@keyframes hf-step { 0%,100% { transform: rotate(10deg); } 50% { transform: rotate(-10deg); } }
-@keyframes hf-tail { 0%,100% { transform: rotate(8deg); } 50% { transform: rotate(-12deg); } }
 @keyframes hf-drift { from { transform: translateX(-200px); } to { transform: translateX(1300px); } }
+
+/* Gado nelore (zebu): corpo claro, pescoço e cupim mais escuros, orelha caída. */
+.hf-shadow { fill: oklch(0.3 0.05 150); opacity: 0.18; }
+.hf-neck { fill: oklch(0.8 0.02 80); }
+.hf-dewlap { fill: oklch(0.78 0.02 80); }
+.hf-belly { fill: oklch(0.72 0.02 80); opacity: 0.35; }
+.hf-limb { fill: oklch(0.86 0.014 85); }
+.hf-hoof { fill: oklch(0.3 0.02 60); }
+.hf-face { fill: oklch(0.82 0.02 80); }
+.hf-muzzle { fill: oklch(0.6 0.03 40); }
+.hf-eye { fill: oklch(0.2 0.02 60); }
+.hf-ear { fill: oklch(0.66 0.035 65); }
+.hf-horn { stroke: oklch(0.92 0.03 90); stroke-width: 2.4; stroke-linecap: round; fill: none; }
+.hf-tailline { stroke: oklch(0.7 0.02 80); stroke-width: 2.4; stroke-linecap: round; fill: none; }
+.hf-tuft { fill: oklch(0.3 0.02 60); }
+
+.hf-bob { animation: hf-bob 1.5s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.hf-leg { transform-box: view-box; animation: hf-step 1.5s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.hf-leg.b { animation-name: hf-step-b; }
+.hf-tail { transform-box: view-box; transform-origin: 18px 34px; animation: hf-tail 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.hf-head { transform-box: view-box; animation: hf-graze 9s ease-in-out infinite; animation-delay: var(--d, 0s); }
+
+@keyframes hf-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.6px); } }
+@keyframes hf-step { 0%,100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
+@keyframes hf-step-b { 0%,100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+@keyframes hf-tail { 0%,100% { transform: rotate(6deg); } 50% { transform: rotate(-10deg); } }
+@keyframes hf-graze { 0%,62%,100% { transform: rotate(0deg); } 70%,86% { transform: rotate(24deg); } 94% { transform: rotate(4deg); } }
 
 /* Quem desliga animações no aparelho vê a cena parada, já "crescida". */
 @media (prefers-reduced-motion: reduce) {
