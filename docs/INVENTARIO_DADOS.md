@@ -12,7 +12,7 @@
 |---|---|---|
 | Controlador | AgroIntel AI (a empresa/responsável ainda **não está identificada** nos textos) | **[confirmar]** razão social, CNPJ, endereço |
 | Encarregado (DPO) | Não indicado nos textos | **[confirmar]** necessidade e nome |
-| Contato de privacidade | `privacidade@agrointel.ai` (definido em `src/lib/privacy.ts`) | **[confirmar]** que a caixa existe e quem responde |
+| Contato de privacidade | `agrointelgerenciador@gmail.com` (definido em `src/lib/privacy.ts`) | caixa confirmada pelo responsável em 26/11/2026; trocar por e-mail do domínio quando existir |
 
 ## 2. Dados tratados
 

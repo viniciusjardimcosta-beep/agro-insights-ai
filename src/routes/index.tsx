@@ -5,14 +5,15 @@ import { Sprout, BarChart3, Banknote, MapPinned, Bot, ArrowRight, Mic, Beef, Che
 import { Button } from "@/components/ui/button";
 import { HeroField } from "@/components/hero-field";
 import { Reveal } from "@/components/reveal";
+import { PRIVACY_CONTACT } from "@/lib/privacy";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "AgroIntel AI — O copiloto inteligente do produtor rural" },
+      { title: "AgroIntel AI — quanto cada talhão e cada lote dá de lucro" },
       { name: "description", content: "Lavoura e pecuária num só lugar: custos, produção, lucro por hectare e resultado por lote, com um consultor de IA conectado aos dados da sua fazenda." },
-      { property: "og:title", content: "AgroIntel AI" },
-      { property: "og:description", content: "O copiloto inteligente do produtor rural." },
+      { property: "og:title", content: "AgroIntel AI — quanto cada talhão e cada lote dá de lucro" },
+      { property: "og:description", content: "Lavoura e pecuária num só lugar: custos, lucro por hectare, resultado por lote e consultor de IA." },
     ],
   }),
   component: Index,
@@ -21,16 +22,16 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="container mx-auto flex items-center justify-between px-6 py-5">
-        <Link to="/" className="flex items-center gap-2 font-display text-xl font-bold text-foreground">
+      <header className="container mx-auto flex items-center justify-between gap-2 px-4 py-4 sm:px-6 sm:py-5">
+        <Link to="/" className="flex min-w-0 items-center gap-2 font-display text-lg font-bold text-foreground sm:text-xl">
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground">
             <Sprout className="h-5 w-5" />
           </span>
           AgroIntel <span className="text-primary">AI</span>
         </Link>
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost"><Link to="/auth">Entrar</Link></Button>
-          <Button asChild><Link to="/auth">Começar grátis</Link></Button>
+          <Button asChild variant="ghost" size="sm"><Link to="/auth">Entrar</Link></Button>
+          <Button asChild size="sm"><Link to="/auth"><span className="sm:hidden">Começar</span><span className="hidden sm:inline">Começar grátis</span></Link></Button>
         </div>
       </header>
 
@@ -63,7 +64,7 @@ function Index() {
             <p className="mt-3 text-sm text-muted-foreground">Teste grátis de 7 dias ao criar a conta.</p>
             {/* No celular, o produto aparece logo no topo (a cena animada fica parada e embaixo). */}
             <div className="mx-auto mt-8 max-w-md overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)] md:hidden">
-              <img src="/lp/dash.webp" alt="Dashboard do AgroIntel com custo, receita e lucro por hectare" width={1100} height={504} className="w-full" />
+              <img src="/lp/dash-480.webp" alt="Dashboard do AgroIntel com custo, receita e lucro por hectare" width={480} height={220} className="w-full" />
             </div>
           </div>
         </div>
@@ -173,7 +174,7 @@ function Index() {
         <div className="container mx-auto px-6 py-16 text-center">
           <Reveal>
             <h2 className="text-3xl font-bold">Pronto para ver os números da sua fazenda?</h2>
-            <p className="mt-3 text-muted-foreground">Crie sua conta gratuita e comece pelo que você faz: plantio, pecuária ou os dois.</p>
+            <p className="mt-3 text-muted-foreground">Crie sua conta e comece pelo que você faz: plantio, pecuária ou os dois.</p>
             <Button asChild size="lg" className="mt-6 h-12 px-6"><Link to="/auth">Começar agora</Link></Button>
             <p className="mt-3 text-sm text-muted-foreground">Teste grátis de 7 dias ao criar a conta.</p>
           </Reveal>
@@ -186,6 +187,7 @@ function Index() {
           <nav className="flex gap-4">
             <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>
             <Link to="/termos" className="hover:text-foreground">Termos de uso</Link>
+            <a href={`mailto:${PRIVACY_CONTACT}`} className="hover:text-foreground">Contato</a>
           </nav>
           <span>Feito para o campo brasileiro 🌱</span>
         </div>

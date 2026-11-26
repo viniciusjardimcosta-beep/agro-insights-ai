@@ -8,7 +8,7 @@ export const PRIVACY_VERSION = "1.0";
 export const LEGAL_DISCLAIMER =
   "As análises do AgroIntel são ferramentas de apoio à decisão e não substituem orientação profissional agronômica, contábil, financeira ou jurídica.";
 
-export const PRIVACY_CONTACT = "privacidade@agrointel.ai";
+export const PRIVACY_CONTACT = "agrointelgerenciador@gmail.com";
 
 /** Verdadeiro quando o usuário ainda não aceitou a versão vigente. */
 export function needsReacceptance(profile: {
