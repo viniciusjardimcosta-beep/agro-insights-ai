@@ -87,7 +87,7 @@ function Index() {
             <Reveal key={c.before} delay={i * 120}>
               <div className="h-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)]">
                 <div className="bg-destructive/5 p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-destructive">Hoje</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#b91c1c] dark:text-red-300">Hoje</p>
                   <p className="mt-1 font-medium">{c.before}</p>
                 </div>
                 <div className="p-5">
@@ -254,11 +254,11 @@ function Modules() {
         <div className="flex justify-center">
           {m.img.phone ? (
             <div className="w-[260px] overflow-hidden rounded-[1.6rem] border-4 border-foreground/80 bg-card shadow-[var(--shadow-card)]">
-              <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} className="w-full" />
+              <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
             </div>
           ) : (
             <div className="w-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)]">
-              <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} className="w-full" />
+              <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
             </div>
           )}
         </div>
