@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Sprout, BarChart3, Banknote, MapPinned, Bot, ArrowRight, Mic, Beef, Check, ShieldCheck } from "lucide-react";
+import { Sprout, Bot, ArrowRight, Beef, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeroField } from "@/components/hero-field";
 import { Reveal } from "@/components/reveal";
 import { PRIVACY_CONTACT } from "@/lib/privacy";
+import { AiChat, BeforeAfter, DashboardPanel, TrustCards } from "@/components/lp-sections";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -43,32 +44,33 @@ function Index() {
               "radial-gradient(circle at 20% 20%, oklch(0.52 0.14 145) 0, transparent 40%), radial-gradient(circle at 80% 60%, oklch(0.65 0.16 142) 0, transparent 40%)",
           }}
         />
-        <div className="container mx-auto px-6 pb-10 pt-20 md:pb-14 md:pt-28">
-          <div className="mx-auto max-w-3xl text-center">
+        <div className="container mx-auto grid items-center gap-10 px-6 pb-10 pt-12 md:pb-14 md:pt-20 lg:grid-cols-2 lg:gap-12">
+          <div className="text-center lg:text-left">
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
               <Sprout className="h-3.5 w-3.5" /> Para quem planta e para quem cria gado
             </span>
-            <h1 className="mt-6 text-5xl font-bold tracking-tight text-foreground md:text-6xl">
-              Saiba quanto cada talhão <br className="hidden md:block" />
-              e cada lote <span className="text-primary">dá de lucro</span>
+            <h1 className="mt-6 text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
+              Saiba quanto cada talhão e cada lote <span className="text-primary">dá de lucro</span>
             </h1>
             <p className="mt-6 text-lg text-muted-foreground md:text-xl">
               O copiloto do produtor rural: organize custos, produção e resultado de lavoura e gado num só
               lugar — e converse com um consultor de IA que enxerga os dados da sua fazenda.
             </p>
-            <div className="mt-10 flex items-center justify-center gap-3">
+            <div className="mt-8 flex items-center justify-center lg:justify-start">
               <Button asChild size="lg" className="h-12 px-6 text-base">
-                <Link to="/auth">Começar agora <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                <Link to="/auth">Começar teste grátis <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
             </div>
             <p className="mt-3 text-sm text-muted-foreground">Teste grátis de 7 dias ao criar a conta.</p>
-            {/* No celular, o produto aparece logo no topo (a cena animada fica parada e embaixo). */}
-            <div className="mx-auto mt-8 max-w-md overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)] md:hidden">
-              <img src="/lp/dash-480.webp" alt="Dashboard do AgroIntel com custo, receita e lucro por hectare" width={480} height={220} className="w-full" />
-            </div>
+            <ul className="mt-6 inline-block space-y-2 text-left text-sm">
+              {["7 dias grátis", "Lança por voz ou foto", "Exporta e apaga quando quiser"].map((t) => (
+                <li key={t} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{t}</li>
+              ))}
+            </ul>
           </div>
+          <div className="mx-auto w-full max-w-md lg:max-w-none"><DashboardPanel /></div>
         </div>
-        <HeroField />
+        <div className="hidden md:block"><HeroField /></div>
       </section>
 
       <section className="container mx-auto px-6 py-16 md:py-24">
@@ -78,25 +80,14 @@ function Index() {
             Quem não enxerga o custo de cada talhão e de cada lote deixa lucro no campo. É isso que o AgroIntel resolve, sem dar trabalho extra.
           </p>
         </Reveal>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {[
-            { before: "Custo anotado no caderno, que ninguém soma.", after: "Fale ou fotografe o caderno: o app lança e organiza por você.", icon: Mic },
-            { before: "Gado vendido sem saber se deu lucro.", after: "Resultado por lote, custo por cabeça e preço mínimo da arroba.", icon: BarChart3 },
-            { before: "Duas fazendas, números misturados.", after: "Escolha a fazenda no topo: cada uma separada, ou todas somadas.", icon: MapPinned },
-          ].map((c, i) => (
-            <Reveal key={c.before} delay={i * 120}>
-              <div className="h-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)]">
-                <div className="bg-destructive/5 p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#b91c1c] dark:text-red-300">Hoje</p>
-                  <p className="mt-1 font-medium">{c.before}</p>
-                </div>
-                <div className="p-5">
-                  <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary"><c.icon className="h-3.5 w-3.5" /> Com o AgroIntel</p>
-                  <p className="mt-1 font-medium">{c.after}</p>
-                </div>
-              </div>
-            </Reveal>
-          ))}
+        <div className="mt-10">
+          <Reveal>
+            <BeforeAfter rows={[
+              { before: "Custo anotado no caderno, que ninguém soma.", after: "Fale ou fotografe o caderno: o app lança e organiza por você." },
+              { before: "Gado vendido sem saber se deu lucro.", after: "Resultado por lote, custo por cabeça e preço mínimo da arroba." },
+              { before: "Duas fazendas, números misturados.", after: "Escolha a fazenda no topo: cada uma separada, ou todas somadas." },
+            ]} />
+          </Reveal>
         </div>
       </section>
 
@@ -124,8 +115,8 @@ function Index() {
         </div>
       </section>
 
-      <section className="container mx-auto px-6 py-16 md:py-24">
-        <div className="grid items-center gap-8 md:grid-cols-2">
+      <section id="consultor" className="border-y bg-secondary/40">
+        <div className="container mx-auto grid items-center gap-8 px-6 py-16 md:grid-cols-2 md:py-24">
           <Reveal>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary"><Bot className="h-3.5 w-3.5" /> Consultor de IA</span>
             <h2 className="mt-4 text-3xl font-bold md:text-4xl">Pergunte, em vez de procurar</h2>
@@ -134,63 +125,82 @@ function Index() {
             </p>
           </Reveal>
           <Reveal delay={150}>
-            <div className="overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)]">
-              <img src="/lp/consultor.webp" alt="Consultor de IA respondendo com os dados da fazenda" width={1000} height={466} loading="lazy" className="w-full" />
-            </div>
+            <AiChat />
           </Reveal>
         </div>
       </section>
 
-      <section className="container mx-auto px-6 pb-16 md:pb-24">
-        <div className="grid gap-10 md:grid-cols-2">
-          <Reveal>
-            <h2 className="flex items-center gap-2 text-2xl font-bold"><ShieldCheck className="h-6 w-6 text-primary" /> Seus dados são seus</h2>
-            <p className="mt-3 text-muted-foreground">
-              Cada conta enxerga somente os próprios dados. Você pode exportar tudo e excluir a conta quando quiser, direto em Configurações.
-              Veja como tratamos cada dado na <Link to="/privacidade" className="text-primary underline">política de privacidade</Link>.
-            </p>
-          </Reveal>
-          <Reveal delay={120}>
-            <h2 className="text-2xl font-bold">Perguntas frequentes</h2>
-            <div className="mt-3 divide-y rounded-xl border bg-card">
-              {[
+      <section id="faq" className="container mx-auto px-6 pb-16 md:pb-24">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold md:text-4xl">Seus dados são seus</h2>
+          <p className="mt-3 text-muted-foreground">
+            Veja como tratamos cada dado na <Link to="/privacidade" className="text-primary underline">política de privacidade</Link>.
+          </p>
+        </Reveal>
+        <div className="mt-8"><Reveal><TrustCards /></Reveal></div>
+        <Reveal className="mx-auto mt-14 max-w-3xl">
+          <h2 className="text-2xl font-bold">Perguntas frequentes</h2>
+          <div className="mt-4 divide-y rounded-xl border bg-card">
+            {[
                 ["Serve para quem só cria gado?", "Sim. Você escolhe o que faz: plantio, pecuária ou os dois (ILP), e o app mostra só o que importa para você."],
                 ["Quais culturas posso lançar?", "Soja, milho, trigo e outras culturas. O cadastro é por talhão, com cultura e safra."],
                 ["Tenho mais de uma fazenda. E agora?", "Cadastre todas e escolha qual ver no topo da tela, ou veja todas somadas."],
                 ["Posso testar antes de assinar?", "Sim, o teste grátis dura 7 dias a partir da criação da conta."],
                 ["Dá para apagar meus dados?", "Dá. Em Configurações você exporta tudo e exclui a conta."],
-              ].map(([q, a]) => (
-                <details key={q} className="group p-4">
-                  <summary className="cursor-pointer list-none font-medium marker:hidden">{q}</summary>
-                  <p className="mt-2 text-sm text-muted-foreground">{a}</p>
-                </details>
-              ))}
-            </div>
-          </Reveal>
-        </div>
+            ].map(([q, a]) => (
+              <details key={q} className="group p-4">
+                <summary className="cursor-pointer list-none font-medium marker:hidden">{q}</summary>
+                <p className="mt-2 text-sm text-muted-foreground">{a}</p>
+              </details>
+            ))}
+          </div>
+        </Reveal>
       </section>
 
-      <section className="border-t bg-secondary/40">
-        <div className="container mx-auto px-6 py-16 text-center">
-          <Reveal>
+      <section className="container mx-auto px-6 pb-16">
+        <Reveal>
+          <div className="rounded-3xl bg-primary px-6 py-14 text-center text-primary-foreground">
             <h2 className="text-3xl font-bold">Pronto para ver os números da sua fazenda?</h2>
-            <p className="mt-3 text-muted-foreground">Crie sua conta e comece pelo que você faz: plantio, pecuária ou os dois.</p>
-            <Button asChild size="lg" className="mt-6 h-12 px-6"><Link to="/auth">Começar agora</Link></Button>
-            <p className="mt-3 text-sm text-muted-foreground">Teste grátis de 7 dias ao criar a conta.</p>
-          </Reveal>
-        </div>
+            <p className="mx-auto mt-3 max-w-xl opacity-90">Crie sua conta e comece pelo que você faz: plantio, pecuária ou os dois.</p>
+            <Button asChild size="lg" variant="secondary" className="mt-6 h-12 px-6"><Link to="/auth">Começar teste grátis</Link></Button>
+            <p className="mt-3 text-sm opacity-90">Teste grátis de 7 dias ao criar a conta.</p>
+          </div>
+        </Reveal>
       </section>
 
       <footer className="border-t">
-        <div className="container mx-auto flex flex-col items-center justify-between gap-2 px-6 py-6 text-sm text-muted-foreground md:flex-row">
-          <span>© {new Date().getFullYear()} AgroIntel AI</span>
-          <nav className="flex gap-4">
-            <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>
-            <Link to="/termos" className="hover:text-foreground">Termos de uso</Link>
-            <a href={`mailto:${PRIVACY_CONTACT}`} className="hover:text-foreground">Contato</a>
-          </nav>
-          <span>Feito para o campo brasileiro 🌱</span>
+        <div className="container mx-auto grid gap-8 px-6 py-10 text-sm md:grid-cols-4">
+          <div>
+            <p className="flex items-center gap-2 font-display text-lg font-bold text-foreground">
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Sprout className="h-4 w-4" /></span>
+              AgroIntel <span className="text-primary">AI</span>
+            </p>
+            <p className="mt-3 max-w-xs text-muted-foreground">Gestão de custos e lucro para lavoura e pecuária.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Produto</p>
+            <nav className="mt-3 flex flex-col gap-2 text-muted-foreground">
+              <a href="#modulos" className="hover:text-foreground">Lavoura</a>
+              <a href="#modulos" className="hover:text-foreground">Pecuária</a>
+              <a href="#consultor" className="hover:text-foreground">Consultor de IA</a>
+            </nav>
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Ajuda</p>
+            <nav className="mt-3 flex flex-col gap-2 text-muted-foreground">
+              <a href="#faq" className="hover:text-foreground">Perguntas frequentes</a>
+              <a href={`mailto:${PRIVACY_CONTACT}`} className="break-all hover:text-foreground">{PRIVACY_CONTACT}</a>
+            </nav>
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Legal</p>
+            <nav className="mt-3 flex flex-col gap-2 text-muted-foreground">
+              <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>
+              <Link to="/termos" className="hover:text-foreground">Termos de uso</Link>
+            </nav>
+          </div>
         </div>
+        <div className="border-t py-4 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} AgroIntel AI · Feito para o campo brasileiro 🌱</div>
       </footer>
     </div>
   );
@@ -223,7 +233,7 @@ function Modules() {
   const [tab, setTab] = useState<keyof typeof MODULES>("lavoura");
   const m = MODULES[tab];
   return (
-    <section className="container mx-auto px-6 pb-16 md:pb-24">
+    <section id="modulos" className="container mx-auto px-6 pb-16 md:pb-24">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 className="text-3xl font-bold md:text-4xl">Lavoura e pecuária, do mesmo jeito</h2>
         <p className="mt-3 text-muted-foreground">Plante, crie gado ou faça os dois. O app se ajusta ao que você faz.</p>
