@@ -134,6 +134,9 @@ export const deleteLot = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
     await ownsLot(context, data.id);
+    // Os arquivos das fotos não somem com a linha do lote: apagar antes.
+    const { removeLotPhotos } = await import("@/lib/lot-photos.server");
+    await removeLotPhotos(context.supabase, { lotId: data.id }).catch(() => {});
     const { error } = await context.supabase.from("cattle_lots").delete().eq("id", data.id);
     if (error) throw dbError(error);
     return { ok: true };
@@ -215,6 +218,11 @@ export const addCattleSale = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("cattle_sales").insert({ ...data, arrobas: data.arrobas ?? null, user_id: context.userId });
     if (error) throw dbError(error);
     await refreshLotStatus(context, data.lot_id, lot.head_count);
+    // Lote vendido por inteiro: as fotos da compra não são mais necessárias.
+    if (already + lost + data.head_count >= lot.head_count) {
+      const { removeLotPhotos } = await import("@/lib/lot-photos.server");
+      await removeLotPhotos(context.supabase, { lotId: data.lot_id }).catch(() => {});
+    }
     return { ok: true };
   });
 
