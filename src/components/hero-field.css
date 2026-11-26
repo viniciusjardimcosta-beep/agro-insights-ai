@@ -1,0 +1,51 @@
+/* Campo animado do topo da página inicial. Só SVG + CSS: sem biblioteca, sem imagem, sem vídeo. */
+.hf { position: relative; width: 100%; line-height: 0; pointer-events: none; }
+.hf svg { display: block; width: 100%; height: auto; }
+@media (max-width: 640px) { .hf svg { height: 260px; } }
+
+.hf-sky { fill: url(#hf-sky-grad); }
+.hf-sun { fill: oklch(0.93 0.12 95); opacity: 0.85; transform-box: fill-box; transform-origin: center; animation: hf-pulse 6s ease-in-out infinite; }
+.hf-cloud { fill: oklch(1 0 0); opacity: 0.8; }
+.hf-hill-far { fill: oklch(0.86 0.07 135); }
+.hf-hill-mid { fill: oklch(0.78 0.11 140); }
+.hf-hill-near { fill: oklch(0.66 0.14 143); }
+.hf-ground { fill: oklch(0.52 0.14 145); }
+.hf-row { stroke: oklch(0.45 0.12 145); stroke-width: 2; opacity: 0.55; }
+.hf-stem { stroke: oklch(0.42 0.13 145); stroke-width: 3; stroke-linecap: round; fill: none; }
+.hf-leaf { fill: oklch(0.7 0.17 140); }
+.hf-grain { fill: oklch(0.82 0.15 85); }
+.hf-fence { stroke: oklch(0.45 0.05 70); stroke-width: 2; stroke-linecap: round; opacity: 0.7; }
+
+.hf-plant { transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); animation: hf-grow 1.4s cubic-bezier(.2,.8,.2,1) forwards, hf-sway 5s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms + 300ms), calc(var(--i) * 90ms + 1700ms); }
+
+.hf-herd { animation: hf-walk 70s linear infinite; }
+.hf-herd.slow { animation-duration: 95s; animation-delay: -30s; }
+.hf-bob { animation: hf-bob 1.6s ease-in-out infinite; }
+.hf-leg { transform-box: fill-box; transform-origin: 50% 0; animation: hf-step 1.6s ease-in-out infinite; }
+.hf-leg.b { animation-delay: -0.8s; }
+.hf-tail { transform-box: fill-box; transform-origin: 50% 0; animation: hf-tail 2.4s ease-in-out infinite; }
+
+.hf-clouds { animation: hf-drift 120s linear infinite; }
+.hf-parallax { transition: transform .1s linear; will-change: transform; }
+
+.hf-cow-body { fill: oklch(0.98 0.01 90); }
+.hf-cow-patch { fill: oklch(0.34 0.03 60); }
+.hf-cow-muzzle { fill: oklch(0.85 0.06 20); }
+.hf-cow-leg { fill: oklch(0.92 0.01 90); }
+.hf-cow-hoof { fill: oklch(0.3 0.02 60); }
+
+@keyframes hf-grow { to { transform: scaleY(1); } }
+@keyframes hf-sway { 0%,100% { transform: scaleY(1) rotate(-1.5deg); } 50% { transform: scaleY(1) rotate(1.5deg); } }
+@keyframes hf-pulse { 0%,100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.06); opacity: 1; } }
+@keyframes hf-walk { from { transform: translateX(-380px); } to { transform: translateX(1320px); } }
+@keyframes hf-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes hf-step { 0%,100% { transform: rotate(10deg); } 50% { transform: rotate(-10deg); } }
+@keyframes hf-tail { 0%,100% { transform: rotate(8deg); } 50% { transform: rotate(-12deg); } }
+@keyframes hf-drift { from { transform: translateX(-200px); } to { transform: translateX(1300px); } }
+
+/* Quem desliga animações no aparelho vê a cena parada, já "crescida". */
+@media (prefers-reduced-motion: reduce) {
+  .hf *, .hf { animation: none !important; transition: none !important; }
+  .hf-plant { transform: scaleY(1); }
+  .hf-herd { transform: translateX(520px); }
+}

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Sprout, BarChart3, Banknote, MapPinned, Bot, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HeroField } from "@/components/hero-field";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,18 +39,18 @@ function Index() {
               "radial-gradient(circle at 20% 20%, oklch(0.52 0.14 145) 0, transparent 40%), radial-gradient(circle at 80% 60%, oklch(0.65 0.16 142) 0, transparent 40%)",
           }}
         />
-        <div className="container mx-auto px-6 py-20 md:py-28">
+        <div className="container mx-auto px-6 pb-10 pt-20 md:pb-14 md:pt-28">
           <div className="mx-auto max-w-3xl text-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-              <Sprout className="h-3.5 w-3.5" /> Para produtores de soja, milho e trigo
+              <Sprout className="h-3.5 w-3.5" /> Para quem planta e para quem cria gado
             </span>
             <h1 className="mt-6 text-5xl font-bold tracking-tight text-foreground md:text-6xl">
               O copiloto inteligente <br className="hidden md:block" />
               do <span className="text-primary">produtor rural</span>
             </h1>
             <p className="mt-6 text-lg text-muted-foreground md:text-xl">
-              Controle talhões, custos, produção e lucro por hectare — e converse com um
-              consultor de IA que enxerga os dados da sua fazenda.
+              Lavoura, gado ou os dois: organize custos, produção e lucro num só lugar — e converse
+              com um consultor de IA que enxerga os dados da sua fazenda. Desorganização custa dinheiro.
             </p>
             <div className="mt-10 flex items-center justify-center gap-3">
               <Link to="/auth">
@@ -60,9 +61,10 @@ function Index() {
             </div>
           </div>
         </div>
+        <HeroField />
       </section>
 
-      <section className="container mx-auto px-6 pb-24">
+      <section className="container mx-auto px-6 pb-24 pt-16">
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {[
             { icon: Banknote, title: "Controle de custos", desc: "Sementes, defensivos, diesel, arrendamento — tudo lançado por talhão e categoria." },
