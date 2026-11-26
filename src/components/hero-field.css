@@ -4,7 +4,7 @@
 @media (max-width: 640px) { .hf svg { height: 260px; } }
 
 .hf-sky { fill: url(#hf-sky-grad); }
-.hf-sun { fill: oklch(0.93 0.12 95); opacity: 0.85; transform-box: fill-box; transform-origin: center; animation: hf-pulse 6s ease-in-out infinite; }
+.hf-sun { fill: oklch(0.93 0.12 95); opacity: 0.85; transform-box: fill-box; transform-origin: center;  }
 .hf-cloud { fill: oklch(1 0 0); opacity: 0.8; }
 .hf-hill-far { fill: oklch(0.86 0.07 135); }
 .hf-hill-mid { fill: oklch(0.78 0.11 140); }
@@ -16,12 +16,11 @@
 .hf-grain { fill: oklch(0.82 0.15 85); }
 .hf-fence { stroke: oklch(0.45 0.05 70); stroke-width: 2; stroke-linecap: round; opacity: 0.7; }
 
-.hf-plant { transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); animation: hf-grow 1.4s cubic-bezier(.2,.8,.2,1) forwards, hf-sway 5s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms + 300ms), calc(var(--i) * 90ms + 1700ms); }
+.hf-plant { transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); animation: hf-grow 1.4s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: calc(var(--i) * 90ms + 300ms); }
 
-.hf-herd { animation: hf-walk 70s linear infinite; }
-.hf-herd.slow { animation-duration: 95s; animation-delay: -30s; }
+.hf-herd { transform: translateX(480px); }
+.hf-herd.slow { transform: translateX(760px); }
 
-.hf-clouds { animation: hf-drift 120s linear infinite; }
 .hf-parallax { transition: transform .1s linear; will-change: transform; }
 
 
@@ -46,17 +45,30 @@
 .hf-tailline { stroke: oklch(0.7 0.02 80); stroke-width: 2.4; stroke-linecap: round; fill: none; }
 .hf-tuft { fill: oklch(0.3 0.02 60); }
 
-.hf-bob { animation: hf-bob 1.5s ease-in-out infinite; animation-delay: var(--d, 0s); }
-.hf-leg { transform-box: view-box; animation: hf-step 1.5s ease-in-out infinite; animation-delay: var(--d, 0s); }
-.hf-leg.b { animation-name: hf-step-b; }
-.hf-tail { transform-box: view-box; transform-origin: 18px 34px; animation: hf-tail 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
-.hf-head { transform-box: view-box; animation: hf-graze 9s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.hf-leg { transform-box: view-box; }
+.hf-tail { transform-box: view-box; transform-origin: 18px 34px; }
+.hf-head { transform-box: view-box; }
 
 @keyframes hf-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.6px); } }
 @keyframes hf-step { 0%,100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
 @keyframes hf-step-b { 0%,100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
 @keyframes hf-tail { 0%,100% { transform: rotate(6deg); } 50% { transform: rotate(-10deg); } }
 @keyframes hf-graze { 0%,62%,100% { transform: rotate(0deg); } 70%,86% { transform: rotate(24deg); } 94% { transform: rotate(4deg); } }
+
+/* Movimento contínuo (gado andando, nuvens, sol) só em tela grande: no celular a cena fica parada,
+   senão o aparelho redesenha tudo o tempo todo e a página trava. */
+@media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+  .hf-sun { animation: hf-pulse 6s ease-in-out infinite; }
+  .hf-plant { animation: hf-grow 1.4s cubic-bezier(.2,.8,.2,1) forwards, hf-sway 5s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms + 300ms), calc(var(--i) * 90ms + 1700ms); }
+  .hf-herd { animation: hf-walk 70s linear infinite; }
+  .hf-herd.slow { animation-duration: 95s; animation-delay: -30s; }
+  .hf-clouds { animation: hf-drift 120s linear infinite; }
+  .hf-bob { animation: hf-bob 1.5s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .hf-leg { animation: hf-step 1.5s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .hf-leg.b { animation-name: hf-step-b; }
+  .hf-tail { animation: hf-tail 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .hf-head { animation: hf-graze 9s ease-in-out infinite; animation-delay: var(--d, 0s); }
+}
 
 /* Quem desliga animações no aparelho vê a cena parada, já "crescida". */
 @media (prefers-reduced-motion: reduce) {
