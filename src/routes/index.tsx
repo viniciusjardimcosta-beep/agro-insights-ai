@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Sprout, BarChart3, Banknote, MapPinned, Bot, ArrowRight, Mic, Beef, Check } from "lucide-react";
+import { Sprout, BarChart3, Banknote, MapPinned, Bot, ArrowRight, Mic, Beef, Check, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeroField } from "@/components/hero-field";
 import { Reveal } from "@/components/reveal";
@@ -28,9 +28,10 @@ function Index() {
           </span>
           AgroIntel <span className="text-primary">AI</span>
         </Link>
-        <Link to="/auth">
-          <Button variant="ghost">Entrar</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost"><Link to="/auth">Entrar</Link></Button>
+          <Button asChild><Link to="/auth">Começar grátis</Link></Button>
+        </div>
       </header>
 
       <section className="relative overflow-hidden">
@@ -47,19 +48,22 @@ function Index() {
               <Sprout className="h-3.5 w-3.5" /> Para quem planta e para quem cria gado
             </span>
             <h1 className="mt-6 text-5xl font-bold tracking-tight text-foreground md:text-6xl">
-              O copiloto inteligente <br className="hidden md:block" />
-              do <span className="text-primary">produtor rural</span>
+              Saiba quanto cada talhão <br className="hidden md:block" />
+              e cada lote <span className="text-primary">dá de lucro</span>
             </h1>
             <p className="mt-6 text-lg text-muted-foreground md:text-xl">
-              Lavoura, gado ou os dois: organize custos, produção e lucro num só lugar — e converse
-              com um consultor de IA que enxerga os dados da sua fazenda. Desorganização custa dinheiro.
+              O copiloto do produtor rural: organize custos, produção e resultado de lavoura e gado num só
+              lugar — e converse com um consultor de IA que enxerga os dados da sua fazenda.
             </p>
             <div className="mt-10 flex items-center justify-center gap-3">
-              <Link to="/auth">
-                <Button size="lg" className="h-12 px-6 text-base">
-                  Começar agora <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+              <Button asChild size="lg" className="h-12 px-6 text-base">
+                <Link to="/auth">Começar agora <ArrowRight className="ml-2 h-4 w-4" /></Link>
+              </Button>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">Teste grátis de 7 dias ao criar a conta.</p>
+            {/* No celular, o produto aparece logo no topo (a cena animada fica parada e embaixo). */}
+            <div className="mx-auto mt-8 max-w-md overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)] md:hidden">
+              <img src="/lp/dash.webp" alt="Dashboard do AgroIntel com custo, receita e lucro por hectare" width={1100} height={504} className="w-full" />
             </div>
           </div>
         </div>
@@ -105,12 +109,12 @@ function Index() {
           </Reveal>
           <div className="mt-10 grid gap-8 md:grid-cols-3">
             {[
-              { img: "voz", n: "1", t: "Fale", d: "“Diesel 450 reais ontem.” O app entende o valor, a data e a categoria.", alt: "Tela de lançar custo por voz" },
-              { img: "foto", n: "2", t: "Fotografe", d: "Tire foto do caderno ou da nota. Você confere e salva.", alt: "Tela de foto do caderno" },
-              { img: "custos", n: "3", t: "Veja o resultado", d: "Custos por talhão ou por lote, lucro por hectare, alertas.", alt: "Tela de custos" },
+              { img: "voz", h: 610, n: "1", t: "Fale", d: "“Diesel 450 reais ontem.” O app entende o valor, a data e a categoria.", alt: "Tela de lançar custo por voz" },
+              { img: "foto", h: 700, n: "2", t: "Fotografe", d: "Tire foto do caderno ou da nota. Você confere e salva.", alt: "Tela de foto do caderno" },
+              { img: "custos", h: 562, n: "3", t: "Veja o resultado", d: "Custos por talhão ou por lote, lucro por hectare, alertas.", alt: "Tela de custos" },
             ].map((st, i) => (
               <Reveal key={st.n} delay={i * 120} className="text-center">
-                <PhoneFrame src={`/lp/${st.img}.webp`} alt={st.alt} />
+                <PhoneFrame src={`/lp/${st.img}-400.webp`} alt={st.alt} w={400} h={st.h} />
                 <h3 className="mt-5 text-lg font-semibold"><span className="mr-2 inline-grid h-7 w-7 place-items-center rounded-full bg-primary text-sm text-primary-foreground">{st.n}</span>{st.t}</h3>
                 <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">{st.d}</p>
               </Reveal>
@@ -136,14 +140,42 @@ function Index() {
         </div>
       </section>
 
+      <section className="container mx-auto px-6 pb-16 md:pb-24">
+        <div className="grid gap-10 md:grid-cols-2">
+          <Reveal>
+            <h2 className="flex items-center gap-2 text-2xl font-bold"><ShieldCheck className="h-6 w-6 text-primary" /> Seus dados são seus</h2>
+            <p className="mt-3 text-muted-foreground">
+              Cada conta enxerga somente os próprios dados. Você pode exportar tudo e excluir a conta quando quiser, direto em Configurações.
+              Veja como tratamos cada dado na <Link to="/privacidade" className="text-primary underline">política de privacidade</Link>.
+            </p>
+          </Reveal>
+          <Reveal delay={120}>
+            <h2 className="text-2xl font-bold">Perguntas frequentes</h2>
+            <div className="mt-3 divide-y rounded-xl border bg-card">
+              {[
+                ["Serve para quem só cria gado?", "Sim. Você escolhe o que faz: plantio, pecuária ou os dois (ILP), e o app mostra só o que importa para você."],
+                ["Quais culturas posso lançar?", "Soja, milho, trigo e outras culturas. O cadastro é por talhão, com cultura e safra."],
+                ["Tenho mais de uma fazenda. E agora?", "Cadastre todas e escolha qual ver no topo da tela, ou veja todas somadas."],
+                ["Posso testar antes de assinar?", "Sim, o teste grátis dura 7 dias a partir da criação da conta."],
+                ["Dá para apagar meus dados?", "Dá. Em Configurações você exporta tudo e exclui a conta."],
+              ].map(([q, a]) => (
+                <details key={q} className="group p-4">
+                  <summary className="cursor-pointer list-none font-medium marker:hidden">{q}</summary>
+                  <p className="mt-2 text-sm text-muted-foreground">{a}</p>
+                </details>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       <section className="border-t bg-secondary/40">
         <div className="container mx-auto px-6 py-16 text-center">
           <Reveal>
             <h2 className="text-3xl font-bold">Pronto para ver os números da sua fazenda?</h2>
             <p className="mt-3 text-muted-foreground">Crie sua conta gratuita e comece pelo que você faz: plantio, pecuária ou os dois.</p>
-            <Link to="/auth" className="mt-6 inline-block">
-              <Button size="lg" className="h-12 px-6">Começar agora</Button>
-            </Link>
+            <Button asChild size="lg" className="mt-6 h-12 px-6"><Link to="/auth">Começar agora</Link></Button>
+            <p className="mt-3 text-sm text-muted-foreground">Teste grátis de 7 dias ao criar a conta.</p>
           </Reveal>
         </div>
       </section>
@@ -151,6 +183,10 @@ function Index() {
       <footer className="border-t">
         <div className="container mx-auto flex flex-col items-center justify-between gap-2 px-6 py-6 text-sm text-muted-foreground md:flex-row">
           <span>© {new Date().getFullYear()} AgroIntel AI</span>
+          <nav className="flex gap-4">
+            <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>
+            <Link to="/termos" className="hover:text-foreground">Termos de uso</Link>
+          </nav>
           <span>Feito para o campo brasileiro 🌱</span>
         </div>
       </footer>
@@ -158,10 +194,10 @@ function Index() {
   );
 }
 
-function PhoneFrame({ src, alt }: { src: string; alt: string }) {
+function PhoneFrame({ src, alt, w, h }: { src: string; alt: string; w: number; h: number }) {
   return (
     <div className="mx-auto h-[360px] w-[200px] overflow-hidden rounded-[1.6rem] border-4 border-foreground/80 bg-card shadow-[var(--shadow-card)]">
-      <img src={src} alt={alt} loading="lazy" className="w-full object-cover object-top" />
+      <img src={src} alt={alt} width={w} height={h} loading="lazy" className="w-full object-cover object-top" />
     </div>
   );
 }

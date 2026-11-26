@@ -10,7 +10,7 @@ export function HeroField() {
 
   useEffect(() => {
     const root = ref.current;
-    if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches || window.innerWidth < 900) return;
     const layers = Array.from(root.querySelectorAll<SVGGElement>("[data-p]"));
     let raf = 0;
     const update = () => {
