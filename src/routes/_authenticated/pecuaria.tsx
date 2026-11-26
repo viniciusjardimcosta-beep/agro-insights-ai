@@ -22,6 +22,7 @@ import { parseMoney } from "@/lib/cost-import";
 import { VoiceCostDialog } from "@/components/voice-cost-dialog";
 import { PhotoCostDialog } from "@/components/photo-cost-dialog";
 import { BRL, NUM } from "@/lib/calc";
+import { LotPhotos } from "@/components/lot-photos";
 import { CalfIcon } from "@/components/calf-icon";
 import { useFarm } from "@/lib/farm-selection";
 import { cattleOfFarm } from "@/lib/farms";
@@ -283,6 +284,13 @@ function Page() {
                         />
                       )}
                     </div>
+
+                    <p className="text-sm text-muted-foreground">
+                      Compra: {fmtDate(lot.entry_date)} · {BRL.format(Number(lot.purchase_amount))} ({BRL.format(Number(lot.purchase_amount) / Math.max(1, lot.head_count))} por cabeça)
+                      {lot.entry_avg_weight_kg ? ` · ${NUM.format(Number(lot.entry_avg_weight_kg))} kg em média` : ""}
+                    </p>
+
+                    {!s.fullySold && <LotPhotos lotId={lot.id} />}
 
                     {s.headsSold > 0 && s.arrobasSold === null && (
                       <p className="text-xs text-muted-foreground">Informe as arrobas na venda para ver o preço da arroba e o custo por arroba.</p>

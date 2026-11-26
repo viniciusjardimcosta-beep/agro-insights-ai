@@ -189,6 +189,10 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
       // 2) Dados operacionais de uso: removidos junto com a conta.
       await context.supabase.from("usage_events").delete().eq("user_id", userId);
 
+      // 2b) Fotos dos lotes: os arquivos não somem com a conta, então são apagados antes.
+      const { removeLotPhotos } = await import("@/lib/lot-photos.server");
+      await removeLotPhotos(context.supabase, { userId }).catch(() => {});
+
       // 3) Auditoria do encerramento ANTES de perder a identidade.
       await recordAuditEvent(context.supabase, {
         eventType: "account_deletion_completed",
