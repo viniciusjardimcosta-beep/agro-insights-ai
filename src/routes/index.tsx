@@ -32,7 +32,7 @@ function Index() {
         </Link>
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm"><Link to="/auth">Entrar</Link></Button>
-          <Button asChild size="sm"><Link to="/auth"><span className="sm:hidden">Começar</span><span className="hidden sm:inline">Começar grátis</span></Link></Button>
+          <Button asChild size="sm"><Link to="/auth" search={{ modo: "criar" }}><span className="sm:hidden">Começar</span><span className="hidden sm:inline">Começar grátis</span></Link></Button>
         </div>
       </header>
 
@@ -58,12 +58,11 @@ function Index() {
             </p>
             <div className="mt-8 flex items-center justify-center lg:justify-start">
               <Button asChild size="lg" className="h-12 px-6 text-base">
-                <Link to="/auth">Começar teste grátis <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                <Link to="/auth" search={{ modo: "criar" }}>Começar teste grátis <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">Teste grátis de 7 dias ao criar a conta.</p>
             <ul className="mt-6 inline-block space-y-2 text-left text-sm">
-              {["7 dias grátis", "Lança por voz ou foto", "Exporta e apaga quando quiser"].map((t) => (
+              {["7 dias grátis para testar", "Lança por voz ou foto", "Exporta e apaga quando quiser"].map((t) => (
                 <li key={t} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{t}</li>
               ))}
             </ul>
@@ -161,9 +160,9 @@ function Index() {
         <Reveal>
           <div className="rounded-3xl bg-primary px-6 py-14 text-center text-primary-foreground">
             <h2 className="text-3xl font-bold">Pronto para ver os números da sua fazenda?</h2>
-            <p className="mx-auto mt-3 max-w-xl opacity-90">Crie sua conta e comece pelo que você faz: plantio, pecuária ou os dois.</p>
-            <Button asChild size="lg" variant="secondary" className="mt-6 h-12 px-6"><Link to="/auth">Começar teste grátis</Link></Button>
-            <p className="mt-3 text-sm opacity-90">Teste grátis de 7 dias ao criar a conta.</p>
+            <p className="mx-auto mt-3 max-w-xl">Crie sua conta e comece pelo que você faz: plantio, pecuária ou os dois.</p>
+            <Button asChild size="lg" variant="secondary" className="mt-6 h-12 px-6"><Link to="/auth" search={{ modo: "criar" }}>Começar teste grátis</Link></Button>
+            <p className="mt-3 text-sm">Teste grátis de 7 dias ao criar a conta.</p>
           </div>
         </Reveal>
       </section>
@@ -219,7 +218,7 @@ const MODULES = {
     label: "Lavoura", icon: Sprout,
     title: "Quanto cada talhão dá de lucro?",
     items: ["Custos lançados por talhão e categoria (ou divididos pela área)", "Receita estimada e lucro por hectare em tempo real", "Alertas quando um talhão gasta acima da média", "Simulador: e se o preço da soja cair?"],
-    img: { src: "/lp/dash-800.webp", srcSet: "/lp/dash-480.webp 480w, /lp/dash-800.webp 800w, /lp/dash.webp 1100w", sizes: "(min-width: 768px) 560px, 92vw", alt: "Dashboard com custo total, receita e lucro por hectare", w: 1100, h: 504, phone: false },
+    img: null,
   },
   pecuaria: {
     label: "Pecuária", icon: Beef,
@@ -262,14 +261,14 @@ function Modules() {
           </ul>
         </div>
         <div className="flex justify-center">
-          {m.img.phone ? (
+          {m.img === null ? (
+            <div className="w-full max-w-md"><DashboardPanel /></div>
+          ) : m.img.phone ? (
             <div className="w-[260px] overflow-hidden rounded-[1.6rem] border-4 border-foreground/80 bg-card shadow-[var(--shadow-card)]">
-              <img src={m.img.src} srcSet={"srcSet" in m.img ? m.img.srcSet : undefined} sizes={"sizes" in m.img ? m.img.sizes : undefined} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
+              <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
             </div>
           ) : (
-            <div className="w-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)]">
-              <img src={m.img.src} srcSet={"srcSet" in m.img ? m.img.srcSet : undefined} sizes={"sizes" in m.img ? m.img.sizes : undefined} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
-            </div>
+            null
           )}
         </div>
       </div>

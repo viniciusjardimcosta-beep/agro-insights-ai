@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { isExistingAccountSignUp, MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/auth-errors";
-import { Sprout } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Sprout } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,12 +21,16 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Acesse sua conta no AgroIntel AI." },
     ],
   }),
+  // /auth?modo=criar abre direto a aba "Criar conta" (botões "Começar" da página inicial).
+  validateSearch: (s: Record<string, unknown>): { modo?: "criar" } => (s.modo === "criar" ? { modo: "criar" } : {}),
   ssr: false,
   component: AuthPage,
 });
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { modo } = Route.useSearch();
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   // Checkbox NUNCA pré-marcado: o aceite é ação explícita do usuário.
   const [accepted, setAccepted] = useState(false);
@@ -141,10 +145,6 @@ function AuthPage() {
       toast.error("Senha curta", { description: `Use pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` });
       return;
     }
-    if (password !== String(fd.get("confirm"))) {
-      toast.error("As senhas não são iguais", { description: "Digite a mesma senha nos dois campos." });
-      return;
-    }
     const email = String(fd.get("email")).trim();
     setLoading(true);
     const { data: signUpData, error } = await supabase.auth.signUp({
@@ -203,6 +203,9 @@ function AuthPage() {
 
       <div className="flex items-center justify-center p-6 md:p-12">
         <div className="w-full max-w-md">
+          <Link to="/" className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> Voltar para o site
+          </Link>
           <div className="mb-8 flex items-center gap-2 md:hidden">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground">
               <Sprout className="h-5 w-5" />
@@ -242,7 +245,7 @@ function AuthPage() {
               </Button>
             </form>
           ) : (
-          <Tabs defaultValue="signin">
+          <Tabs defaultValue={modo === "criar" ? "signup" : "signin"}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Entrar</TabsTrigger>
               <TabsTrigger value="signup">Criar conta</TabsTrigger>
@@ -273,9 +276,10 @@ function AuthPage() {
 
             <TabsContent value="signup" className="mt-6">
               <form onSubmit={handleSignUp} className="space-y-4">
+                <p className="text-sm font-medium text-primary">7 dias grátis para testar.</p>
                 <div className="space-y-2">
                   <Label htmlFor="su-name">Nome</Label>
-                  <Input id="su-name" name="name" type="text" required />
+                  <Input id="su-name" name="name" type="text" required autoComplete="name" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="su-email">E-mail</Label>
@@ -283,12 +287,18 @@ function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="su-password">Senha</Label>
-                  <Input id="su-password" name="password" type="password" minLength={MIN_PASSWORD_LENGTH} required autoComplete="new-password" />
+                  <div className="relative">
+                    <Input id="su-password" name="password" type={showPw ? "text" : "password"} minLength={MIN_PASSWORD_LENGTH} required autoComplete="new-password" className="pr-10" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((v) => !v)}
+                      aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
+                      className="absolute inset-y-0 right-0 grid w-10 place-items-center text-muted-foreground hover:text-foreground"
+                    >
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                   <p className="text-xs text-muted-foreground">Mínimo de {MIN_PASSWORD_LENGTH} caracteres.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="su-confirm">Confirmar senha</Label>
-                  <Input id="su-confirm" name="confirm" type="password" minLength={MIN_PASSWORD_LENGTH} required autoComplete="new-password" />
                 </div>
                 <div className="flex items-start gap-2">
                   <Checkbox
