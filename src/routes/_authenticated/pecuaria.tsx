@@ -142,7 +142,7 @@ function Page() {
       )}
       {farmSel.selected && (
         <p className="text-sm text-muted-foreground">
-          Mostrando só <b>{farmSel.selected.name}</b>. Custos gerais da fazenda (cerca, trator...) aparecem em “Todas as fazendas”.
+          Mostrando só os lotes de <b>{farmSel.selected.name}</b>. Os custos gerais (cerca, trator, roçada...) não pertencem a uma fazenda específica: para vê-los, e ver o resultado depois deles, escolha “Todas as fazendas” no topo.
         </p>
       )}
 
@@ -165,7 +165,7 @@ function Page() {
             <Stat label="Na fazenda agora" value={headsLabel(farm.activeHeads)} hint={`${BRL.format(farm.investedInActive)} investidos nelas`} />
             <Stat label="Vendido" value={BRL.format(farm.soldAmount)} />
             <Stat label="Resultado dos lotes vendidos" value={BRL.format(farm.lotsResult)} tone={farm.lotsResult} />
-            <Stat label="Custos gerais da fazenda" value={BRL.format(farm.generalCosts)} hint={farm.generalCosts > 0 ? `Resultado depois deles: ${BRL.format(farm.resultAfterGeneral)}` : "Cerca, trator, roçada..."} />
+            <Stat label="Custos gerais da fazenda" value={BRL.format(farm.generalCosts)} hint={farmSel.selected ? "Só aparecem em “Todas as fazendas”" : farm.generalCosts > 0 ? `Resultado depois deles: ${BRL.format(farm.resultAfterGeneral)}` : "Cerca, trator, roçada..."} />
           </div>
 
           {activeLots.length > 0 && (
@@ -279,7 +279,7 @@ function Page() {
                       {s.result !== null && (
                         <Line
                           label={s.fullySold ? "Resultado do lote" : "Resultado das cabeças vendidas"}
-                          value={`${BRL.format(s.result)}${s.marginPct !== null ? ` (${NUM.format(s.marginPct)}%)` : ""}`}
+                          value={`${BRL.format(s.result)}${s.returnPct !== null ? ` · ${s.returnPct >= 0 ? "+" : "−"}${NUM.format(Math.abs(s.returnPct))}% sobre o investido` : ""}`}
                           tone={s.result}
                         />
                       )}
@@ -318,14 +318,14 @@ function Page() {
                           {lotLosses.map((x) => (
                             <li key={x.id} className="flex items-center justify-between gap-2">
                               <span>{fmtDate(x.date)} · Baixa de {x.head_count} cab.{x.cause ? ` · ${CAUSE_LABEL[x.cause] ?? x.cause}` : ""}{x.notes ? ` · ${x.notes}` : ""}</span>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir baixa" onClick={() => { if (confirm("Excluir esta baixa?")) run(() => delLoss({ data: { id: x.id } }), "Baixa excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir baixa" onClick={() => { if (confirm("Excluir esta baixa?")) run(() => delLoss({ data: { id: x.id } }), "Baixa excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </li>
                           ))}
                           {lotSales.map((x) => (
                             <li key={x.id} className="flex items-center justify-between gap-2">
                               <span>{fmtDate(x.date)} · Venda de {x.head_count} cab.{x.arrobas ? ` · ${NUM.format(Number(x.arrobas))} @` : ""}</span>
                               <span className="flex items-center gap-1 font-medium">{BRL.format(Number(x.amount))}
-                                <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir venda" onClick={() => { if (confirm("Excluir esta venda?")) run(() => delSale({ data: { id: x.id } }), "Venda excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir venda" onClick={() => { if (confirm("Excluir esta venda?")) run(() => delSale({ data: { id: x.id } }), "Venda excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                               </span>
                             </li>
                           ))}
@@ -333,7 +333,7 @@ function Page() {
                             <li key={c.id} className="flex items-center justify-between gap-2">
                               <span>{fmtDate(c.date)} · {c.category}{c.description ? ` · ${c.description}` : ""}</span>
                               <span className="flex items-center gap-1">{BRL.format(Number(c.amount))}
-                                <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir custo" onClick={() => { if (confirm("Excluir este custo?")) run(() => delCost({ data: { id: c.id } }), "Custo excluído"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir custo" onClick={() => { if (confirm("Excluir este custo?")) run(() => delCost({ data: { id: c.id } }), "Custo excluído"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                               </span>
                             </li>
                           ))}
@@ -355,7 +355,7 @@ function Page() {
                     <li key={c.id} className="flex items-center justify-between gap-2">
                       <span>{fmtDate(c.date)} · {c.category}{c.description ? ` · ${c.description}` : ""}</span>
                       <span className="flex items-center gap-1">{BRL.format(Number(c.amount))}
-                        <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir custo" onClick={() => { if (confirm("Excluir este custo?")) run(() => delCost({ data: { id: c.id } }), "Custo excluído"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir custo" onClick={() => { if (confirm("Excluir este custo?")) run(() => delCost({ data: { id: c.id } }), "Custo excluído"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </span>
                     </li>
                   ))}

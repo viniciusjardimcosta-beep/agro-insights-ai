@@ -23,6 +23,7 @@ describe("summarizeLot", () => {
     const s = summarizeLot(lot, costs, sales, "2026-11-11");
     expect(s.result).toBe(9000);
     expect(s.marginPct).toBe(20);
+    expect(s.returnPct !== null).toBe(true);
     expect(s.pricePerArroba).toBe(300);
     expect(s.costPerArroba).toBe(240);
     expect(s.fullySold).toBe(true);
@@ -236,5 +237,17 @@ describe("resumo para o Consultor", () => {
     expect(t).toContain("Lote 9");
     expect(t).toContain("20 na fazenda");
     expect(cattleSummaryText([], [], [], [], "2026-07-01")).toContain("nenhum lote");
+  });
+});
+
+describe("percentual do lote sobre o investido (Etapa 18)", () => {
+  it("lote do exemplo da página inicial: R$ 34.000 investidos, R$ 45.000 vendidos = +32,4%", () => {
+    const lot = { id: "L", name: "Lote 7", head_count: 10, purchase_amount: 30600, entry_date: "2026-01-01" } as never;
+    const costs = [{ id: "c", lot_id: "L", amount: 3400, date: "2026-02-01" }] as never;
+    const sales = [{ id: "s", lot_id: "L", head_count: 10, amount: 45000, arrobas: 180, date: "2026-05-01" }] as never;
+    const s = summarizeLot(lot, costs, sales, "2026-05-02", []);
+    expect(s.result).toBe(11000);
+    expect(s.returnPct).toBe(32.4);
+    expect(s.costPerArroba).toBe(188.89);
   });
 });
