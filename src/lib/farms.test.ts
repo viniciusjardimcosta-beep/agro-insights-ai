@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountFlagsFor, cattleOfFarm, farmFlags, inFarm, resolveSelected } from "./farms";
+import { accountFlagsFor, cattleOfFarm, farmFlags, inFarm, resolveSelected, snapshotOfFarm } from "./farms";
 
 const both = { lavoura: true, pecuaria: true };
 const lav = { lavoura: true, pecuaria: false };
@@ -44,5 +44,25 @@ describe("farms", () => {
     expect(inFarm("a", "a")).toBe(true);
     expect(inFarm("b", "a")).toBe(false);
     expect(inFarm(null, "a")).toBe(false);
+  });
+});
+
+describe("snapshotOfFarm", () => {
+  const snap = {
+    properties: [{ id: "p1" }, { id: "p2" }],
+    fields: [{ id: "f1", property_id: "p1" }, { id: "f2", property_id: "p2" }],
+    costs: [{ field_id: "f1", amount: 1 }, { field_id: "f2", amount: 2 }],
+    prices: [{ crop: "Soja" }],
+  };
+  it("sem fazenda escolhida devolve tudo", () => {
+    expect(snapshotOfFarm(snap, null).fields.length).toBe(2);
+  });
+  it("com fazenda escolhida fica só ela, os talhões e os custos dela", () => {
+    const r = snapshotOfFarm(snap, "p2");
+    expect(r.properties.length).toBe(1);
+    expect(r.fields.length).toBe(1);
+    expect(r.costs.length).toBe(1);
+    expect(r.costs[0].amount).toBe(2);
+    expect(r.prices.length).toBe(1);
   });
 });

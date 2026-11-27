@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { aggregateFarm, BRL } from "@/lib/calc";
 import { getFarmSnapshot } from "@/lib/data.functions";
+import { useFarm } from "@/lib/farm-selection";
 import { diagnosticFreshness } from "@/lib/diagnostic-freshness";
 import { ptPercentDecimals } from "@/lib/format-pt";
 import {
@@ -67,6 +68,7 @@ function scoreLabel(score: number) {
 function DiagnosticoPage() {
   const { data: history = [], isLoading } = useQuery(listQuery);
   const { data: snapshot } = useQuery(snapshotQuery);
+  const farmSel = useFarm();
   const qc = useQueryClient();
   const gen = useServerFn(generateDiagnostic);
   const [busy, setBusy] = useState(false);
@@ -120,6 +122,12 @@ function DiagnosticoPage() {
           </Button>
         </div>
       </div>
+
+      {farmSel.selected && (
+        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          O diagnóstico analisa todas as suas fazendas juntas, não só {farmSel.selected.name}.
+        </p>
+      )}
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando histórico...</p>}
 

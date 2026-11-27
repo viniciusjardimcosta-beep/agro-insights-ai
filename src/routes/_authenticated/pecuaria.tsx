@@ -258,7 +258,7 @@ function Page() {
                           <Badge variant={s.fullySold ? "secondary" : "default"}>{s.fullySold ? "Vendido" : "Na fazenda"}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {headsLabel(lot.head_count)}{s.headsLost > 0 ? ` (${s.headsLost} baixa${s.headsLost > 1 ? "s" : ""})` : ""} · entrada {fmtDate(lot.entry_date)}
+                          {s.headsSold > 0 || s.headsLost > 0 ? `${headsLabel(s.headsLeft)} agora (entraram ${lot.head_count}${s.headsSold > 0 ? `, ${s.headsSold} vendida${s.headsSold > 1 ? "s" : ""}` : ""}${s.headsLost > 0 ? `, ${s.headsLost} baixa${s.headsLost > 1 ? "s" : ""}` : ""})` : headsLabel(lot.head_count)} · entrada {fmtDate(lot.entry_date)}
                           {lot.entry_avg_weight_kg ? ` · ${NUM.format(Number(lot.entry_avg_weight_kg))} kg em média` : ""} · {s.days} dias
                         </p>
                       </div>

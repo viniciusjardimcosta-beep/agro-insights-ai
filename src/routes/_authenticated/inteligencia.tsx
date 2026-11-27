@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BRL } from "@/lib/calc";
 import { getFarmSnapshot } from "@/lib/data.functions";
+import { useFarm } from "@/lib/farm-selection";
+import { snapshotOfFarm } from "@/lib/farms";
 import { listAlerts } from "@/lib/alerts.functions";
 import { listDiagnostics } from "@/lib/diagnostics.functions";
 import { listScenarios } from "@/lib/scenarios.functions";
@@ -108,6 +110,7 @@ function severityBadge(severity: PriorityAlert["severity"]) {
 
 function InteligenciaPage() {
   const snapQ = useQuery(snapshotQuery);
+  const farmSel = useFarm();
   const diagQ = useQuery(diagnosticsQuery);
   const scenQ = useQuery(scenariosQuery);
   const persistedQ = useQuery(persistedAlertsQuery);
@@ -125,7 +128,7 @@ function InteligenciaPage() {
     );
   }
 
-  const raw = snapQ.data ?? { properties: [], fields: [], costs: [], prices: [] };
+  const raw = snapshotOfFarm(snapQ.data ?? { properties: [], fields: [], costs: [], prices: [] }, farmSel.selected?.id ?? null);
   const snap = buildIntelligenceSnapshot({
     properties: (raw.properties ?? []) as { id?: string; name: string }[],
     fields: (raw.fields ?? []) as never,

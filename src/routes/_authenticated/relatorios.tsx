@@ -4,6 +4,8 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getFarmSnapshot } from "@/lib/data.functions";
 import { aggregateFarm, BRL, NUM } from "@/lib/calc";
+import { useFarm } from "@/lib/farm-selection";
+import { snapshotOfFarm } from "@/lib/farms";
 import { PremiumRouteGuard } from "@/components/premium-route-guard";
 import { FEATURES } from "@/lib/entitlements";
 
@@ -21,11 +23,12 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
 
 function Page() {
   const { data, isLoading, error } = useQuery(q);
+  const farmSel = useFarm();
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando relatórios...</p>;
   if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>;
 
-  const snapshot = data ?? { fields: [], costs: [], prices: [], properties: [] };
+  const snapshot = snapshotOfFarm(data ?? { fields: [], costs: [], prices: [], properties: [] }, farmSel.selected?.id ?? null);
   const farm = aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never);
 
   const byCategoryMap = new Map<string, number>();
