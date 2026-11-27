@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { HeroField } from "@/components/hero-field";
 import { Reveal } from "@/components/reveal";
 import { PRIVACY_CONTACT } from "@/lib/privacy";
-import { AiChat, BeforeAfter, DashboardPanel, TalhaoPanel, TrustCards } from "@/components/lp-sections";
+import { AiChat, BeforeAfter, DashboardPanel, LotePanel, TalhaoPanel, TrustCards } from "@/components/lp-sections";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -219,13 +219,13 @@ const MODULES = {
     label: "Lavoura", icon: Sprout,
     title: "Quanto cada talhão dá de lucro?",
     items: ["Custos lançados por talhão e categoria (ou divididos pela área)", "Receita estimada e lucro por hectare em tempo real", "Alertas quando um talhão gasta acima da média", "Simulador: e se o preço da soja cair?"],
-    img: null,
+    panel: "talhao",
   },
   pecuaria: {
     label: "Pecuária", icon: Beef,
     title: "Esse lote deu lucro? Qual o preço mínimo da arroba?",
     items: ["Resultado por lote: custo por cabeça, vendido e margem", "Estoque por idade e sexo, nascimentos e cuidado na cobertura", "Fotos da compra do lote, para lembrar como o gado chegou", "Plantio e gado na mesma fazenda (ILP), com seletor de fazenda"],
-    img: { src: "/lp/lote.webp", alt: "Lote de gado com investido, custo por cabeça e resultado", w: 640, h: 739, phone: true },
+    panel: "lote",
   },
 } as const;
 
@@ -262,15 +262,7 @@ function Modules() {
           </ul>
         </div>
         <div className="flex justify-center">
-          {m.img === null ? (
-            <div className="w-full max-w-md"><TalhaoPanel /></div>
-          ) : m.img.phone ? (
-            <div className="w-[260px] overflow-hidden rounded-[1.6rem] border-4 border-foreground/80 bg-card shadow-[var(--shadow-card)]">
-              <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />
-            </div>
-          ) : (
-            null
-          )}
+          <div className="w-full max-w-md">{m.panel === "talhao" ? <TalhaoPanel /> : <LotePanel />}</div>
         </div>
       </div>
     </section>
