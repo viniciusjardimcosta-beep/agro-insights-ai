@@ -173,3 +173,37 @@ export function TalhaoPanel() {
     </div>
   );
 }
+
+/** Lote de gado de exemplo, em HTML. Contas: 34.000 ÷ 10 = 3.400/cab; 45.000 − 34.000 = 11.000 (32,4%); 10 × 18 = 180 @; 34.000 ÷ 180 = 188,89; 45.000 ÷ 180 = 250,00. */
+export function LotePanel() {
+  return (
+    <div className="w-full">
+      <div className="w-full rounded-2xl border bg-card p-4 text-left [font-variant-numeric:tabular-nums] shadow-[var(--shadow-card)] sm:p-5">
+        <div className="flex items-start justify-between gap-3 text-xs">
+          <span><span className="block font-semibold text-foreground">Lote 7 · Engorda</span><span className="text-muted-foreground">10 cabeças · 120 dias no pasto</span></span>
+          <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Vendido</span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {[
+            ["Investido (compra + custos)", "R$ 34.000", false],
+            ["Custo por cabeça", "R$ 3.400", false],
+            ["Vendido (10 cab.)", "R$ 45.000", false],
+            ["Resultado do lote", "R$ 11.000", true],
+          ].map(([l, v, good]) => (
+            <div key={String(l)} className="rounded-lg bg-secondary/60 p-3">
+              <p className="text-[11px] text-muted-foreground sm:text-xs">{l}</p>
+              <p className={`mt-0.5 font-display text-base font-bold sm:text-lg ${good ? "text-primary" : "text-foreground"}`}>{v}</p>
+              {good && <p className="text-[11px] font-medium text-primary sm:text-xs">+32,4% sobre o investido</p>}
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs">
+          <p className="font-semibold text-foreground">Preço mínimo da arroba para empatar</p>
+          <p className="mt-0.5 font-display text-lg font-bold text-primary">R$ 188,89</p>
+          <p className="mt-1 text-muted-foreground">Você recebeu R$ 250,00 por arroba (180 @ vendidas).</p>
+        </div>
+      </div>
+      <p className="mt-2 text-center text-xs text-muted-foreground">Exemplo com dados fictícios.</p>
+    </div>
+  );
+}
