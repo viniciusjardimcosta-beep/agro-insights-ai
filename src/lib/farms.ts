@@ -51,3 +51,24 @@ export function cattleOfFarm<L extends { id: string; property_id?: string | null
     losses: data.losses.filter((x) => ids.has(x.lot_id)),
   };
 }
+
+/**
+ * Recorta o retrato da fazenda para a fazenda escolhida: só os talhões dela, os custos desses talhões e ela mesma.
+ * Sem fazenda escolhida (null), devolve tudo como veio. Os preços valem para a conta toda.
+ */
+export function snapshotOfFarm<
+  P extends { id?: string },
+  F extends { id: string; property_id?: string | null },
+  C extends { field_id: string },
+  S extends { properties?: P[] | null; fields?: F[] | null; costs?: C[] | null },
+>(snapshot: S, selectedId: string | null): S {
+  if (selectedId === null) return snapshot;
+  const fields = (snapshot.fields ?? []).filter((f) => f.property_id === selectedId);
+  const ids = new Set(fields.map((f) => f.id));
+  return {
+    ...snapshot,
+    properties: (snapshot.properties ?? []).filter((p) => p.id === selectedId),
+    fields,
+    costs: (snapshot.costs ?? []).filter((c) => ids.has(c.field_id)),
+  };
+}

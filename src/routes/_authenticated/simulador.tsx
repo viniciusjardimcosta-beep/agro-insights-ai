@@ -24,6 +24,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { aggregateFarm, BRL, NUM, type CostRow, type FieldRow, type PriceRow } from "@/lib/calc";
 import { getFarmSnapshot } from "@/lib/data.functions";
+import { useFarm } from "@/lib/farm-selection";
+import { snapshotOfFarm } from "@/lib/farms";
 import { computeMetrics, computeScoreBreakdown, type ScoreBreakdownEntry } from "@/lib/score";
 import {
   createScenario,
@@ -126,7 +128,9 @@ function editsToRows(edits: FieldEdit[]) {
 }
 
 function SimuladorPage() {
-  const { data, isLoading } = useQuery(snapshotQuery);
+  const { data: allData, isLoading } = useQuery(snapshotQuery);
+  const farmSel = useFarm();
+  const data = useMemo(() => (allData ? snapshotOfFarm(allData, farmSel.selected?.id ?? null) : allData), [allData, farmSel.selected?.id]);
   const { data: scenarios = [] } = useQuery(scenariosQuery);
   const qc = useQueryClient();
   const createFn = useServerFn(createScenario);
