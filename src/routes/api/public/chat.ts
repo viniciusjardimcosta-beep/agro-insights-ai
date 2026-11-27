@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { createAiModel } from "@/lib/ai-model.server";
+import { cattleSummaryText } from "@/lib/cattle";
 import { aggregateFarm, BRL, NUM, cropsMissingPrice, latestPriceByCrop } from "@/lib/calc";
 import {
   AI_TIMEOUT_MESSAGE,
@@ -152,6 +153,18 @@ export const Route = createFileRoute("/api/public/chat")({
           ),
         ]);
 
+        // Pecuária: se as tabelas ainda não existirem, o Consultor segue só com a lavoura.
+        const safe = async <T,>(q: PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> => {
+          try { const r = await q; return r.error ? [] : (r.data ?? []); } catch { return []; }
+        };
+        const [lots, cCosts, cSales, cLosses] = await Promise.all([
+          safe(supabase.from("cattle_lots").select("*").limit(500)),
+          safe(supabase.from("cattle_costs").select("*").limit(5000)),
+          safe(supabase.from("cattle_sales").select("*").limit(2000)),
+          safe(supabase.from("cattle_losses").select("*").limit(2000)),
+        ]);
+        const cattleText = cattleSummaryText(lots as never, cCosts as never, cSales as never, cLosses as never, new Date().toISOString().slice(0, 10));
+
         const farm = aggregateFarm(
           fields as never,
           costs as never,
@@ -172,9 +185,10 @@ export const Route = createFileRoute("/api/public/chat")({
             (f) =>
               `- ${f.field.name} (${f.field.crop}, ${NUM.format(f.area)} ha): yield ${NUM.format(f.yieldBag)} sc/ha, custo ${BRL.format(f.totalCost)} (${BRL.format(f.costPerHa)}/ha), receita estimada ${BRL.format(f.revenue)}, lucro ${BRL.format(f.profit)} (${BRL.format(f.profitPerHa)}/ha), ponto de equilíbrio ${NUM.format(f.breakevenBagPerHa)} sc/ha`,
           ),
+          cattleText,
         ].join("\n");
 
-        const system = `Você é o **Consultor IA do AgroIntel AI**, um **Analista Financeiro Rural especializado** em soja, milho, trigo e arroz no Brasil.
+        const system = `Você é o **Consultor IA do AgroIntel AI**, um **Analista Financeiro Rural especializado** em soja, milho, trigo e arroz no Brasil, e também em pecuária de corte (lotes de gado).
 
 Você NÃO é um chatbot genérico. Você age como um consultor que analisa os dados da fazenda do produtor, compara talhões e culturas, identifica riscos e oportunidades, e recomenda ações concretas.
 
@@ -210,6 +224,7 @@ Liste 3–5 **ações práticas e específicas** para o produtor executar (ex.: 
 - Quando comparar talhões/culturas, ordene por **lucro por hectare (R$/ha)** e mostre top e bottom.
 - Vocabulário: **lucro por hectare** é um valor em R$/ha; **margem** (margem líquida) é um **percentual** (lucro ÷ receita). Nunca chame um valor em R$ de "margem" nem um percentual de "lucro por hectare".
 - Se faltar dado essencial (preço da saca, produtividade, custo), aponte claramente o que o produtor precisa cadastrar — mas ainda assim entregue as 5 seções com o que for possível.
+- Para perguntas de pecuária, use o bloco "Pecuária" dos dados (lotes, custo por cabeça, resultado, preço mínimo da arroba). Só diga que não há dados de pecuária se esse bloco disser "nenhum lote cadastrado".
 - Se a fazenda estiver vazia (sem propriedades/talhões/custos/preços), as seções podem ser curtas, e Recomendações deve focar em "o que cadastrar primeiro".
 - Linguagem do campo, direta, sem jargão acadêmico. Negrito em números-chave.
 

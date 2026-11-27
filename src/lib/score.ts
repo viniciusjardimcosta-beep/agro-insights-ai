@@ -32,15 +32,22 @@ export function computeScoreBreakdown(
   const breakdown: ScoreBreakdownEntry[] = [];
   breakdown.push({ label: "Base inicial", points: 100 });
 
+  // Talhão sem preço cadastrado não tem receita de verdade: fica fora das comparações (margem, lucro negativo,
+  // dependência de cultura...) para a mesma falta não ser punida várias vezes. A falta de preço é punida uma vez, mais abaixo.
+  const pf = farm.perField.filter((f) => f.price > 0);
+
   const add = (label: string, points: number) => {
     if (points === 0) return;
     breakdown.push({ label, points });
   };
 
-  const margin =
-    farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : -100;
+  const pricedRevenue = pf.reduce((a, f) => a + f.revenue, 0);
+  const pricedProfit = pf.reduce((a, f) => a + f.profit, 0);
+  const margin = pricedRevenue > 0 ? (pricedProfit / pricedRevenue) * 100 : -100;
 
-  if (margin >= 50) add(`Margem líquida ${margin.toFixed(1)}% (acima de 50%)`, 5);
+  if (pf.length === 0) {
+    // Nenhum talhão com preço: não dá para avaliar a margem.
+  } else if (margin >= 50) add(`Margem líquida ${margin.toFixed(1)}% (acima de 50%)`, 5);
   else if (margin >= 35) add(`Margem líquida ${margin.toFixed(1)}% (35% a 50%)`, 3);
   else if (margin >= 20) add(`Margem líquida ${margin.toFixed(1)}% (20% a 35%)`, 0);
   else if (margin >= 10) add(`Margem líquida ${margin.toFixed(1)}% (10% a 20%)`, -10);
@@ -48,7 +55,7 @@ export function computeScoreBreakdown(
 
   const profitByCrop: Record<string, number> = {};
   let totalPositiveProfit = 0;
-  for (const f of farm.perField) {
+  for (const f of pf) {
     profitByCrop[f.field.crop] = (profitByCrop[f.field.crop] ?? 0) + f.profit;
   }
   for (const v of Object.values(profitByCrop)) if (v > 0) totalPositiveProfit += v;
@@ -68,7 +75,7 @@ export function computeScoreBreakdown(
   else if (depPct >= 50) depLabel(-5, "50% a 60%");
 
   const profitPerHaByCrop: Record<string, { profit: number; area: number }> = {};
-  for (const f of farm.perField) {
+  for (const f of pf) {
     const c = (profitPerHaByCrop[f.field.crop] ??= { profit: 0, area: 0 });
     c.profit += f.profit;
     c.area += f.area;
@@ -94,7 +101,7 @@ export function computeScoreBreakdown(
   }
 
   const cropTotals: Record<string, { cost: number; revenue: number }> = {};
-  for (const f of farm.perField) {
+  for (const f of pf) {
     const c = (cropTotals[f.field.crop] ??= { cost: 0, revenue: 0 });
     c.cost += f.totalCost;
     c.revenue += f.revenue;
@@ -110,7 +117,7 @@ export function computeScoreBreakdown(
     );
   }
 
-  const negativeFields = farm.perField.filter((f) => f.profit < 0);
+  const negativeFields = pf.filter((f) => f.profit < 0);
   if (negativeFields.length > 0)
     add(
       `Talhões com lucro negativo: ${negativeFields.map((f) => f.field.name).join(", ")} (${negativeFields.length}× -25)`,
@@ -118,10 +125,10 @@ export function computeScoreBreakdown(
     );
 
   // Média ponderada pela área (custo total ÷ área total), igual ao painel.
-  const meanCostHa = weightedCostPerHa(farm.perField);
+  const meanCostHa = weightedCostPerHa(pf);
   if (meanCostHa > 0) {
     const buckets = { b1: [] as string[], b2: [] as string[], b3: [] as string[] };
-    for (const f of farm.perField) {
+    for (const f of pf) {
       if (f.area <= 0) continue;
       const overPct = ((f.costPerHa - meanCostHa) / meanCostHa) * 100;
       if (overPct > 35) buckets.b3.push(`${f.field.name} +${overPct.toFixed(1)}%`);
@@ -137,7 +144,7 @@ export function computeScoreBreakdown(
   }
 
   const beBuckets = { b1: [] as string[], b2: [] as string[], b3: [] as string[] };
-  for (const f of farm.perField) {
+  for (const f of pf) {
     const est = Number(f.field.estimated_yield ?? 0);
     if (est <= 0 || f.breakevenBagPerHa <= 0) continue;
     const ratio = (f.breakevenBagPerHa / est) * 100;
@@ -164,11 +171,11 @@ export function computeScoreBreakdown(
       -15,
     );
 
-  if (farm.perField.length > 0 && farm.perField.every((f) => f.profit > 0))
+  if (pf.length > 0 && pf.length === farm.perField.length && pf.every((f) => f.profit > 0))
     add("Todos os talhões lucrativos", 5);
   const allBEUnder60 =
-    farm.perField.length > 0 &&
-    farm.perField.every((f) => {
+    pf.length > 0 &&
+    pf.every((f) => {
       const est = Number(f.field.estimated_yield ?? 0);
       if (est <= 0 || f.breakevenBagPerHa <= 0) return true;
       return f.breakevenBagPerHa / est <= 0.6;
