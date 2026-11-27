@@ -2,8 +2,14 @@
 // It NEVER computes new financial formulas or scores: it only reads the
 // existing farm aggregation (calc.ts), the existing score engine (score.ts),
 // saved diagnostics and saved simulated scenarios, and ranks what matters.
-import { aggregateFarm, BRL, NUM, weightedCostPerHa, type CostRow, type FieldRow, type PriceRow } from "@/lib/calc";
-import { computeMetrics, computeScoreBreakdown, type ScoreBreakdownEntry } from "@/lib/score";
+import { aggregateFarm, BRL, NUM, type CostRow, type FieldRow, type PriceRow } from "@/lib/calc";
+import {
+  assessFields,
+  computeMetrics,
+  computeScoreBreakdown,
+  cropDependency,
+  type ScoreBreakdownEntry,
+} from "@/lib/score";
 
 export type DiagnosticLite = {
   id: string;
@@ -98,6 +104,7 @@ export function ruleKeyOf(label: string): { key: string; display: string } | nul
   if (!label) return null;
   if (label === "Base inicial") return null;
   if (label.startsWith("Ajuste para")) return null;
+  if (label.startsWith("Observação") || label.startsWith("Talhões sem preço não entraram")) return null;
   if (label.startsWith("Margem líquida")) return { key: "margem", display: "Margem líquida baixa" };
   if (label.startsWith("Dependência da cultura")) {
     const m = label.match(/Dependência da cultura (\S+)/);
@@ -384,16 +391,20 @@ export function getPriorityAlerts(
   const farm = snap.farm;
   const m = snap.metrics;
 
-  // Talhões com lucro negativo
-  const negFields = farm.perField.filter((f) => f.profit < 0);
+  // Cada talhão entra em UMA regra só (a mais grave) — a mesma da nota e do Diagnóstico.
+  // Talhão sem preço não conta como prejuízo: a falta de preço tem alerta próprio.
+  const assessed = assessFields(farm);
+  const plural = (k: number, one: string, many: string) => (k === 1 ? one : many);
+
+  const negFields = assessed.filter((a) => a.rule === "neg");
   if (negFields.length > 0) {
-    const worst = negFields.reduce((a, b) => (b.profit < a.profit ? b : a));
+    const worst = negFields.reduce((a, b) => (b.f.profit < a.f.profit ? b : a));
     alerts.push({
       key: "neg_fields",
       severity: "critical",
       title: "Talhão com lucro negativo",
-      reason: `${negFields.length} talhão(ões) fecham com prejuízo — o pior é ${worst.field.name}.`,
-      metric: `${worst.field.name}: ${BRL.format(worst.profit)}`,
+      reason: `${negFields.length} ${plural(negFields.length, "talhão fecha", "talhões fecham")} com prejuízo — o pior é ${worst.f.field.name}.`,
+      metric: `${worst.f.field.name}: ${BRL.format(worst.f.profit)}`,
       impact: `-25 pontos por talhão negativo na nota`,
       action: "Audite os custos operacionais desses talhões antes da próxima safra.",
       link: { label: "Atualizar custos", to: "/custos" },
@@ -401,35 +412,31 @@ export function getPriorityAlerts(
   }
 
   // Ponto de equilíbrio acima de 80% da produtividade estimada
-  const beRisky = farm.perField
-    .map((f) => {
-      const est = Number(f.field.estimated_yield ?? 0);
-      const ratio = est > 0 && f.breakevenBagPerHa > 0 ? (f.breakevenBagPerHa / est) * 100 : 0;
-      return { f, ratio };
-    })
-    .filter((x) => x.ratio > 80)
-    .sort((a, b) => b.ratio - a.ratio);
+  const beRisky = assessed
+    .filter((a) => a.rule === "be" && a.value > 80)
+    .sort((a, b) => b.value - a.value);
   if (beRisky.length > 0) {
     alerts.push({
       key: "breakeven",
       severity: "critical",
       title: "Ponto de equilíbrio muito alto",
-      reason: `Em ${beRisky.length} talhão(ões) o ponto de equilíbrio passa de 80% da produtividade estimada.`,
-      metric: `${beRisky[0].f.field.name}: ${pct(beRisky[0].ratio)} da produtividade`,
+      reason: `Em ${beRisky.length} ${plural(beRisky.length, "talhão", "talhões")} o ponto de equilíbrio passa de 80% da produtividade estimada.`,
+      metric: `${beRisky[0].f.field.name}: ${pct(beRisky[0].value)} da produtividade`,
       impact: "-20 pontos por talhão nessa faixa",
       action: "Reduza custos ou revise a produtividade estimada desses talhões.",
       link: { label: "Simular solução", to: "/simulador" },
     });
   }
 
-  // Dependência de uma cultura acima de 70%
-  if (n(m.depPct) > 70) {
+  // Dependência de uma cultura acima de 70% do lucro (só culturas com lucro; mesma conta da nota)
+  const dep = cropDependency(farm);
+  if (dep.applies && dep.pct > 70) {
     alerts.push({
-      key: `dep:${m.topCrop}`,
+      key: `dep:${dep.crop}`,
       severity: "high",
-      title: `Dependência excessiva de ${m.topCrop || "uma cultura"}`,
+      title: `Dependência excessiva de ${dep.crop || "uma cultura"}`,
       reason: "O resultado da fazenda está concentrado em uma única cultura.",
-      metric: `${pct(n(m.depPct))} do lucro`,
+      metric: `${pct(dep.pct)} do lucro`,
       impact: "-15 a -20 pontos na nota",
       action: "Avalie estratégias para reduzir a concentração do resultado.",
       link: { label: "Simular solução", to: "/simulador" },
@@ -450,28 +457,21 @@ export function getPriorityAlerts(
     });
   }
 
-  // Custo/ha muito acima da média
-  const withArea = farm.perField.filter((f) => f.area > 0);
-  if (withArea.length > 1) {
-    const mean = weightedCostPerHa(farm.perField);
-    if (mean > 0) {
-      const over = withArea
-        .map((f) => ({ f, over: ((f.costPerHa - mean) / mean) * 100 }))
-        .filter((x) => x.over >= 20)
-        .sort((a, b) => b.over - a.over);
-      if (over.length > 0) {
-        alerts.push({
-          key: "custo_ha",
-          severity: over[0].over > 35 ? "high" : "medium",
-          title: "Custo por hectare acima da média",
-          reason: `${over.length} talhão(ões) gastam bem mais por hectare que a média da fazenda (custo total ÷ área total).`,
-          metric: `${over[0].f.field.name}: ${BRL.format(over[0].f.costPerHa)}/ha (+${pct(over[0].over)})`,
-          impact: over[0].over > 35 ? "-20 pontos por talhão" : "-10 pontos por talhão",
-          action: "Audite os custos operacionais desses talhões.",
-          link: { label: "Atualizar custos", to: "/custos" },
-        });
-      }
-    }
+  // Custo/ha muito acima da média (só talhões em que essa é a regra mais grave)
+  const over = assessed
+    .filter((a) => a.rule === "custoha" && a.points <= -10)
+    .sort((a, b) => b.value - a.value);
+  if (over.length > 0) {
+    alerts.push({
+      key: "custo_ha",
+      severity: over[0].value > 35 ? "high" : "medium",
+      title: "Custo por hectare acima da média",
+      reason: `${over.length} ${plural(over.length, "talhão gasta", "talhões gastam")} bem mais por hectare que a média da fazenda (custo total ÷ área total).`,
+      metric: `${over[0].f.field.name}: ${BRL.format(over[0].f.costPerHa)}/ha (+${pct(over[0].value)})`,
+      impact: over[0].value > 35 ? "-20 pontos por talhão" : "-10 pontos por talhão",
+      action: "Audite os custos operacionais desses talhões.",
+      link: { label: "Atualizar custos", to: "/custos" },
+    });
   }
 
   // Queda relevante da nota

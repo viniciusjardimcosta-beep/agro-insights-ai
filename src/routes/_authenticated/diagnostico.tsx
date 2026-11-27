@@ -637,6 +637,7 @@ function ScoreComposition({
     (b) => b.label !== "Base inicial" && (b?.points ?? 0) > 0,
   );
   const penalties = breakdown.filter((b) => (b?.points ?? 0) < 0);
+  const notes = breakdown.filter((b) => b.label !== "Base inicial" && (b?.points ?? 0) === 0);
   const sumPos = positives.reduce((s, b) => s + b.points, 0);
   const sumNeg = penalties.reduce((s, b) => s + b.points, 0);
 
@@ -691,14 +692,26 @@ function ScoreComposition({
         )}
       </div>
 
+      {notes.length > 0 && (
+        <div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Observações (não mudam a nota)
+          </div>
+          <ul className="space-y-1">
+            {notes.map((b, i) => (
+              <li key={i} className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                {ptPercentDecimals(b.label)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
         <div className="mb-1 font-semibold text-foreground">Cálculo</div>
         <div className="font-mono">
           {base?.points ?? 100} {sumNeg !== 0 ? sumNeg : ""}{" "}
-          {sumPos !== 0 ? `+ ${sumPos}` : ""} = {(base?.points ?? 100) + sumNeg + sumPos}
-          {(base?.points ?? 100) + sumNeg + sumPos !== score && (
-            <> → limitado a {score}</>
-          )}
+          {sumPos !== 0 ? `+ ${sumPos}` : ""} = {score}
         </div>
       </div>
 

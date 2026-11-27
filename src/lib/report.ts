@@ -258,7 +258,9 @@ export function generateExecutiveReport(input: ExecutiveReportInput): void {
     autoTable(doc, {
       startY: y + 4,
       head: [["Fator", "Pontos"]],
-      body: bd.map((b) => [ptPercentDecimals(b.label), (b.points > 0 ? "+" : "") + String(b.points)]),
+      body: bd
+          .filter((b) => b.points !== 0)
+          .map((b) => [ptPercentDecimals(b.label), (b.points > 0 ? "+" : "") + String(b.points)]),
       styles: { fontSize: 9, cellPadding: 4, textColor: DARK, lineColor: [229, 231, 235] },
       headStyles: { fillColor: PRIMARY, textColor: [255, 255, 255], fontStyle: "bold" },
       columnStyles: { 1: { halign: "right", cellWidth: 60 } },
@@ -978,7 +980,7 @@ function derivePriorities(
   if (depPct >= 60) {
     push(
       "Reduzir dependência de uma única cultura",
-      `Dependência atual de ${depPct.toFixed(1)}% da receita. Planeje diversificação gradual sem alterar estratégia produtiva sem dados agronômicos/climáticos.`,
+      `Dependência atual de ${depPct.toFixed(1)}% do lucro. Planeje diversificação gradual sem alterar estratégia produtiva sem dados agronômicos/climáticos.`,
     );
   }
 

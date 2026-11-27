@@ -22,6 +22,115 @@ export type Metrics = {
 
 export type ScoreBreakdownEntry = { label: string; points: number };
 
+type PerField = ReturnType<typeof aggregateFarm>["perField"][number];
+
+export type FieldRuleKind = "neg" | "be" | "custoha" | "custo_alto";
+
+export type FieldAssessment = {
+  f: PerField;
+  /** A regra mais grave do talhão (a única que tira pontos). Null = nada a apontar. */
+  rule: FieldRuleKind | null;
+  points: number;
+  /** Faixa/valor usado na descrição (ex.: 82.3 = % da produtividade). */
+  value: number;
+  /** Outros problemas do mesmo talhão: viram observação, sem pontos. */
+  others: string[];
+};
+
+const RULE_ORDER: FieldRuleKind[] = ["neg", "be", "custoha", "custo_alto"];
+
+/** Talhões com preço cadastrado: só eles têm receita de verdade e entram nas comparações. */
+export function pricedFields(farm: ReturnType<typeof aggregateFarm>): PerField[] {
+  return farm.perField.filter((f) => f.price > 0);
+}
+
+/**
+ * Cada talhão perde pontos por UMA regra só: a mais grave entre lucro negativo, ponto de equilíbrio,
+ * custo/ha acima da média e custo acima de 70% da receita. As outras viram observação, sem pontos.
+ * Usado pela nota, pelo Diagnóstico e pelos Alertas — assim as três contas sempre batem.
+ */
+export function assessFields(farm: ReturnType<typeof aggregateFarm>): FieldAssessment[] {
+  const pf = pricedFields(farm);
+  // Média ponderada pela área (custo total ÷ área total), igual ao painel.
+  const meanCostHa = weightedCostPerHa(pf);
+  return pf.map((f) => {
+    const cands: { rule: FieldRuleKind; points: number; value: number; text: string }[] = [];
+    if (f.profit < 0) cands.push({ rule: "neg", points: -25, value: f.profit, text: "lucro negativo" });
+    const est = Number(f.field.estimated_yield ?? 0);
+    if (est > 0 && f.breakevenBagPerHa > 0) {
+      const ratio = (f.breakevenBagPerHa / est) * 100;
+      const pts = ratio > 80 ? -20 : ratio > 65 ? -10 : ratio > 50 ? -5 : 0;
+      if (pts) cands.push({ rule: "be", points: pts, value: ratio, text: "ponto de equilíbrio alto" });
+    }
+    if (meanCostHa > 0 && f.area > 0) {
+      const over = ((f.costPerHa - meanCostHa) / meanCostHa) * 100;
+      const pts = over > 35 ? -20 : over >= 20 ? -10 : over >= 10 ? -5 : 0;
+      if (pts) cands.push({ rule: "custoha", points: pts, value: over, text: "custo por hectare acima da média" });
+    }
+    if (f.revenue > 0 && f.totalCost / f.revenue > 0.7)
+      cands.push({
+        rule: "custo_alto",
+        points: -5,
+        value: (f.totalCost / f.revenue) * 100,
+        text: "custo acima de 70% da receita",
+      });
+    cands.sort(
+      (a, b) => a.points - b.points || RULE_ORDER.indexOf(a.rule) - RULE_ORDER.indexOf(b.rule),
+    );
+    const top = cands[0];
+    return {
+      f,
+      rule: top?.rule ?? null,
+      points: top?.points ?? 0,
+      value: top?.value ?? 0,
+      others: cands.slice(1).map((c) => c.text),
+    };
+  });
+}
+
+/**
+ * Dependência de cultura: participação da cultura mais lucrativa no lucro das culturas COM lucro
+ * (talhões sem preço ficam de fora). Se a fazenda tem várias culturas mas só uma dá lucro, o problema
+ * já foi contado no talhão em prejuízo, então a dependência não se aplica.
+ */
+export function cropDependency(farm: ReturnType<typeof aggregateFarm>): {
+  crop: string;
+  pct: number;
+  applies: boolean;
+} {
+  const pf = pricedFields(farm);
+  const profitByCrop: Record<string, number> = {};
+  for (const f of pf) profitByCrop[f.field.crop] = (profitByCrop[f.field.crop] ?? 0) + f.profit;
+  const positive = Object.entries(profitByCrop).filter(([, v]) => v > 0);
+  const total = positive.reduce((a, [, v]) => a + v, 0);
+  const top = positive.sort((a, b) => b[1] - a[1])[0];
+  if (!top || total <= 0) return { crop: "", pct: 0, applies: false };
+  const cropCount = Object.keys(profitByCrop).length;
+  return {
+    crop: top[0],
+    pct: (top[1] / total) * 100,
+    applies: cropCount === 1 || positive.length >= 2,
+  };
+}
+
+/** Diferença de rentabilidade (lucro/ha) entre as culturas COM lucro. */
+function profitSpread(farm: ReturnType<typeof aggregateFarm>) {
+  const acc: Record<string, { profit: number; area: number }> = {};
+  for (const f of pricedFields(farm)) {
+    const c = (acc[f.field.crop] ??= { profit: 0, area: 0 });
+    c.profit += f.profit;
+    c.area += f.area;
+  }
+  const list = Object.entries(acc)
+    .filter(([, v]) => v.area > 0 && v.profit > 0)
+    .map(([crop, v]) => ({ crop, pph: v.profit / v.area }));
+  if (list.length < 2) return null;
+  const best = list.reduce((a, b) => (b.pph > a.pph ? b : a));
+  const worst = list.reduce((a, b) => (b.pph < a.pph ? b : a));
+  if (best.pph <= 0) return null;
+  return { best: best.crop, worst: worst.crop, pct: ((best.pph - worst.pph) / best.pph) * 100 };
+}
+
 export function computeScoreBreakdown(
   farm: ReturnType<typeof aggregateFarm>,
 ): {
@@ -34,130 +143,114 @@ export function computeScoreBreakdown(
 
   // Talhão sem preço cadastrado não tem receita de verdade: fica fora das comparações (margem, lucro negativo,
   // dependência de cultura...) para a mesma falta não ser punida várias vezes. A falta de preço é punida uma vez, mais abaixo.
-  const pf = farm.perField.filter((f) => f.price > 0);
+  const pf = pricedFields(farm);
+  const unpriced = farm.perField.filter((f) => !(f.price > 0));
 
   const add = (label: string, points: number) => {
     if (points === 0) return;
     breakdown.push({ label, points });
   };
+  /** Observação: aparece na composição, mas não muda a nota. */
+  const note = (label: string) => breakdown.push({ label, points: 0 });
+
+  if (unpriced.length > 0)
+    note(`Talhões sem preço não entraram no cálculo: ${unpriced.map((f) => f.field.name).join(", ")}`);
 
   const pricedRevenue = pf.reduce((a, f) => a + f.revenue, 0);
   const pricedProfit = pf.reduce((a, f) => a + f.profit, 0);
   const margin = pricedRevenue > 0 ? (pricedProfit / pricedRevenue) * 100 : -100;
 
+  // Margem alta pesa de verdade: uma fazenda com 75% de margem nunca fica abaixo de uma no prejuízo.
   if (pf.length === 0) {
     // Nenhum talhão com preço: não dá para avaliar a margem.
-  } else if (margin >= 50) add(`Margem líquida ${margin.toFixed(1)}% (acima de 50%)`, 5);
-  else if (margin >= 35) add(`Margem líquida ${margin.toFixed(1)}% (35% a 50%)`, 3);
+  } else if (margin >= 50) add(`Margem líquida ${margin.toFixed(1)}% (acima de 50%)`, 15);
+  else if (margin >= 35) add(`Margem líquida ${margin.toFixed(1)}% (35% a 50%)`, 8);
   else if (margin >= 20) add(`Margem líquida ${margin.toFixed(1)}% (20% a 35%)`, 0);
   else if (margin >= 10) add(`Margem líquida ${margin.toFixed(1)}% (10% a 20%)`, -10);
-  else add(`Margem líquida ${margin.toFixed(1)}% (abaixo de 10%)`, -20);
+  else if (margin >= 0) add(`Margem líquida ${margin.toFixed(1)}% (abaixo de 10%)`, -20);
+  else add(`Margem líquida ${margin.toFixed(1)}% (negativa)`, -35);
 
-  const profitByCrop: Record<string, number> = {};
-  let totalPositiveProfit = 0;
-  for (const f of pf) {
-    profitByCrop[f.field.crop] = (profitByCrop[f.field.crop] ?? 0) + f.profit;
-  }
-  for (const v of Object.values(profitByCrop)) if (v > 0) totalPositiveProfit += v;
-  const topCropEntry = Object.entries(profitByCrop).sort((a, b) => b[1] - a[1])[0];
-  const depPct =
-    totalPositiveProfit > 0 && topCropEntry && topCropEntry[1] > 0
-      ? (topCropEntry[1] / totalPositiveProfit) * 100
-      : 0;
-  const depLabel = (pts: number, faixa: string) =>
-    add(
-      `Dependência da cultura ${topCropEntry?.[0]} ${depPct.toFixed(1)}% do lucro (${faixa})`,
-      pts,
-    );
-  if (depPct > 80) depLabel(-20, "acima de 80%");
-  else if (depPct > 70) depLabel(-15, "70% a 80%");
-  else if (depPct > 60) depLabel(-10, "60% a 70%");
-  else if (depPct >= 50) depLabel(-5, "50% a 60%");
-
-  const profitPerHaByCrop: Record<string, { profit: number; area: number }> = {};
-  for (const f of pf) {
-    const c = (profitPerHaByCrop[f.field.crop] ??= { profit: 0, area: 0 });
-    c.profit += f.profit;
-    c.area += f.area;
-  }
-  const pphList = Object.entries(profitPerHaByCrop)
-    .filter(([, v]) => v.area > 0)
-    .map(([crop, v]) => ({ crop, pph: v.profit / v.area }));
-  if (pphList.length >= 2) {
-    const best = pphList.reduce((a, b) => (b.pph > a.pph ? b : a));
-    const worst = pphList.reduce((a, b) => (b.pph < a.pph ? b : a));
-    const ref = Math.max(Math.abs(best.pph), Math.abs(worst.pph));
-    if (ref > 0) {
-      const spreadPct = ((best.pph - worst.pph) / ref) * 100;
-      const lbl = (pts: number, faixa: string) =>
-        add(
-          `Diferença de rentabilidade ${best.crop} vs ${worst.crop} ${spreadPct.toFixed(1)}% (${faixa})`,
-          pts,
-        );
-      if (spreadPct > 70) lbl(-25, "acima de 70%");
-      else if (spreadPct > 50) lbl(-15, "50% a 70%");
-      else if (spreadPct >= 30) lbl(-5, "30% a 50%");
+  // Concentração: só a regra mais grave entre "dependência" e "diferença entre culturas" tira pontos.
+  const dep = cropDependency(farm);
+  const depPts = !dep.applies ? 0 : dep.pct > 80 ? -20 : dep.pct > 70 ? -15 : dep.pct > 60 ? -10 : dep.pct >= 50 ? -5 : 0;
+  const depFaixa = dep.pct > 80 ? "acima de 80%" : dep.pct > 70 ? "70% a 80%" : dep.pct > 60 ? "60% a 70%" : "50% a 60%";
+  const depLabel = `Dependência da cultura ${dep.crop} ${dep.pct.toFixed(1)}% do lucro (${depFaixa})`;
+  const spread = profitSpread(farm);
+  const spreadPts = !spread ? 0 : spread.pct > 70 ? -25 : spread.pct > 50 ? -15 : spread.pct >= 30 ? -5 : 0;
+  const spreadFaixa = spread && spread.pct > 70 ? "acima de 70%" : spread && spread.pct > 50 ? "50% a 70%" : "30% a 50%";
+  const spreadLabel = spread
+    ? `Diferença de rentabilidade ${spread.best} vs ${spread.worst} ${spread.pct.toFixed(1)}% (${spreadFaixa})`
+    : "";
+  if (depPts !== 0 || spreadPts !== 0) {
+    if (spreadPts < depPts) {
+      add(spreadLabel, spreadPts);
+      if (depPts !== 0) note(`Observação (sem pontos, mesmo problema): ${depLabel}`);
+    } else {
+      add(depLabel, depPts);
+      if (spreadPts !== 0) note(`Observação (sem pontos, mesmo problema): ${spreadLabel}`);
     }
   }
 
-  const cropTotals: Record<string, { cost: number; revenue: number }> = {};
-  for (const f of pf) {
-    const c = (cropTotals[f.field.crop] ??= { cost: 0, revenue: 0 });
-    c.cost += f.totalCost;
-    c.revenue += f.revenue;
+  // Talhões: cada um perde pontos por uma regra só.
+  const assessed = assessFields(farm);
+  const groups = new Map<string, { label: string; points: number; names: string[] }>();
+  const groupOf = (a: FieldAssessment): { key: string; label: string } => {
+    switch (a.rule) {
+      case "neg":
+        return { key: "neg", label: "Talhões com lucro negativo" };
+      case "be":
+        return {
+          key: `be${a.points}`,
+          label:
+            a.points === -20
+              ? "Ponto de equilíbrio acima de 80% da produtividade"
+              : a.points === -10
+                ? "Ponto de equilíbrio 65% a 80% da produtividade"
+                : "Ponto de equilíbrio 50% a 65% da produtividade",
+        };
+      case "custoha":
+        return {
+          key: `cha${a.points}`,
+          label:
+            a.points === -20
+              ? "Custo/ha acima de 35% da média"
+              : a.points === -10
+                ? "Custo/ha 20% a 35% acima da média"
+                : "Custo/ha 10% a 20% acima da média",
+        };
+      default:
+        return { key: "custo_alto", label: "Custo elevado (>70% da receita) em" };
+    }
+  };
+  const order: string[] = [];
+  for (const a of assessed) {
+    if (!a.rule) continue;
+    const { key, label } = groupOf(a);
+    const g = groups.get(key) ?? { label, points: 0, names: [] };
+    if (!groups.has(key)) order.push(key);
+    const name =
+      a.rule === "neg"
+        ? a.f.field.name
+        : a.rule === "custo_alto"
+          ? `${a.f.field.name} ${Math.round(a.value)}%`
+          : `${a.f.field.name} ${a.rule === "custoha" ? "+" : ""}${a.value.toFixed(1)}%`;
+    g.names.push(name);
+    g.points += a.points;
+    groups.set(key, g);
   }
-  const highCostCrops = Object.entries(cropTotals).filter(
-    ([, v]) => v.revenue > 0 && v.cost / v.revenue > 0.7,
+  const sortedKeys = ["neg", "be-20", "be-10", "be-5", "cha-20", "cha-10", "cha-5", "custo_alto"].filter((k) =>
+    groups.has(k),
   );
-  if (highCostCrops.length > 0) {
-    const points = Math.max(-15, -5 * highCostCrops.length);
-    add(
-      `Custo elevado (>70% da receita) em ${highCostCrops.map(([c, v]) => `${c} ${Math.round((v.cost / v.revenue) * 100)}%`).join(", ")}`,
-      points,
-    );
+  for (const k of sortedKeys) {
+    const g = groups.get(k)!;
+    if (k === "neg") add(`${g.label}: ${g.names.join(", ")} (${g.names.length}× -25)`, g.points);
+    else if (k === "custo_alto") add(`${g.label} ${g.names.join(", ")}`, g.points);
+    else add(`${g.label}: ${g.names.join(", ")}`, g.points);
   }
-
-  const negativeFields = pf.filter((f) => f.profit < 0);
-  if (negativeFields.length > 0)
-    add(
-      `Talhões com lucro negativo: ${negativeFields.map((f) => f.field.name).join(", ")} (${negativeFields.length}× -25)`,
-      -25 * negativeFields.length,
-    );
-
-  // Média ponderada pela área (custo total ÷ área total), igual ao painel.
-  const meanCostHa = weightedCostPerHa(pf);
-  if (meanCostHa > 0) {
-    const buckets = { b1: [] as string[], b2: [] as string[], b3: [] as string[] };
-    for (const f of pf) {
-      if (f.area <= 0) continue;
-      const overPct = ((f.costPerHa - meanCostHa) / meanCostHa) * 100;
-      if (overPct > 35) buckets.b3.push(`${f.field.name} +${overPct.toFixed(1)}%`);
-      else if (overPct >= 20) buckets.b2.push(`${f.field.name} +${overPct.toFixed(1)}%`);
-      else if (overPct >= 10) buckets.b1.push(`${f.field.name} +${overPct.toFixed(1)}%`);
-    }
-    if (buckets.b3.length)
-      add(`Custo/ha acima de 35% da média: ${buckets.b3.join(", ")}`, -20 * buckets.b3.length);
-    if (buckets.b2.length)
-      add(`Custo/ha 20% a 35% acima da média: ${buckets.b2.join(", ")}`, -10 * buckets.b2.length);
-    if (buckets.b1.length)
-      add(`Custo/ha 10% a 20% acima da média: ${buckets.b1.join(", ")}`, -5 * buckets.b1.length);
+  for (const a of assessed) {
+    if (a.others.length > 0)
+      note(`Observação (sem pontos): ${a.f.field.name} também tem ${a.others.join(" e ")}`);
   }
-
-  const beBuckets = { b1: [] as string[], b2: [] as string[], b3: [] as string[] };
-  for (const f of pf) {
-    const est = Number(f.field.estimated_yield ?? 0);
-    if (est <= 0 || f.breakevenBagPerHa <= 0) continue;
-    const ratio = (f.breakevenBagPerHa / est) * 100;
-    if (ratio > 80) beBuckets.b3.push(`${f.field.name} ${ratio.toFixed(1)}%`);
-    else if (ratio > 65) beBuckets.b2.push(`${f.field.name} ${ratio.toFixed(1)}%`);
-    else if (ratio > 50) beBuckets.b1.push(`${f.field.name} ${ratio.toFixed(1)}%`);
-  }
-  if (beBuckets.b3.length)
-    add(`Ponto de equilíbrio acima de 80% da produtividade: ${beBuckets.b3.join(", ")}`, -20 * beBuckets.b3.length);
-  if (beBuckets.b2.length)
-    add(`Ponto de equilíbrio 65% a 80% da produtividade: ${beBuckets.b2.join(", ")}`, -10 * beBuckets.b2.length);
-  if (beBuckets.b1.length)
-    add(`Ponto de equilíbrio 50% a 65% da produtividade: ${beBuckets.b1.join(", ")}`, -5 * beBuckets.b1.length);
 
   const cropsInFields = Array.from(new Set(farm.perField.map((f) => f.field.crop)));
   const missingPrice = cropsInFields.filter((c) => !(farm.priceByCrop[c] > 0));
@@ -182,17 +275,9 @@ export function computeScoreBreakdown(
     });
   if (allBEUnder60) add("Ponto de equilíbrio confortável em todos os talhões", 5);
 
+  // A nota fica sempre entre 0 e 100; quando a soma passa disso, só mostramos o limite (sem linha de "ajuste").
   const rawSum = breakdown.reduce((s, b) => s + b.points, 0);
-  let score = rawSum;
-  if (score > 100) {
-    const adj = 100 - score;
-    breakdown.push({ label: "Ajuste para teto de 100", points: adj });
-    score = 100;
-  } else if (score < 0) {
-    const adj = -score;
-    breakdown.push({ label: "Ajuste para piso de 0", points: adj });
-    score = 0;
-  }
+  const score = Math.max(0, Math.min(100, rawSum));
 
   const reason =
     score >= 85
@@ -211,8 +296,11 @@ export function computeScoreBreakdown(
 export function computeMetrics(
   farm: ReturnType<typeof aggregateFarm>,
 ): Metrics {
-  const margin =
-    farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : 0;
+  // Margem só dos talhões com preço (talhão sem preço não tem receita e distorceria a conta).
+  const priced = pricedFields(farm);
+  const pricedRev = priced.reduce((a, f) => a + f.revenue, 0);
+  const margin = pricedRev > 0 ? (priced.reduce((a, f) => a + f.profit, 0) / pricedRev) * 100 : 0;
+  const dep = cropDependency(farm);
   const byCrop: Record<
     string,
     { cost: number; revenue: number; profit: number; area: number; yieldSum: number; price: number }
@@ -233,7 +321,6 @@ export function computeMetrics(
     c.yieldSum += f.yieldBag * f.area;
     c.price = f.price || c.price;
   }
-  const totalRev = farm.totalRevenue;
   let topCrop = "";
   let topRev = 0;
   const costByCrop: Record<string, number> = {};
@@ -259,13 +346,13 @@ export function computeMetrics(
     profit: farm.totalProfit,
     profitPerHa: farm.profitPerHa,
     costPerHa: farm.costPerHa,
-    depPct: totalRev > 0 ? (topRev / totalRev) * 100 : 0,
+    depPct: dep.applies ? dep.pct : 0,
     topCrop,
     costByCrop,
     priceByCrop,
     costPerHaByCrop,
     breakevenByCrop,
     profitPerHaByCrop,
-    negativeFieldsCount: farm.perField.filter((f) => f.profit < 0).length,
+    negativeFieldsCount: priced.filter((f) => f.profit < 0).length,
   };
 }
