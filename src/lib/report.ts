@@ -968,7 +968,7 @@ function derivePriorities(
   if (negativeFields > 0) {
     push(
       "Recuperar talhões com prejuízo",
-      `${negativeFields} talhão(ões) apresentam lucro negativo. Revise custos e produtividade nestes locais antes de qualquer outra ação.`,
+      `${negativeFields} ${negativeFields === 1 ? "talhão apresenta" : "talhões apresentam"} lucro negativo. Revise custos e produtividade nestes locais antes de qualquer outra ação.`,
     );
   }
   if (margin < 20) {

@@ -208,7 +208,7 @@ export function BillingActions() {
             )}
             <Button className="mt-auto" disabled={!!busy} onClick={() => startCheckout(p.planCode)}>
               {busy === p.planCode && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {p.founder ? "Assinar como fundador" : p.interval === "year" ? "Assinar anual" : "Assinar mensal"}
+              {access?.accessLevel === "full" && !access.isTrial ? "Mudar de plano" : p.founder ? "Assinar como fundador" : p.interval === "year" ? "Assinar anual" : "Assinar mensal"}
             </Button>
           </div>
         ))}

@@ -44,6 +44,7 @@ function Page() {
   const [propertyId, setPropertyId] = useState<string>("");
   const [crop, setCrop] = useState<string>("soja");
   const [areaTxt, setAreaTxt] = useState("");
+  const [saving, setSaving] = useState(false);
 
   function openNew() {
     if (props.length === 0) { toast.error("Cadastre uma fazenda primeiro"); return; }
@@ -69,6 +70,8 @@ function Page() {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    if (saving) return;
+    setSaving(true);
     try {
       await save({
         data: {
@@ -86,7 +89,7 @@ function Page() {
       setOpen(false);
       await qc.invalidateQueries();
       toast.success("Talhão salvo");
-    } catch (e) { toast.error("Erro", { description: (e as Error).message }); }
+    } catch (e) { toast.error("Erro", { description: (e as Error).message }); } finally { setSaving(false); }
   }
 
   async function onDelete(id: string) {
@@ -190,7 +193,7 @@ function Page() {
               <div className="space-y-2"><Label htmlFor="ta-estimated_yield">Produtividade estimada (sc/ha)</Label><Input id="ta-estimated_yield" name="estimated_yield" type="number" step="0.01" min="0" defaultValue={editing?.estimated_yield ?? ""} /></div>
               <div className="space-y-2"><Label htmlFor="ta-real_yield">Produtividade real (sc/ha)</Label><Input id="ta-real_yield" name="real_yield" type="number" step="0.01" min="0" defaultValue={editing?.real_yield ?? ""} /></div>
             </div>
-            <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
+            <DialogFooter><Button type="submit" disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

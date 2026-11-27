@@ -16,6 +16,7 @@ import { PecuariaInviteCard } from "@/components/pecuaria-invite-card";
 import { RanchHome } from "@/components/ranch-home";
 import { useFarm } from "@/lib/farm-selection";
 import { areaOverruns, areaOverrunText } from "@/lib/farms";
+import { diagnosticFreshness } from "@/lib/diagnostic-freshness";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AgroIntel AI" }] }),
@@ -67,6 +68,14 @@ function Dashboard() {
     .filter((p) => !farmSel.selected || p.id === farmSel.selected.id)
     .reduce((a, p) => a + Number(p.total_area ?? 0), 0);
   const farm = aggregateFarm(shownFields as never, shownCosts as never, snapshot.prices as never);
+  // O diagnóstico é da conta toda: compara com os totais de todas as fazendas, não só da que está escolhida.
+  const accountFarm = aggregateFarm(snapshot.fields as never, snapshot.costs as never, snapshot.prices as never);
+  const diagStale = latestDiag
+    ? diagnosticFreshness((latestDiag as { report?: { finance?: { revenue?: unknown; costs?: unknown } } }).report?.finance, {
+        totalRevenue: accountFarm.totalRevenue,
+        totalCost: accountFarm.totalCost,
+      }).stale
+    : false;
 
   async function loadDemo() {
     setSeeding(true);
@@ -166,15 +175,22 @@ function Dashboard() {
             <Activity className="h-4 w-4 text-primary" />
             Saúde Financeira
           </CardTitle>
-          <Button asChild size="sm" variant={latestDiag ? "outline" : "default"}>
+          <Button asChild size="sm" variant={latestDiag && !diagStale ? "outline" : "default"}>
             <Link to="/diagnostico">
               <Sparkles className="mr-1 h-3 w-3" />
-              {latestDiag ? "Ver diagnóstico" : "Gerar diagnóstico"}
+              {latestDiag ? (diagStale ? "Gerar novo diagnóstico" : "Ver diagnóstico") : "Gerar diagnóstico"}
             </Link>
           </Button>
         </CardHeader>
         <CardContent>
-          {latestDiag ? (
+          {latestDiag && diagStale ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Dados mudaram — gerar novo diagnóstico</p>
+              <p className="text-sm text-muted-foreground">
+                A nota do último diagnóstico ({latestDiag.health_score}/100, de {new Date(latestDiag.created_at).toLocaleDateString("pt-BR")}) não vale mais para os dados de hoje.
+              </p>
+            </div>
+          ) : latestDiag ? (
             <div className="flex items-end gap-3">
               <div className={`text-4xl font-bold ${scoreColor(latestDiag.health_score)}`}>
                 {latestDiag.health_score}

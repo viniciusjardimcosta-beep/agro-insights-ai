@@ -323,7 +323,7 @@ function Page() {
             <div className="space-y-2"><Label htmlFor="cu-date">Data</Label><Input id="cu-date" name="date" type="date" required defaultValue={editing?.date ?? today} /></div>
             <div className="space-y-2"><Label htmlFor="cu-notes">Observação</Label><Textarea id="cu-notes" key={`n${formKey}`} name="notes" defaultValue={editing?.notes ?? ""} /></div>
             <DialogFooter>
-              <Button type="submit" name="intent" value="close" disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+              <Button type="submit" name="intent" value="close" disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button>
               {!editing && <Button type="submit" name="intent" value="again" variant="outline" disabled={saving}>Salvar e lançar outro</Button>}
             </DialogFooter>
           </form>

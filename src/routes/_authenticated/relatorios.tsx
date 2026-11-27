@@ -1,5 +1,6 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { axisBRL } from "@/lib/format-pt";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getFarmSnapshot } from "@/lib/data.functions";
@@ -72,7 +73,7 @@ function Page() {
               <BarChart data={byCategory}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.02 130)" />
                 <XAxis dataKey="category" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R$ ${Math.round(v / 1000)}k`} />
+                <YAxis tick={{ fontSize: 12 }} width={78} tickFormatter={(v: number) => axisBRL(v)} />
                 <Tooltip formatter={(v: number) => BRL.format(v)} />
                 <Bar dataKey="amount" fill="oklch(0.52 0.14 145)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -87,7 +88,7 @@ function Page() {
               <BarChart data={farm.perField.map((f) => ({ name: f.field.name, lucro: Math.round(f.profitPerHa) }))}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.02 130)" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} width={78} tickFormatter={(v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`} />
+                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} width={78} tickFormatter={(v: number) => axisBRL(v)} />
                 <Tooltip formatter={(v: number) => BRL.format(v)} />
                 <Bar dataKey="lucro" radius={[4, 4, 0, 0]}>
                   {farm.perField.map((f, i) => (
