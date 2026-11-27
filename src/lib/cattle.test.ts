@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageBracket, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, daysBetween, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock, offspringBySire, splitByHeads, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "./cattle";
+import { ageBracket, cattleSummaryText, ageMonthsNow, avgArrobasPerHead, breakEvenPerArroba, daysBetween, pricePerArroba, summarizeFarm, summarizeLot, summarizeStock, offspringBySire, splitByHeads, type CattleCost, type CattleLoss, type CattleSale, type Lot } from "./cattle";
 
 const lot: Lot = { id: "L1", name: "Lote 1", phase: "engorda", head_count: 10, entry_date: "2026-06-01", entry_avg_weight_kg: 300, purchase_amount: 30000, status: "ativo", notes: null };
 const costs: CattleCost[] = [
@@ -211,5 +211,30 @@ describe("filhos por touro", () => {
     expect(r[0].sire).toBe("Tufão");
     expect(r[0].femeas).toBe(7);
     expect(r[0].machos).toBe(2);
+  });
+});
+
+describe("baixa depois da venda", () => {
+  const lot20: Lot = { id: "L9", name: "Lote 9", phase: "engorda", head_count: 20, entry_date: "2026-01-01", entry_avg_weight_kg: null, purchase_amount: 60000, status: "ativo", notes: null };
+  const c: CattleCost[] = [{ id: "c", lot_id: "L9", category: "Sanidade", description: null, amount: 2000, date: "2026-02-01" }];
+  const sale: CattleSale[] = [{ id: "s", lot_id: "L9", date: "2026-06-01", head_count: 10, arrobas: 180, amount: 40000 }];
+  it("não muda o resultado da venda já feita", () => {
+    const antes = summarizeLot(lot20, c, sale, "2026-07-01", []);
+    const depois = summarizeLot(lot20, c, sale, "2026-07-01", [{ id: "b", lot_id: "L9", date: "2026-06-20", head_count: 1 }]);
+    expect(antes.result).toBe(9000);
+    expect(depois.result).toBe(9000);
+  });
+  it("a baixa antes da venda continua dividida entre as que sobraram", () => {
+    const r = summarizeLot(lot20, c, sale, "2026-07-01", [{ id: "b", lot_id: "L9", date: "2026-05-01", head_count: 1 }]);
+    expect(r.result).toBeCloseTo(40000 - (62000 * 10) / 19, 1);
+  });
+});
+describe("resumo para o Consultor", () => {
+  it("lista os lotes com os números", () => {
+    const lot20: Lot = { id: "L9", name: "Lote 9", phase: "engorda", head_count: 20, entry_date: "2026-01-01", entry_avg_weight_kg: null, purchase_amount: 60000, status: "ativo", notes: null };
+    const t = cattleSummaryText([lot20], [], [], [], "2026-07-01");
+    expect(t).toContain("Lote 9");
+    expect(t).toContain("20 na fazenda");
+    expect(cattleSummaryText([], [], [], [], "2026-07-01")).toContain("nenhum lote");
   });
 });

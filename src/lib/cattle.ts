@@ -80,7 +80,14 @@ export function summarizeLot(lot: Lot, costs: CattleCost[], sales: CattleSale[],
   const allHaveArrobas = mine.length > 0 && mine.every((s) => s.arrobas !== null && Number(s.arrobas) > 0);
   const arrobasSold = allHaveArrobas ? cents(mine.reduce((a, s) => a + Number(s.arrobas), 0)) : null;
   const share = alive > 0 ? Math.min(1, headsSold / alive) : 1;
-  const investedSold = cents(invested * share);
+  // Cada venda leva o custo por cabeça de quando aconteceu: uma baixa depois da venda não muda o resultado dela
+  // (o custo do animal que morreu fica com os que ainda estão na fazenda). Lote todo vendido: fecha com o investido inteiro.
+  const perSale = mine.reduce((a, s) => {
+    const lostBefore = Math.min(lot.head_count, lostRows.filter((l) => l.date <= s.date).reduce((x, l) => x + l.head_count, 0));
+    const aliveAt = Math.max(1, lot.head_count - lostBefore);
+    return a + invested * Math.min(1, s.head_count / aliveAt);
+  }, 0);
+  const investedSold = cents(fullySold || mine.length === 0 ? invested * share : Math.min(invested, perSale));
   // Sem venda nenhuma o resultado fica em aberto; se todas morreram, o prejuízo é o investido inteiro.
   const result = mine.length > 0 || alive <= 0 ? cents(soldAmount - investedSold) : null;
   const lastEvent = fullySold ? [...mine.map((s) => s.date), ...lostRows.map((l) => l.date)].sort().at(-1) ?? null : null;
@@ -236,4 +243,29 @@ export function offspringBySire(lots: Lot[], costs: CattleCost[], sales: CattleS
     map.set(key, g);
   }
   return [...map.values()].sort((a, b) => b.femeas - a.femeas || a.sire.localeCompare(b.sire));
+}
+
+
+/** Resumo do rebanho em texto, para o Consultor IA responder sobre pecuária com os números reais. */
+export function cattleSummaryText(lots: Lot[], costs: CattleCost[], sales: CattleSale[], losses: CattleLoss[], todayIso: string): string {
+  if (lots.length === 0) return "Pecuária: nenhum lote cadastrado.";
+  const brl = (n: number) => `R$ ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const farm = summarizeFarm(lots, costs, sales, todayIso, losses);
+  const lines = [
+    `Pecuária: ${lots.length} lote(s); ${farm.activeHeads} cabeça(s) na fazenda agora; vendido no total ${brl(farm.soldAmount)}; resultado dos lotes com venda ${brl(farm.lotsResult)}; custos gerais sem lote ${brl(farm.generalCosts)}.`,
+    "Lotes:",
+  ];
+  for (const lot of lots) {
+    const s = summarizeLot(lot, costs, sales, todayIso, losses);
+    const arrobas = avgArrobasPerHead(lot.id, sales);
+    const be = arrobas ? breakEvenPerArroba(s, arrobas) : null;
+    lines.push(
+      `- ${lot.name} (${lot.phase}, entrada ${lot.entry_date}): entraram ${lot.head_count} cab.; ${s.headsLeft} na fazenda, ${s.headsSold} vendida(s), ${s.headsLost} baixa(s); investido ${brl(s.invested)} (${brl(s.costPerHead)}/cab.); vendido ${brl(s.soldAmount)}` +
+        (s.result !== null ? `; resultado ${brl(s.result)}${s.marginPct !== null ? ` (${s.marginPct}%)` : ""}` : "; sem venda ainda") +
+        (s.pricePerArroba ? `; arroba recebida ${brl(s.pricePerArroba)}` : "") +
+        (be !== null && s.headsLeft > 0 ? `; preço mínimo da arroba para as que sobraram ${brl(be)}` : "") +
+        ".",
+    );
+  }
+  return lines.join("\n");
 }
