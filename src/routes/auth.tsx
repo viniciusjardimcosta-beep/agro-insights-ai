@@ -31,6 +31,11 @@ function AuthPage() {
   const navigate = useNavigate();
   const { modo } = Route.useSearch();
   const [showPw, setShowPw] = useState(false);
+  const [tab, setTab] = useState(modo === "criar" ? "signup" : "signin");
+  // O título da aba do navegador acompanha a aba do formulário.
+  useEffect(() => {
+    document.title = tab === "signup" ? "Criar conta — AgroIntel AI" : "Entrar — AgroIntel AI";
+  }, [tab]);
   const [loading, setLoading] = useState(false);
   // Checkbox NUNCA pré-marcado: o aceite é ação explícita do usuário.
   const [accepted, setAccepted] = useState(false);
@@ -245,7 +250,7 @@ function AuthPage() {
               </Button>
             </form>
           ) : (
-          <Tabs defaultValue={modo === "criar" ? "signup" : "signin"}>
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Entrar</TabsTrigger>
               <TabsTrigger value="signup">Criar conta</TabsTrigger>

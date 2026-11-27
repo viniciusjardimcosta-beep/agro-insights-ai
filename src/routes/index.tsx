@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { HeroField } from "@/components/hero-field";
 import { Reveal } from "@/components/reveal";
 import { PRIVACY_CONTACT } from "@/lib/privacy";
-import { AiChat, BeforeAfter, DashboardPanel, TrustCards } from "@/components/lp-sections";
+import { AiChat, BeforeAfter, DashboardPanel, TalhaoPanel, TrustCards } from "@/components/lp-sections";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -99,13 +99,13 @@ function Index() {
             <h2 className="text-3xl font-bold md:text-4xl">Lançar leva segundos</h2>
             <p className="mt-3 text-muted-foreground">O app foi feito para o produtor no celular, no meio do trabalho.</p>
           </Reveal>
-          <div className="mt-10 grid gap-8 md:grid-cols-3">
+          <div className="-mx-6 mt-10 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-2 md:mx-0 md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:px-0">
             {[
               { img: "voz", h: 610, n: "1", t: "Fale", d: "“Diesel 450 reais ontem.” O app entende o valor, a data e a categoria.", alt: "Tela de lançar custo por voz" },
               { img: "foto", h: 700, n: "2", t: "Fotografe", d: "Tire foto do caderno ou da nota. Você confere e salva.", alt: "Tela de foto do caderno" },
               { img: "custos", h: 562, n: "3", t: "Veja o resultado", d: "Custos por talhão ou por lote, lucro por hectare, alertas.", alt: "Tela de custos" },
             ].map((st, i) => (
-              <Reveal key={st.n} delay={i * 120} className="text-center">
+              <Reveal key={st.n} delay={i * 120} className="w-[72%] shrink-0 snap-center text-center md:w-auto">
                 <PhoneFrame src={`/lp/${st.img}-400.webp`} alt={st.alt} w={400} h={st.h} />
                 <h3 className="mt-5 text-lg font-semibold"><span className="mr-2 inline-grid h-7 w-7 place-items-center rounded-full bg-primary text-sm text-primary-foreground">{st.n}</span>{st.t}</h3>
                 <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">{st.d}</p>
@@ -263,7 +263,7 @@ function Modules() {
         </div>
         <div className="flex justify-center">
           {m.img === null ? (
-            <div className="w-full max-w-md"><DashboardPanel /></div>
+            <div className="w-full max-w-md"><TalhaoPanel /></div>
           ) : m.img.phone ? (
             <div className="w-[260px] overflow-hidden rounded-[1.6rem] border-4 border-foreground/80 bg-card shadow-[var(--shadow-card)]">
               <img src={m.img.src} alt={m.img.alt} width={m.img.w} height={m.img.h} loading="lazy" decoding="async" className="w-full" />

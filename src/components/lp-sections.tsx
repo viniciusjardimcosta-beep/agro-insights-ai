@@ -132,3 +132,44 @@ export function TrustCards() {
     </div>
   );
 }
+
+/** Custos de um talhão por categoria, em HTML (mesmo estilo do painel do topo, números coerentes com ele). */
+export function TalhaoPanel() {
+  const cats = [
+    { name: "Adubo", v: 12600, w: 100, hot: true },
+    { name: "Sementes", v: 7800, w: 62 },
+    { name: "Defensivos", v: 5400, w: 43 },
+    { name: "Diesel", v: 3300, w: 26 },
+    { name: "Mão de obra", v: 2400, w: 19 },
+  ];
+  const brl = (n: number) => `R$ ${n.toLocaleString("pt-BR")}`;
+  return (
+    <div className="w-full">
+      <div className="w-full rounded-2xl border bg-card p-4 text-left [font-variant-numeric:tabular-nums] shadow-[var(--shadow-card)] sm:p-5">
+        <div className="flex items-baseline justify-between gap-3 text-xs">
+          <span><span className="block font-semibold text-foreground">Talhão 4 · soja</span><span className="whitespace-nowrap text-muted-foreground">Custo do talhão: R$ 31.500</span></span>
+          <span className="whitespace-nowrap font-display text-base font-bold text-[#b91c1c] sm:text-lg">−R$ 4.500</span>
+        </div>
+        <p className="mt-5 text-xs font-semibold text-foreground">Custo por categoria</p>
+        <ul className="mt-2 space-y-2">
+          {cats.map((c) => (
+            <li key={c.name}>
+              <div className="flex justify-between text-xs">
+                <span className={c.hot ? "font-semibold text-amber-800" : "text-muted-foreground"}>{c.name}</span>
+                <span className={c.hot ? "font-semibold text-amber-800" : "font-medium text-foreground"}>{brl(c.v)}</span>
+              </div>
+              <div className="mt-1 h-2.5 rounded-full bg-muted">
+                <div className="h-full rounded-full" style={{ width: `${c.w}%`, background: c.hot ? "#d97706" : "oklch(0.52 0.14 145)" }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Adubo 18% acima da média dos outros talhões.</span>
+        </div>
+      </div>
+      <p className="mt-2 text-center text-xs text-muted-foreground">Exemplo com dados fictícios.</p>
+    </div>
+  );
+}
