@@ -55,6 +55,7 @@ function Page() {
   const { acao } = Route.useSearch();
   const navigate = useNavigate({ from: "/custos" });
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
@@ -102,6 +103,7 @@ function Page() {
     const fd = new FormData(e.currentTarget);
     const again = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "again";
     if (!submitLock.take()) return; // duplo toque: o segundo é ignorado
+    setSaving(true);
     const common = {
       category,
       description: String(fd.get("description") || "") || null,
@@ -115,12 +117,12 @@ function Page() {
         toast.success(`Custo dividido entre ${r.count} talhões`);
       } else {
         await save({ data: { ...common, id: editing?.id, field_id: target } });
-        toast.success("Custo lançado");
+        toast.success(editing ? "Custo atualizado" : "Custo lançado");
       }
       rememberLast(target, category);
       await qc.invalidateQueries();
       if (again) { setAmountStr(""); setFormKey((k) => k + 1); } else { setOpen(false); }
-    } catch (e) { toast.error("Erro", { description: (e as Error).message }); } finally { submitLock.release(); }
+    } catch (e) { toast.error("Erro", { description: (e as Error).message }); } finally { submitLock.release(); setSaving(false); }
   }
 
   async function onDelete(id: string) {
@@ -267,7 +269,7 @@ function Page() {
                   <SelectContent>{COST_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>{isSplit ? "Valor total (R$)" : "Valor (R$)"}</Label><Input name="amount" type="number" step="0.01" min="0" required autoFocus value={amountStr} onChange={(e) => setAmountStr(e.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="cu-amount">{isSplit ? "Valor total (R$)" : "Valor (R$)"}</Label><Input id="cu-amount" name="amount" type="number" step="0.01" min="0" required autoFocus value={amountStr} onChange={(e) => setAmountStr(e.target.value)} /></div>
             </div>
             {isSplit && (
               <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground" aria-live="polite">
@@ -284,18 +286,18 @@ function Page() {
                         return <li key={s.field_id}>{f.name} ({Number(f.area)} ha): {BRL.format(s.amount)}</li>;
                       })}
                     </ul>
-                    {withoutArea > 0 && <p className="mt-1">{withoutArea} talhão(ões) sem área ficam de fora.</p>}
+                    {withoutArea > 0 && <p className="mt-1">{withoutArea === 1 ? "1 talhão sem área fica de fora." : `${withoutArea} talhões sem área ficam de fora.`}</p>}
                     <p className="mt-1">Cada talhão recebe um lançamento próprio; para corrigir depois, edite ou exclua cada um.</p>
                   </>
                 )}
               </div>
             )}
-            <div className="space-y-2"><Label>Descrição</Label><Input key={`d${formKey}`} name="description" defaultValue={(editing ?? template)?.description ?? ""} /></div>
-            <div className="space-y-2"><Label>Data</Label><Input name="date" type="date" required defaultValue={editing?.date ?? today} /></div>
-            <div className="space-y-2"><Label>Observação</Label><Textarea key={`n${formKey}`} name="notes" defaultValue={editing?.notes ?? ""} /></div>
+            <div className="space-y-2"><Label htmlFor="cu-description">Descrição</Label><Input id="cu-description" key={`d${formKey}`} name="description" defaultValue={(editing ?? template)?.description ?? ""} /></div>
+            <div className="space-y-2"><Label htmlFor="cu-date">Data</Label><Input id="cu-date" name="date" type="date" required defaultValue={editing?.date ?? today} /></div>
+            <div className="space-y-2"><Label htmlFor="cu-notes">Observação</Label><Textarea id="cu-notes" key={`n${formKey}`} name="notes" defaultValue={editing?.notes ?? ""} /></div>
             <DialogFooter>
-              <Button type="submit" name="intent" value="close">Salvar</Button>
-              {!editing && <Button type="submit" name="intent" value="again" variant="outline">Salvar e lançar outro</Button>}
+              <Button type="submit" name="intent" value="close" disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+              {!editing && <Button type="submit" name="intent" value="again" variant="outline" disabled={saving}>Salvar e lançar outro</Button>}
             </DialogFooter>
           </form>
         </DialogContent>

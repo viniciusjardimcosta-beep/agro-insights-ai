@@ -187,7 +187,7 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
           rows={1}
           className="min-h-[44px] resize-none"
         />
-        <Button type="submit" size="icon" disabled={busy || !input.trim()} className="h-11 w-11 shrink-0">
+        <Button type="submit" size="icon" aria-label="Enviar pergunta" disabled={busy || !input.trim()} className="h-11 w-11 shrink-0">
           <Send className="h-4 w-4" />
         </Button>
       </form>
