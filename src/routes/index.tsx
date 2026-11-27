@@ -16,6 +16,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "AgroIntel AI — quanto cada talhão e cada lote dá de lucro" },
       { property: "og:description", content: "Lavoura e pecuária num só lugar: custos, lucro por hectare, resultado por lote e consultor de IA." },
     ],
+    links: [{ rel: "canonical", href: "https://agrointelai.com.br/" }],
   }),
   component: Index,
 });
