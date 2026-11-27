@@ -15,6 +15,7 @@ import { OnboardingCard } from "@/components/onboarding-card";
 import { PecuariaInviteCard } from "@/components/pecuaria-invite-card";
 import { RanchHome } from "@/components/ranch-home";
 import { useFarm } from "@/lib/farm-selection";
+import { areaOverruns, areaOverrunText } from "@/lib/farms";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AgroIntel AI" }] }),
@@ -92,6 +93,8 @@ function Dashboard() {
       });
     if (farm.profitPerHa < 0)
       alerts.push({ tone: "warn", text: `Atenção: lucro/ha negativo (${BRL.format(farm.profitPerHa)}). Reveja custos ou preços.` });
+    const overruns = areaOverruns((snapshot.properties ?? []) as never[], shownFields as never[]).filter((o) => !farmSel.selected || o.id === farmSel.selected.id);
+    for (const o of overruns) alerts.push({ tone: "warn", text: areaOverrunText(o, overruns.length > 1) });
     farm.perField.forEach((f) => {
       if (f.breakevenBagPerHa > 0 && f.yieldBag > 0 && f.breakevenBagPerHa > f.yieldBag * 0.9) {
         alerts.push({
@@ -103,7 +106,7 @@ function Dashboard() {
   }
 
   const cards = [
-    { label: "Área das fazendas", value: `${NUM.format(farmsArea)} ha`, icon: MapPinned },
+    { label: farmSel.selected ? "Área da fazenda" : "Área das fazendas", value: `${NUM.format(farmsArea)} ha`, icon: MapPinned },
     { label: "Área plantada", value: `${NUM.format(farm.totalArea)} ha`, icon: Sprout },
     { label: "Custo total", value: BRL.format(farm.totalCost), icon: Banknote },
     { label: "Receita estimada", value: BRL.format(farm.totalRevenue), icon: TrendingUp },

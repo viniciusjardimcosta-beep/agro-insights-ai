@@ -12,6 +12,7 @@ import {
   type ExistingAlert,
 } from "@/lib/alerts-rules";
 import { recordAuditEvent } from "@/lib/audit.server";
+import { snapshotOfFarm } from "@/lib/farms";
 import { fetchAll } from "@/lib/db-utils";
 
 type DB = SupabaseClient<Database>;
@@ -44,17 +45,27 @@ async function runSync(supabase: DB, userId: string) {
     supabase.from("intelligence_alerts").select("*"),
   ]);
 
-  const snap = buildIntelligenceSnapshot({
-    properties: (properties.data ?? []) as { id?: string; name: string }[],
-    fields: fields as never,
-    costs: costs as never,
-    prices: prices as never,
-    diagnostics: (diagnostics.data ?? []) as unknown as DiagnosticLite[],
-    scenarios: (scenarios.data ?? []) as unknown as ScenarioLite[],
-  });
+  const props = (properties.data ?? []) as { id?: string; name: string }[];
+  const mk = (
+    sel: { properties?: unknown[] | null; fields?: unknown[] | null; costs?: unknown[] | null },
+    useDiagnostics: boolean,
+  ) =>
+    buildIntelligenceSnapshot({
+      properties: (sel.properties ?? []) as { id?: string; name: string }[],
+      fields: (sel.fields ?? []) as never,
+      costs: (sel.costs ?? []) as never,
+      prices: prices as never,
+      diagnostics: useDiagnostics ? ((diagnostics.data ?? []) as unknown as DiagnosticLite[]) : [],
+      scenarios: (scenarios.data ?? []) as unknown as ScenarioLite[],
+    });
+  const all = { properties: props, fields: fields as { id: string; property_id?: string | null }[], costs: costs as { field_id: string }[] };
 
-  const propertyId = (properties.data?.[0]?.id as string | undefined) ?? null;
-  const incoming = buildPersistableAlerts(snap, propertyId);
+  // Com 2 ou mais fazendas, cada uma tem os próprios alertas (calculados só com os dados dela);
+  // com 1 só, é a conta inteira, como antes.
+  const incoming =
+    props.length >= 2
+      ? props.flatMap((p) => buildPersistableAlerts(mk(snapshotOfFarm(all, p.id as string), false), (p.id as string) ?? null))
+      : buildPersistableAlerts(mk(all, true), (props[0]?.id as string | undefined) ?? null);
   const { inserts, updates } = reconcileAlerts(
     (existing.data ?? []) as unknown as ExistingAlert[],
     incoming,

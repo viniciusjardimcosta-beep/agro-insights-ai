@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { listFields, upsertField, deleteField, listProperties } from "@/lib/data.functions";
 import { CROPS, NUM } from "@/lib/calc";
 import { useFarm } from "@/lib/farm-selection";
+import { areaOverruns, areaOverrunText, farmFlags } from "@/lib/farms";
 
 const qFields = queryOptions({ queryKey: ["fields"], queryFn: () => listFields() });
 const qProps = queryOptions({ queryKey: ["properties"], queryFn: () => listProperties() });
@@ -56,6 +57,12 @@ function Page() {
     setEditing(f); setPropertyId(f.property_id); setCrop(f.crop); setAreaTxt(String(f.area ?? "")); setOpen(true);
   }
 
+  // Só fazendas com plantio aparecem para um talhão novo (ao editar, a fazenda do talhão continua na lista).
+  const plantioProps = (props as { id: string; name: string; activity?: string | null }[]).filter(
+    (p) => farmFlags(p.activity, { lavoura: true, pecuaria: true }).lavoura || p.id === editing?.property_id,
+  );
+  const overruns = areaOverruns(props as never[], (allFields as Field[]).filter((f) => !farm.selected || f.property_id === farm.selected.id)).filter((o) => !farm.selected || o.id === farm.selected.id);
+
   if (loadingFields || loadingProps) return <p className="text-sm text-muted-foreground">Carregando talhões...</p>;
   if (fieldsError || propsError) return <p className="text-sm text-destructive">{(fieldsError ?? propsError)?.message}</p>;
 
@@ -98,6 +105,13 @@ function Page() {
         </div>
         <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Novo talhão</Button>
       </div>
+
+      {overruns.map((o) => (
+        <p key={o.id} className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {areaOverrunText(o, overruns.length > 1)}{" "}
+          <Link to="/propriedades" className="font-medium underline">Corrigir a fazenda</Link>
+        </p>
+      ))}
 
       {props.length === 0 && (
         <Card className="border-dashed">
@@ -143,7 +157,7 @@ function Page() {
               <Select value={propertyId} onValueChange={setPropertyId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {props.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {plantioProps.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -157,7 +171,7 @@ function Page() {
               const sum = others + Number(areaTxt || 0);
               return total > 0 && sum > total ? (
                 <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-                  Atenção: esta fazenda tem {total} ha cadastrados e os talhões somariam {Math.round(sum * 100) / 100} ha. Confira a área.
+                  Atenção: os talhões somariam {Math.round(sum * 100) / 100} ha e a fazenda tem {total} ha. Você ainda pode salvar; confira a área.
                 </p>
               ) : null;
             })()}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountFlagsFor, cattleOfFarm, farmFlags, inFarm, resolveSelected, snapshotOfFarm } from "./farms";
+import { accountFlagsFor, cattleOfFarm, farmFlags, inFarm, resolveSelected, snapshotOfFarm, areaOverruns, areaOverrunText } from "./farms";
 
 const both = { lavoura: true, pecuaria: true };
 const lav = { lavoura: true, pecuaria: false };
@@ -64,5 +64,16 @@ describe("snapshotOfFarm", () => {
     expect(r.costs.length).toBe(1);
     expect(r.costs[0].amount).toBe(2);
     expect(r.prices.length).toBe(1);
+  });
+});
+
+describe("areaOverruns (Etapa 20)", () => {
+  it("avisa quando os talhões passam da área da fazenda", () => {
+    const props = [{ id: "a", name: "Boa Vista", total_area: 50 }, { id: "b", name: "Sítio", total_area: 100 }];
+    const fields = [{ property_id: "a", area: 40 }, { property_id: "a", area: 20 }, { property_id: "b", area: 30 }];
+    const r = areaOverruns(props, fields);
+    expect(r.length).toBe(1);
+    expect(r[0].sum).toBe(60);
+    expect(areaOverrunText(r[0], false)).toBe("Os talhões somam 60 ha e a fazenda tem 50 ha. Confira a área da fazenda ou a dos talhões.");
   });
 });
