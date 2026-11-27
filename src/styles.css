@@ -164,5 +164,7 @@
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
+    /* Com o tracking negativo, as palavras dos títulos ficavam coladas. */
+    word-spacing: 0.08em;
   }
 }
