@@ -22,7 +22,7 @@ function messageText(m: UIMessage): string {
     .join("");
 }
 
-type Body = { messages?: unknown; threadId?: string };
+type Body = { messages?: unknown; threadId?: string; farmId?: string | null };
 
 export const Route = createFileRoute("/api/public/chat")({
   server: {
@@ -46,6 +46,8 @@ export const Route = createFileRoute("/api/public/chat")({
 
         const body = (await request.json()) as Body;
         const { messages, threadId } = body;
+        // Fazenda escolhida no topo do app (null/ausente = todas as fazendas).
+        const farmId = typeof body.farmId === "string" && /^[0-9a-fA-F-]{8,64}$/.test(body.farmId) ? body.farmId : null;
         if (!Array.isArray(messages) || !threadId) {
           return new Response("Requisição inválida", { status: 400 });
         }
@@ -142,7 +144,7 @@ export const Route = createFileRoute("/api/public/chat")({
         // Paginado: o Supabase limita 1000 linhas por consulta.
         const [props, fields, costs, prices] = await Promise.all([
           fetchAll((f, t) =>
-            supabase.from("properties").select("name, city, state, total_area").order("id").range(f, t),
+            supabase.from("properties").select("id, name, city, state, total_area").order("id").range(f, t),
           ),
           fetchAll((f, t) => supabase.from("fields").select("*").order("id").range(f, t)),
           fetchAll((f, t) =>
@@ -163,18 +165,32 @@ export const Route = createFileRoute("/api/public/chat")({
           safe(supabase.from("cattle_sales").select("*").limit(2000)),
           safe(supabase.from("cattle_losses").select("*").limit(2000)),
         ]);
-        const cattleText = cattleSummaryText(lots as never, cCosts as never, cSales as never, cLosses as never, new Date().toISOString().slice(0, 10));
+        // Só os dados da fazenda escolhida (ou de todas). Custos gerais sem lote só entram em "todas as fazendas".
+        const scopedProps = farmId ? props.filter((p) => (p as { id?: string }).id === farmId) : props;
+        const scopedFields = farmId ? fields.filter((f) => (f as { property_id?: string | null }).property_id === farmId) : fields;
+        const fieldIds = new Set(scopedFields.map((f) => (f as { id: string }).id));
+        const scopedCosts = farmId ? costs.filter((c) => fieldIds.has((c as { field_id: string }).field_id)) : costs;
+        const scopedLots = farmId ? lots.filter((l) => (l as { property_id?: string | null }).property_id === farmId) : lots;
+        const lotIds = new Set(scopedLots.map((l) => (l as { id: string }).id));
+        const scopedCCosts = farmId ? cCosts.filter((c) => lotIds.has((c as { lot_id: string }).lot_id)) : cCosts;
+        const scopedCSales = farmId ? cSales.filter((c) => lotIds.has((c as { lot_id: string }).lot_id)) : cSales;
+        const scopedCLosses = farmId ? cLosses.filter((c) => lotIds.has((c as { lot_id: string }).lot_id)) : cLosses;
+        const scopeName = farmId ? ((scopedProps[0] as { name?: string } | undefined)?.name ?? "fazenda selecionada") : null;
+        const cattleText = cattleSummaryText(scopedLots as never, scopedCCosts as never, scopedCSales as never, scopedCLosses as never, new Date().toISOString().slice(0, 10));
 
         const farm = aggregateFarm(
-          fields as never,
-          costs as never,
+          scopedFields as never,
+          scopedCosts as never,
           prices as never,
         );
         const priceByCrop = latestPriceByCrop(prices as never);
-        const cropsWithoutPrice = cropsMissingPrice(fields as never, priceByCrop);
+        const cropsWithoutPrice = cropsMissingPrice(scopedFields as never, priceByCrop);
 
         const summary = [
-          `Propriedades: ${props.map((p) => `${p.name} (${p.city ?? "-"}/${p.state ?? "-"}, ${p.total_area} ha)`).join("; ") || "nenhuma cadastrada"}`,
+          scopeName
+            ? `Analisando SÓ a fazenda "${scopeName}" (escolhida pelo produtor). Não comente nem some dados de outras fazendas.`
+            : "Analisando TODAS as fazendas do produtor juntas.",
+          `Propriedades: ${scopedProps.map((p) => `${p.name} (${p.city ?? "-"}/${p.state ?? "-"}, ${p.total_area} ha)`).join("; ") || "nenhuma cadastrada"}`,
           `Total: área ${NUM.format(farm.totalArea)} ha | custo ${BRL.format(farm.totalCost)} | receita estimada ${BRL.format(farm.totalRevenue)} | lucro estimado ${BRL.format(farm.totalProfit)} | lucro/ha ${BRL.format(farm.profitPerHa)}`,
           `Preços atuais por saca: ${Object.entries(priceByCrop).map(([c, p]) => `${c} ${BRL.format(p)}`).join(", ") || "sem preços cadastrados"}`,
           cropsWithoutPrice.length > 0

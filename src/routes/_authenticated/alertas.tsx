@@ -238,7 +238,7 @@ function AlertasPage() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="active">
-              <TabsList>
+              <TabsList className="h-auto w-full flex-wrap justify-start">
                 <TabsTrigger value="active">Ativos ({groups.active.length})</TabsTrigger>
                 <TabsTrigger value="acknowledged">
                   Reconhecidos ({groups.acknowledged.length})

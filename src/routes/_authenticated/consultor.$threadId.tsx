@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { getThreadMessages } from "@/lib/threads.functions";
+import { useFarm } from "@/lib/farm-selection";
 
 const SUGGESTIONS = [
   "Estou tendo lucro?",
@@ -77,6 +78,9 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
     transport,
   });
 
+  const farmSel = useFarm();
+  const farmId = farmSel.selected?.id ?? null;
+  const scopeLabel = farmSel.selected ? farmSel.selected.name : farmSel.farms.length > 1 ? "Todas as fazendas" : null;
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -95,7 +99,7 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
       return;
     }
     setInput("");
-    await sendMessage({ text });
+    await sendMessage({ text }, { body: { threadId, farmId } });
     setTimeout(() => taRef.current?.focus(), 0);
   }
 
@@ -107,7 +111,7 @@ function Chat({ threadId, initialMessages }: { threadId: string; initialMessages
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Sprout className="h-4 w-4" /></span>
           <div>
             <h1 className="text-lg font-semibold leading-tight">Consultor IA</h1>
-            <p className="text-xs text-muted-foreground">Conectado aos dados da sua fazenda</p>
+            <p className="text-xs text-muted-foreground">{scopeLabel ? `Analisando: ${scopeLabel}` : "Conectado aos dados da sua fazenda"}</p>
           </div>
         </div>
       </div>
