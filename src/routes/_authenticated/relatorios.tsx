@@ -84,7 +84,7 @@ function Page() {
               <BarChart data={farm.perField.map((f) => ({ name: f.field.name, lucro: Math.round(f.profitPerHa) }))}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.02 130)" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R$ ${v}`} />
+                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} width={78} tickFormatter={(v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`} />
                 <Tooltip formatter={(v: number) => BRL.format(v)} />
                 <Bar dataKey="lucro" radius={[4, 4, 0, 0]}>
                   {farm.perField.map((f, i) => (
@@ -99,7 +99,7 @@ function Page() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Talhão mais lucrativo</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{fieldsRanked.length > 1 ? "Talhão mais lucrativo" : "Seu talhão"}</CardTitle></CardHeader>
           <CardContent>
             {best ? (
               <div>
@@ -110,7 +110,7 @@ function Page() {
             ) : "—"}
           </CardContent>
         </Card>
-        <Card>
+        {fieldsRanked.length > 1 && <Card>
           <CardHeader><CardTitle>Talhão menos lucrativo</CardTitle></CardHeader>
           <CardContent>
             {worst ? (
@@ -121,7 +121,7 @@ function Page() {
               </div>
             ) : "—"}
           </CardContent>
-        </Card>
+        </Card>}
       </div>
     </div>
   );

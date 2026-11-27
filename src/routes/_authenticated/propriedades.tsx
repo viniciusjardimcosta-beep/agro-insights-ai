@@ -123,8 +123,8 @@ function Page() {
                     )}
                   </div>
                   <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" onClick={() => onDelete(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" aria-label="Editar" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" aria-label="Excluir" onClick={() => onDelete(p.id)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
               </CardContent>
@@ -138,10 +138,10 @@ function Page() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Editar" : "Nova"} fazenda</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-2"><Label>Nome</Label><Input name="name" required defaultValue={editing?.name} /></div>
+            <div className="space-y-2"><Label htmlFor="pp-name">Nome</Label><Input id="pp-name" name="name" required defaultValue={editing?.name} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Município</Label><Input name="city" defaultValue={editing?.city ?? ""} /></div>
-              <div className="space-y-2"><Label>Estado (UF)</Label><Input name="state" maxLength={2} defaultValue={editing?.state ?? ""} /></div>
+              <div className="space-y-2"><Label htmlFor="pp-city">Município</Label><Input id="pp-city" name="city" defaultValue={editing?.city ?? ""} /></div>
+              <div className="space-y-2"><Label htmlFor="pp-state">Estado (UF)</Label><Input id="pp-state" name="state" maxLength={2} defaultValue={editing?.state ?? ""} /></div>
             </div>
             <div className="space-y-2">
               <Label>O que você faz nesta fazenda?</Label>
@@ -152,7 +152,7 @@ function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2"><Label>Área total (ha)</Label><Input name="total_area" type="number" step="0.01" min="0" required defaultValue={editing?.total_area} /></div>
+            <div className="space-y-2"><Label htmlFor="pp-total_area">Área total (ha)</Label><Input id="pp-total_area" name="total_area" type="number" step="0.01" min="0.01" required defaultValue={editing?.total_area} /></div>
             <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
           </form>
         </DialogContent>

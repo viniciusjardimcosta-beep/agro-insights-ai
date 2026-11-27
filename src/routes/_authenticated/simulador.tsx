@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { aggregateFarm, BRL, NUM, type CostRow, type FieldRow, type PriceRow } from "@/lib/calc";
 import { getFarmSnapshot } from "@/lib/data.functions";
+import { pt1 } from "@/lib/format-pt";
 import { computeMetrics, computeScoreBreakdown, type ScoreBreakdownEntry } from "@/lib/score";
 import {
   createScenario,
@@ -525,7 +526,7 @@ function ScenarioCard({
           </div>
           <div className="text-right">
             <div className="text-xs text-muted-foreground">Margem líquida</div>
-            <div className="text-lg font-semibold">{margin.toFixed(1)}%</div>
+            <div className="text-lg font-semibold">{pt1(margin)}%</div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -536,7 +537,7 @@ function ScenarioCard({
             value={BRL.format(profit)}
             tone={profit < 0 ? "neg" : "pos"}
           />
-          <Stat label="Dep. principal cultura" value={`${depPct.toFixed(1)}%`} />
+          <Stat label="Dep. principal cultura" value={`${pt1(depPct)}%`} />
         </div>
         {Object.keys(breakevenByCrop).length > 0 && (
           <div>
@@ -883,7 +884,7 @@ function NumInput({
       type="number"
       inputMode="decimal"
       step="0.01"
-      value={Number.isFinite(value) ? value : 0}
+      value={Number.isFinite(value) ? Math.round(value * 100) / 100 : 0}
       onChange={(e) => {
         const n = Number(e.target.value);
         onChange(Number.isFinite(n) ? n : 0);
@@ -1118,7 +1119,7 @@ function CompareColumn({
           />
           <CmpStat
             label={<>Margem {badge(winners.margin === side)}</>}
-            value={`${view.margin.toFixed(1)}%`}
+            value={`${pt1(view.margin)}%`}
           />
         </div>
         {Object.keys(view.breakevenByCrop).length > 0 && (
@@ -1215,10 +1216,10 @@ function MarginImpact({ prev, next }: { prev: number; next: number }) {
         Margem
       </div>
       <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 font-mono text-sm tabular-nums">
-        <span className="text-muted-foreground">{prev.toFixed(1)}%</span>
+        <span className="text-muted-foreground">{pt1(prev)}%</span>
         <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className={`font-semibold ${dir === "flat" ? "text-foreground" : tone}`}>
-          {next.toFixed(1)}%
+          {pt1(next)}%
         </span>
       </div>
       <div className={`mt-2 flex items-center gap-1.5 text-xs font-semibold tabular-nums ${tone}`}>
@@ -1226,7 +1227,7 @@ function MarginImpact({ prev, next }: { prev: number; next: number }) {
         <span>
           {dir === "flat"
             ? "Sem alteração"
-            : `${sign}${Math.abs(delta).toFixed(1)} pp`}
+            : `${sign}${pt1(Math.abs(delta))} pp`}
         </span>
       </div>
     </div>

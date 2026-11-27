@@ -101,8 +101,8 @@ function Page() {
                     <TableCell className="capitalize">{p.crop}</TableCell>
                     <TableCell className="text-right font-medium">{BRL.format(Number(p.price_per_bag))}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => onDelete(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" aria-label="Editar" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" aria-label="Excluir" onClick={() => onDelete(p.id)}><Trash2 className="h-4 w-4" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -124,8 +124,8 @@ function Page() {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>R$ / saca</Label><Input name="price_per_bag" type="number" step="0.01" min="0" required defaultValue={editing?.price_per_bag} /></div>
-              <div className="space-y-2"><Label>Data</Label><Input name="date" type="date" required defaultValue={editing?.date ?? today} /></div>
+              <div className="space-y-2"><Label htmlFor="pr-price_per_bag">R$ / saca</Label><Input id="pr-price_per_bag" name="price_per_bag" type="number" step="0.01" min="0" required defaultValue={editing?.price_per_bag} /></div>
+              <div className="space-y-2"><Label htmlFor="pr-date">Data</Label><Input id="pr-date" name="date" type="date" required defaultValue={editing?.date ?? today} /></div>
             </div>
             <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
           </form>

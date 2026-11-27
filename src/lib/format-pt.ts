@@ -18,3 +18,8 @@ export function formatDateBR(iso: string | null | undefined): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 }
+
+/** Número com 1 casa decimal e vírgula (ex.: 98,6). */
+export function pt1(n: number): string {
+  return n.toFixed(1).replace(".", ",");
+}
