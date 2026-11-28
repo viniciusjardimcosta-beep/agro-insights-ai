@@ -63,6 +63,8 @@ export type LotSummary = {
   /** venda - parte do investido que corresponde às cabeças vendidas; null se nada foi vendido */
   result: number | null;
   marginPct: number | null;
+  /** resultado ÷ investido nas cabeças vendidas, em % (ex.: 32,4); igual ao exemplo da página inicial */
+  returnPct: number | null;
   days: number;
 };
 
@@ -105,6 +107,7 @@ export function summarizeLot(lot: Lot, costs: CattleCost[], sales: CattleSale[],
     costPerArroba: arrobasSold ? cents(investedSold / arrobasSold) : null,
     result,
     marginPct: result !== null && soldAmount > 0 ? Math.round((result / soldAmount) * 1000) / 10 : null,
+    returnPct: result !== null && investedSold > 0 ? Math.round((result / investedSold) * 1000) / 10 : null,
     days: daysBetween(lot.entry_date, lastEvent ?? todayIso),
   };
 }
@@ -261,7 +264,7 @@ export function cattleSummaryText(lots: Lot[], costs: CattleCost[], sales: Cattl
     const be = arrobas ? breakEvenPerArroba(s, arrobas) : null;
     lines.push(
       `- ${lot.name} (${lot.phase}, entrada ${lot.entry_date}): entraram ${lot.head_count} cab.; ${s.headsLeft} na fazenda, ${s.headsSold} vendida(s), ${s.headsLost} baixa(s); investido ${brl(s.invested)} (${brl(s.costPerHead)}/cab.); vendido ${brl(s.soldAmount)}` +
-        (s.result !== null ? `; resultado ${brl(s.result)}${s.marginPct !== null ? ` (${s.marginPct}%)` : ""}` : "; sem venda ainda") +
+        (s.result !== null ? `; resultado ${brl(s.result)}${s.returnPct !== null ? ` (${s.returnPct}% sobre o investido)` : ""}` : "; sem venda ainda") +
         (s.pricePerArroba ? `; arroba recebida ${brl(s.pricePerArroba)}` : "") +
         (be !== null && s.headsLeft > 0 ? `; preço mínimo da arroba para as que sobraram ${brl(be)}` : "") +
         ".",

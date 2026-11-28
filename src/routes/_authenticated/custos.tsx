@@ -199,7 +199,33 @@ function Page() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <>
+        {/* Celular (< 640 px): cada lançamento é um cartão, sem tabela. */}
+        <ul className="space-y-2 sm:hidden">
+          {(costs as Cost[]).map((c) => (
+            <li key={c.id} className="rounded-lg border bg-card p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xl font-bold leading-tight">{BRL.format(Number(c.amount))}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{formatDateBR(c.date)}</p>
+                </div>
+                <div className="flex shrink-0 items-center">
+                  <Button size="icon" variant="ghost" className="h-11 w-11" title="Repetir este lançamento" aria-label="Repetir este lançamento" onClick={() => openRepeat(c)}><Copy className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Editar" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir" onClick={() => onDelete(c.id)}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              </div>
+              <p className="mt-1 text-sm"><span className="font-medium">{c.fields?.name ?? "-"}</span> · {c.category}</p>
+              {(c.description || c.notes) && (
+                <p className="mt-0.5 break-words text-sm text-muted-foreground">
+                  {isImported(c) && <span className="mr-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Importado</span>}
+                  {c.description || <span className="italic">{c.notes}</span>}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+        <Card className="hidden sm:block">
           <CardContent className="p-0">
             <Table>
               <TableHeader>
@@ -235,6 +261,7 @@ function Page() {
             </Table>
           </CardContent>
         </Card>
+        </>
       )}
 
       <VoiceCostDialog open={voiceOpen} onOpenChange={setVoiceOpen} fields={fields} />
@@ -296,7 +323,7 @@ function Page() {
             <div className="space-y-2"><Label htmlFor="cu-date">Data</Label><Input id="cu-date" name="date" type="date" required defaultValue={editing?.date ?? today} /></div>
             <div className="space-y-2"><Label htmlFor="cu-notes">Observação</Label><Textarea id="cu-notes" key={`n${formKey}`} name="notes" defaultValue={editing?.notes ?? ""} /></div>
             <DialogFooter>
-              <Button type="submit" name="intent" value="close" disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+              <Button type="submit" name="intent" value="close" disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button>
               {!editing && <Button type="submit" name="intent" value="again" variant="outline" disabled={saving}>Salvar e lançar outro</Button>}
             </DialogFooter>
           </form>

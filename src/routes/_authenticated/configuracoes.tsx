@@ -16,6 +16,7 @@ import { LEGAL_DISCLAIMER, PRIVACY_CONTACT } from "@/lib/privacy";
 import { useSubscription } from "@/hooks/use-subscription";
 import { CreditCard } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth-errors";
 import { getActivities, setActivities } from "@/lib/cattle.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -243,21 +244,85 @@ function ActivitiesCard() {
 }
 
 function AccountCard() {
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["account-info"],
     queryFn: async () => (await supabase.auth.getUser()).data.user,
     staleTime: 60_000,
   });
   const u = q.data;
+  const currentName = String((u?.user_metadata as { name?: string } | undefined)?.name ?? "");
+  const [editName, setEditName] = useState(false);
+  const [nameTxt, setNameTxt] = useState("");
+  const [editPw, setEditPw] = useState(false);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function saveName(e: React.FormEvent) {
+    e.preventDefault();
+    const name = nameTxt.trim();
+    if (!name) { toast.error("Informe o nome."); return; }
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({ data: { name } });
+    setSaving(false);
+    if (error) { toast.error(toUserMessage(error)); return; }
+    await qc.invalidateQueries({ queryKey: ["account-info"] });
+    setEditName(false);
+    toast.success("Nome atualizado");
+  }
+
+  async function savePw(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw.length < MIN_PASSWORD_LENGTH) { toast.error(`A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`); return; }
+    if (pw !== pw2) { toast.error("As senhas não são iguais."); return; }
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setSaving(false);
+    if (error) { toast.error(toUserMessage(error)); return; }
+    setPw(""); setPw2(""); setEditPw(false);
+    toast.success("Senha alterada");
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Minha conta</CardTitle>
         <CardDescription>Os dados com que você entrou no app.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-1 text-sm">
-        <p><span className="text-muted-foreground">E-mail: </span><span className="font-medium">{u?.email ?? (q.isLoading ? "Carregando..." : "—")}</span></p>
-        {u?.created_at && <p><span className="text-muted-foreground">Conta criada em: </span>{new Date(u.created_at).toLocaleDateString("pt-BR")}</p>}
+      <CardContent className="space-y-3 text-sm">
+        <div className="space-y-1">
+          <p><span className="text-muted-foreground">Nome: </span><span className="font-medium">{currentName || (q.isLoading ? "Carregando..." : "—")}</span></p>
+          <p><span className="text-muted-foreground">E-mail: </span><span className="font-medium">{u?.email ?? (q.isLoading ? "Carregando..." : "—")}</span></p>
+          {u?.created_at && <p><span className="text-muted-foreground">Conta criada em: </span>{new Date(u.created_at).toLocaleDateString("pt-BR")}</p>}
+        </div>
+
+        {editName ? (
+          <form onSubmit={saveName} className="space-y-2 rounded-md border p-3">
+            <Label htmlFor="acc-name">Nome</Label>
+            <Input id="acc-name" value={nameTxt} onChange={(e) => setNameTxt(e.target.value)} autoComplete="name" required />
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={saving}>{saving ? "Salvando…" : "Salvar nome"}</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setEditName(false)}>Cancelar</Button>
+            </div>
+          </form>
+        ) : editPw ? (
+          <form onSubmit={savePw} className="space-y-2 rounded-md border p-3">
+            <Label htmlFor="acc-pw">Nova senha</Label>
+            <Input id="acc-pw" type="password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" required />
+            <Label htmlFor="acc-pw2">Repita a nova senha</Label>
+            <Input id="acc-pw2" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" required />
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={saving}>{saving ? "Salvando…" : "Trocar senha"}</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setEditPw(false)}>Cancelar</Button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => { setNameTxt(currentName); setEditName(true); }}>Editar nome</Button>
+            <Button size="sm" variant="outline" onClick={() => setEditPw(true)}>Trocar senha</Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

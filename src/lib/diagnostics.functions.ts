@@ -14,6 +14,7 @@ import { buildFacts, factualItems, sanitizeItems } from "@/lib/report-facts";
 import {
   computeScoreBreakdown as _computeScoreBreakdown,
   computeMetrics as _computeMetrics,
+  cropDependency,
 } from "@/lib/score";
 
 export const computeScoreBreakdown = _computeScoreBreakdown;
@@ -152,8 +153,9 @@ function fallbackReport(
     (a[1].area > 0 ? a[1].profit / a[1].area : -Infinity),
   );
   const sortedFields = [...farm.perField].sort((a, b) => b.profitPerHa - a.profitPerHa);
-  const topCropRev = crops.reduce((m, [, v]) => Math.max(m, v.revenue), 0);
-  const dep = farm.totalRevenue > 0 ? (topCropRev / farm.totalRevenue) * 100 : 0;
+  // Mesma conta da nota e dos Alertas: participação no lucro das culturas lucrativas.
+  const depInfo = cropDependency(farm);
+  const dep = depInfo.applies ? depInfo.pct : 0;
 
   const margin = farm.totalRevenue > 0 ? (farm.totalProfit / farm.totalRevenue) * 100 : -100;
   const { score, breakdown } = computeScoreBreakdown(farm);
@@ -171,7 +173,7 @@ function fallbackReport(
     },
     risks: [
       farm.totalProfit < 0 ? "Resultado negativo no consolidado da fazenda." : "Margem apertada em parte dos talhões.",
-      dep >= 70 ? `Alta dependência de uma única cultura (${Math.round(dep)}% da receita).` : "Diversificação de culturas moderada.",
+      dep >= 70 ? `Alta dependência de uma única cultura (${Math.round(dep)}% do lucro).` : "Diversificação de culturas moderada.",
       "Custos por hectare merecem revisão detalhada por categoria.",
     ],
     opportunities: [

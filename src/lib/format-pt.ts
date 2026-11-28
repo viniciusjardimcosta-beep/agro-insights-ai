@@ -23,3 +23,13 @@ export function formatDateBR(iso: string | null | undefined): string {
 export function pt1(n: number): string {
   return n.toFixed(1).replace(".", ",");
 }
+
+/** Rótulo de eixo em reais, curto e sem repetição: R$ 500, R$ 1 mil, R$ 2,5 mil, −R$ 3 mil, R$ 1,2 mi. */
+export function axisBRL(v: number): string {
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "−" : "";
+  const nf = (x: number) => x.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  if (abs >= 1_000_000) return `${sign}R$ ${nf(abs / 1_000_000)} mi`;
+  if (abs >= 1000) return `${sign}R$ ${nf(abs / 1000)} mil`;
+  return `${sign}R$ ${Math.round(abs).toLocaleString("pt-BR")}`;
+}

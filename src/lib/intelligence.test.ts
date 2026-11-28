@@ -107,9 +107,9 @@ describe("intelligence", () => {
     const snap = buildIntelligenceSnapshot(
       base({ costs: [{ field_id: "f1", category: "Diesel", amount: 5_000_000 }] }),
     );
-    // vira o principal problema (maior penalidade) e por isso não se repete nos alertas
-    expect(getPrimaryProblem(snap)?.key).toBe("neg_fields");
-    expect(getPriorityAlerts(snap).some((a) => a.key === "neg_fields")).toBe(false);
+    // margem negativa (-35) é a maior penalidade: vira o principal problema e o talhão negativo continua como alerta crítico
+    expect(getPrimaryProblem(snap)?.key).toBe("margem");
+    expect(getPriorityAlerts(snap).some((a) => a.key === "neg_fields" && a.severity === "critical")).toBe(true);
 
     // quando outra penalidade domina o diagnóstico, o talhão negativo aparece como alerta crítico
     const snap2 = buildIntelligenceSnapshot(

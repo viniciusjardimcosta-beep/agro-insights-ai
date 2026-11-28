@@ -72,25 +72,25 @@ function Page() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-2">
+        <div className="grid min-w-0 grid-cols-1 gap-2">
           {data.map((t) => (
             <Link
               key={t.id}
               to="/consultor/$threadId"
               params={{ threadId: t.id }}
-              className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
+              className="flex min-w-0 items-center justify-between gap-2 rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <Bot className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{t.title}</p>
+                  <p className="line-clamp-2 break-words font-medium">{t.title}</p>
                   <p className="text-xs text-muted-foreground">{new Date(t.updated_at).toLocaleString("pt-BR")}</p>
                 </div>
               </div>
               <button
                 onClick={(e) => onDelete(t.id, e)}
-                className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                aria-label="Excluir"
+                className="shrink-0 rounded-md p-3 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Excluir conversa"
               >
                 <Trash2 className="h-4 w-4" />
               </button>

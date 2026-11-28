@@ -142,7 +142,7 @@ function Page() {
       )}
       {farmSel.selected && (
         <p className="text-sm text-muted-foreground">
-          Mostrando só <b>{farmSel.selected.name}</b>. Custos gerais da fazenda (cerca, trator...) aparecem em “Todas as fazendas”.
+          Mostrando só os lotes de <b>{farmSel.selected.name}</b>. Os custos gerais (cerca, trator, roçada...) não pertencem a uma fazenda específica: para vê-los, e ver o resultado depois deles, escolha “Todas as fazendas” no topo.
         </p>
       )}
 
@@ -165,7 +165,7 @@ function Page() {
             <Stat label="Na fazenda agora" value={headsLabel(farm.activeHeads)} hint={`${BRL.format(farm.investedInActive)} investidos nelas`} />
             <Stat label="Vendido" value={BRL.format(farm.soldAmount)} />
             <Stat label="Resultado dos lotes vendidos" value={BRL.format(farm.lotsResult)} tone={farm.lotsResult} />
-            <Stat label="Custos gerais da fazenda" value={BRL.format(farm.generalCosts)} hint={farm.generalCosts > 0 ? `Resultado depois deles: ${BRL.format(farm.resultAfterGeneral)}` : "Cerca, trator, roçada..."} />
+            <Stat label="Custos gerais da fazenda" value={BRL.format(farm.generalCosts)} hint={farmSel.selected ? "Só aparecem em “Todas as fazendas”" : farm.generalCosts > 0 ? `Resultado depois deles: ${BRL.format(farm.resultAfterGeneral)}` : "Cerca, trator, roçada..."} />
           </div>
 
           {activeLots.length > 0 && (
@@ -279,7 +279,7 @@ function Page() {
                       {s.result !== null && (
                         <Line
                           label={s.fullySold ? "Resultado do lote" : "Resultado das cabeças vendidas"}
-                          value={`${BRL.format(s.result)}${s.marginPct !== null ? ` (${NUM.format(s.marginPct)}%)` : ""}`}
+                          value={`${BRL.format(s.result)}${s.returnPct !== null ? ` · ${s.returnPct >= 0 ? "+" : "−"}${NUM.format(Math.abs(s.returnPct))}% sobre o investido` : ""}`}
                           tone={s.result}
                         />
                       )}
@@ -318,14 +318,14 @@ function Page() {
                           {lotLosses.map((x) => (
                             <li key={x.id} className="flex items-center justify-between gap-2">
                               <span>{fmtDate(x.date)} · Baixa de {x.head_count} cab.{x.cause ? ` · ${CAUSE_LABEL[x.cause] ?? x.cause}` : ""}{x.notes ? ` · ${x.notes}` : ""}</span>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir baixa" onClick={() => { if (confirm("Excluir esta baixa?")) run(() => delLoss({ data: { id: x.id } }), "Baixa excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir baixa" onClick={() => { if (confirm("Excluir esta baixa?")) run(() => delLoss({ data: { id: x.id } }), "Baixa excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </li>
                           ))}
                           {lotSales.map((x) => (
                             <li key={x.id} className="flex items-center justify-between gap-2">
                               <span>{fmtDate(x.date)} · Venda de {x.head_count} cab.{x.arrobas ? ` · ${NUM.format(Number(x.arrobas))} @` : ""}</span>
                               <span className="flex items-center gap-1 font-medium">{BRL.format(Number(x.amount))}
-                                <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir venda" onClick={() => { if (confirm("Excluir esta venda?")) run(() => delSale({ data: { id: x.id } }), "Venda excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir venda" onClick={() => { if (confirm("Excluir esta venda?")) run(() => delSale({ data: { id: x.id } }), "Venda excluída"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                               </span>
                             </li>
                           ))}
@@ -333,7 +333,7 @@ function Page() {
                             <li key={c.id} className="flex items-center justify-between gap-2">
                               <span>{fmtDate(c.date)} · {c.category}{c.description ? ` · ${c.description}` : ""}</span>
                               <span className="flex items-center gap-1">{BRL.format(Number(c.amount))}
-                                <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir custo" onClick={() => { if (confirm("Excluir este custo?")) run(() => delCost({ data: { id: c.id } }), "Custo excluído"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir custo" onClick={() => { if (confirm("Excluir este custo?")) run(() => delCost({ data: { id: c.id } }), "Custo excluído"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                               </span>
                             </li>
                           ))}
@@ -355,7 +355,7 @@ function Page() {
                     <li key={c.id} className="flex items-center justify-between gap-2">
                       <span>{fmtDate(c.date)} · {c.category}{c.description ? ` · ${c.description}` : ""}</span>
                       <span className="flex items-center gap-1">{BRL.format(Number(c.amount))}
-                        <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Excluir custo" onClick={() => { if (confirm("Excluir este custo?")) run(() => delCost({ data: { id: c.id } }), "Custo excluído"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Excluir custo" onClick={() => { if (confirm("Excluir este custo?")) run(() => delCost({ data: { id: c.id } }), "Custo excluído"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </span>
                     </li>
                   ))}
@@ -420,11 +420,13 @@ function LotDialog({ open, onOpenChange, lot, onSaved, farms, defaultFarmId }: {
   const [groups, setGroups] = useState<{ sex: string; age: string; heads: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [seed, setSeed] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
 
   // Preenche o formulário ao abrir (novo ou edição).
   const key = open ? (lot?.id ?? "novo") : null;
   if (key !== seed) {
     setSeed(key);
+    setTouched(false);
     if (open) {
       setName(lot?.name ?? "");
       setPhase(lot?.phase ?? "engorda");
@@ -458,8 +460,17 @@ function LotDialog({ open, onOpenChange, lot, onSaved, farms, defaultFarmId }: {
     return farms.length >= 2 ? { property_id: farmId || null } : {};
   }
 
+  // O que falta, dito embaixo de cada campo quando a pessoa toca em "Salvar lote".
+  const missing = {
+    name: name.trim() === "" ? "Informe o nome do lote" : null,
+    heads: useGroups ? (groupHeads.every((h) => h > 0) ? null : "Informe as cabeças de cada grupo") : !(headsN > 0) ? "Informe quantas cabeças" : null,
+    entry: /^\d{4}-\d{2}-\d{2}$/.test(entry) ? null : "Informe a data de entrada",
+    weight: weight.trim() === "" || (weightN !== null && weightN > 0) ? null : "Peso inválido: use só números, ou deixe em branco",
+    paid: paidN === null ? "Informe o valor pago no lote" : null,
+  };
+
   async function submit() {
-    if (!valid || paidN === null) return;
+    if (!valid || paidN === null) { setTouched(true); return; }
     if (!submitLock.take()) return;
     setBusy(true);
     try {
@@ -492,7 +503,7 @@ function LotDialog({ open, onOpenChange, lot, onSaved, farms, defaultFarmId }: {
           <DialogDescription>O grupo de animais que você comprou junto.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div><Label htmlFor="lot-name">Nome do lote</Label><Input id="lot-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Garrotes de março" autoComplete="off" /></div>
+          <div><Label htmlFor="lot-name">Nome do lote</Label><Input id="lot-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Garrotes de março" autoComplete="off" />{touched && missing.name && <p className="mt-1 text-xs text-destructive">{missing.name}</p>}</div>
           {farms.length >= 2 && (
             <div>
               <Label>Fazenda</Label>
@@ -513,13 +524,13 @@ function LotDialog({ open, onOpenChange, lot, onSaved, farms, defaultFarmId }: {
                 <SelectContent>{CATTLE_PHASES.map((p) => <SelectItem key={p} value={p}>{PHASE_LABEL[p]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label htmlFor="lot-heads">Cabeças</Label><Input id="lot-heads" inputMode="numeric" value={useGroups ? String(headsN) : heads} disabled={useGroups} onChange={(e) => setHeads(e.target.value.replace(/\D/g, ""))} placeholder="Ex.: 50" /></div>
+            <div><Label htmlFor="lot-heads">Cabeças</Label><Input id="lot-heads" inputMode="numeric" value={useGroups ? String(headsN) : heads} disabled={useGroups} onChange={(e) => setHeads(e.target.value.replace(/\D/g, ""))} placeholder="Ex.: 50" />{touched && missing.heads && <p className="mt-1 text-xs text-destructive">{missing.heads}</p>}</div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label htmlFor="lot-date">Data de entrada</Label><Input id="lot-date" type="date" value={entry} max={todayIso()} onChange={(e) => setEntry(e.target.value)} /></div>
-            <div><Label htmlFor="lot-weight">Peso médio (kg), se souber</Label><Input id="lot-weight" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Ex.: 300" /></div>
+            <div><Label htmlFor="lot-date">Data de entrada</Label><Input id="lot-date" type="date" value={entry} max={todayIso()} onChange={(e) => setEntry(e.target.value)} />{touched && missing.entry && <p className="mt-1 text-xs text-destructive">{missing.entry}</p>}</div>
+            <div><Label htmlFor="lot-weight">Peso médio (kg), se souber</Label><Input id="lot-weight" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Ex.: 300" />{touched && missing.weight && <p className="mt-1 text-xs text-destructive">{missing.weight}</p>}</div>
           </div>
-          <div><Label htmlFor="lot-paid">Valor total pago no lote (R$)</Label><Input id="lot-paid" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="Ex.: 150.000" /></div>
+          <div><Label htmlFor="lot-paid">Valor total pago no lote (R$)</Label><Input id="lot-paid" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="Ex.: 150.000" />{touched && missing.paid && <p className="mt-1 text-xs text-destructive">{missing.paid}</p>}</div>
           <details className="rounded-md border p-3" open={sex !== "" || ageM !== "" || groups.length > 0}>
             <summary className="cursor-pointer text-sm font-medium">Mais detalhes (opcional)</summary>
             <p className="mt-2 text-xs text-muted-foreground">Informe sexo e idade para ver o estoque por faixa de idade. Se não quiser, deixe em branco: nada muda.</p>
@@ -567,7 +578,7 @@ function LotDialog({ open, onOpenChange, lot, onSaved, farms, defaultFarmId }: {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando..." : "Salvar lote"}</Button>
+          <Button className="font-semibold" disabled={busy} onClick={submit}>{busy ? "Salvando…" : "Salvar lote"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -638,7 +649,7 @@ function CostDialog({ open, onOpenChange, lots, initialLot, onSaved }: { open: b
         </div>
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" disabled={!valid || busy} onClick={() => submit(true)}>Salvar e lançar outro</Button>
-          <Button className="font-semibold" disabled={!valid || busy} onClick={() => submit(false)}>{busy ? "Salvando..." : "Salvar custo"}</Button>
+          <Button className="font-semibold" disabled={!valid || busy} onClick={() => submit(false)}>{busy ? "Salvando…" : "Salvar custo"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -711,7 +722,7 @@ function SaleDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando..." : "Registrar venda"}</Button>
+          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando…" : "Registrar venda"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -808,7 +819,7 @@ function LossDialog({ open, onOpenChange, lots, costs, sales, losses, initialLot
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando..." : "Registrar baixa"}</Button>
+          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando…" : "Registrar baixa"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -883,7 +894,7 @@ function BirthDialog({ open, onOpenChange, dams, sires, initialLot, onSaved }: {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando..." : "Registrar nascimento"}</Button>
+          <Button className="font-semibold" disabled={!valid || busy} onClick={submit}>{busy ? "Salvando…" : "Registrar nascimento"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

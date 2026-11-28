@@ -101,12 +101,12 @@ function Index() {
           </Reveal>
           <div className="-mx-6 mt-10 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-2 md:mx-0 md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:px-0">
             {[
-              { img: "voz", h: 610, n: "1", t: "Fale", d: "“Diesel 450 reais ontem.” O app entende o valor, a data e a categoria.", alt: "Tela de lançar custo por voz" },
-              { img: "foto", h: 700, n: "2", t: "Fotografe", d: "Tire foto do caderno ou da nota. Você confere e salva.", alt: "Tela de foto do caderno" },
-              { img: "custos", h: 562, n: "3", t: "Veja o resultado", d: "Custos por talhão ou por lote, lucro por hectare, alertas.", alt: "Tela de custos" },
+              { img: "voz", bg: "#fdfcf3", h: 610, n: "1", t: "Fale", d: "“Diesel 450 reais ontem.” O app entende o valor, a data e a categoria.", alt: "Tela de lançar custo por voz" },
+              { img: "foto", bg: "#fdfcf3", h: 700, n: "2", t: "Fotografe", d: "Tire foto do caderno ou da nota. Você confere e salva.", alt: "Tela de foto do caderno" },
+              { img: "custos", bg: "#ffffff", h: 562, n: "3", t: "Veja o resultado", d: "Custos por talhão ou por lote, lucro por hectare, alertas.", alt: "Tela de custos" },
             ].map((st, i) => (
               <Reveal key={st.n} delay={i * 120} className="w-[72%] shrink-0 snap-center text-center md:w-auto">
-                <PhoneFrame src={`/lp/${st.img}-400.webp`} alt={st.alt} w={400} h={st.h} />
+                <PhoneFrame src={`/lp/${st.img}-400.webp`} alt={st.alt} w={400} h={st.h} bg={st.bg} />
                 <h3 className="mt-5 text-lg font-semibold"><span className="mr-2 inline-grid h-7 w-7 place-items-center rounded-full bg-primary text-sm text-primary-foreground">{st.n}</span>{st.t}</h3>
                 <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">{st.d}</p>
               </Reveal>
@@ -163,7 +163,7 @@ function Index() {
             <h2 className="text-3xl font-bold">Pronto para ver os números da sua fazenda?</h2>
             <p className="mx-auto mt-3 max-w-xl">Crie sua conta e comece pelo que você faz: plantio, pecuária ou os dois.</p>
             <Button asChild size="lg" variant="secondary" className="mt-6 h-12 px-6"><Link to="/auth" search={{ modo: "criar" }}>Começar teste grátis</Link></Button>
-            <p className="mt-3 text-sm">Teste grátis de 7 dias ao criar a conta.</p>
+            <p className="mt-3 text-sm">7 dias grátis para testar.</p>
           </div>
         </Reveal>
       </section>
@@ -206,9 +206,10 @@ function Index() {
   );
 }
 
-function PhoneFrame({ src, alt, w, h }: { src: string; alt: string; w: number; h: number }) {
+// O fundo do quadro tem a cor do pé da imagem: assim não aparece faixa branca embaixo das telas mais baixas.
+function PhoneFrame({ src, alt, w, h, bg }: { src: string; alt: string; w: number; h: number; bg?: string }) {
   return (
-    <div className="mx-auto h-[360px] w-[200px] overflow-hidden rounded-[1.6rem] border-4 border-foreground/80 bg-card shadow-[var(--shadow-card)]">
+    <div className="mx-auto h-[360px] w-[200px] overflow-hidden rounded-[1.6rem] border-4 border-foreground/80 bg-card shadow-[var(--shadow-card)]" style={bg ? { backgroundColor: bg } : undefined}>
       <img src={src} alt={alt} width={w} height={h} loading="lazy" className="w-full object-cover object-top" />
     </div>
   );

@@ -11,6 +11,7 @@ import { acknowledgeAlert, listAlerts, syncAlerts } from "@/lib/alerts.functions
 import { durationLabel, type AlertStatus } from "@/lib/alerts-rules";
 import { PremiumRouteGuard } from "@/components/premium-route-guard";
 import { FEATURES } from "@/lib/entitlements";
+import { useFarm } from "@/lib/farm-selection";
 
 export const Route = createFileRoute("/_authenticated/alertas")({
   head: () => ({
@@ -199,11 +200,15 @@ function AlertasPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const farmSel = useFarm();
+  const selId = farmSel.selected?.id ?? null;
   const groups = useMemo(() => {
-    const all = (q.data ?? []) as AlertRow[];
+    const everything = (q.data ?? []) as AlertRow[];
+    // Fazenda escolhida no topo: só os alertas dela.
+    const all = selId ? everything.filter((a) => (a as { property_id?: string | null }).property_id === selId) : everything;
     const by = (s: AlertStatus) => all.filter((a) => a.status === s);
     return { active: by("active"), acknowledged: by("acknowledged"), resolved: by("resolved") };
-  }, [q.data]);
+  }, [q.data, selId]);
 
   return (
     <div className="space-y-6">
@@ -238,7 +243,7 @@ function AlertasPage() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="active">
-              <TabsList>
+              <TabsList className="h-auto w-full flex-wrap justify-start">
                 <TabsTrigger value="active">Ativos ({groups.active.length})</TabsTrigger>
                 <TabsTrigger value="acknowledged">
                   Reconhecidos ({groups.acknowledged.length})

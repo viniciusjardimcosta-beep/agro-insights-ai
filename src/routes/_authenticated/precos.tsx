@@ -35,6 +35,7 @@ function Page() {
   const { acao } = Route.useSearch();
   const navigate = useNavigate({ from: "/precos" });
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Price | null>(null);
   const [crop, setCrop] = useState<string>("soja");
 
@@ -53,6 +54,8 @@ function Page() {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    if (saving) return;
+    setSaving(true);
     try {
       await save({
         data: {
@@ -65,7 +68,7 @@ function Page() {
       setOpen(false);
       await qc.invalidateQueries();
       toast.success("Preço salvo");
-    } catch (e) { toast.error("Erro", { description: (e as Error).message }); }
+    } catch (e) { toast.error("Erro", { description: (e as Error).message }); } finally { setSaving(false); }
   }
 
   async function onDelete(id: string) {
@@ -127,7 +130,7 @@ function Page() {
               <div className="space-y-2"><Label htmlFor="pr-price_per_bag">R$ / saca</Label><Input id="pr-price_per_bag" name="price_per_bag" type="number" step="0.01" min="0" required defaultValue={editing?.price_per_bag} /></div>
               <div className="space-y-2"><Label htmlFor="pr-date">Data</Label><Input id="pr-date" name="date" type="date" required defaultValue={editing?.date ?? today} /></div>
             </div>
-            <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
+            <DialogFooter><Button type="submit" disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

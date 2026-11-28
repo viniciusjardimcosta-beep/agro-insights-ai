@@ -43,6 +43,7 @@ function Page() {
   const account = { lavoura: activitiesQ.data?.lavoura ?? true, pecuaria: activitiesQ.data?.pecuaria ?? false };
   const [activity, setActivity] = useState<FarmActivity>("plantio");
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Prop | null>(null);
 
   const accountDefault: FarmActivity = account.lavoura && account.pecuaria ? "ilp" : account.pecuaria ? "pecuaria" : "plantio";
@@ -56,6 +57,7 @@ function Page() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     if (!submitLock.take()) return; // duplo toque: o segundo é ignorado
+    setSaving(true);
     try {
       await save({
         data: {
@@ -77,7 +79,7 @@ function Page() {
       await qc.invalidateQueries({ queryKey: ["properties"] });
       await qc.invalidateQueries({ queryKey: ["farm-snapshot"] });
       toast.success("Fazenda salva");
-    } catch (e) { toast.error("Erro", { description: (e as Error).message }); } finally { submitLock.release(); }
+    } catch (e) { toast.error("Erro", { description: (e as Error).message }); } finally { submitLock.release(); setSaving(false); }
   }
 
   async function onDelete(id: string) {
@@ -153,7 +155,7 @@ function Page() {
               </Select>
             </div>
             <div className="space-y-2"><Label htmlFor="pp-total_area">Área total (ha)</Label><Input id="pp-total_area" name="total_area" type="number" step="0.01" min="0.01" required defaultValue={editing?.total_area} /></div>
-            <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
+            <DialogFooter><Button type="submit" disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

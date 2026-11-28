@@ -114,8 +114,9 @@ function InteligenciaPage() {
   const diagQ = useQuery(diagnosticsQuery);
   const scenQ = useQuery(scenariosQuery);
   const persistedQ = useQuery(persistedAlertsQuery);
-  const activeAlerts = ((persistedQ.data ?? []) as { id: string; status: string; title: string; message: string; severity: string; metric_value: string | null }[])
+  const activeAlerts = ((persistedQ.data ?? []) as { id: string; status: string; title: string; message: string; severity: string; metric_value: string | null; property_id?: string | null }[])
     .filter((a) => a.status === "active" || a.status === "acknowledged")
+    .filter((a) => !farmSel.selected || (a as { property_id?: string | null }).property_id === farmSel.selected.id)
     .slice(0, 3);
 
   const loading = snapQ.isLoading || diagQ.isLoading || scenQ.isLoading;
@@ -134,7 +135,8 @@ function InteligenciaPage() {
     fields: (raw.fields ?? []) as never,
     costs: (raw.costs ?? []) as never,
     prices: (raw.prices ?? []) as never,
-    diagnostics: (diagQ.data ?? []) as unknown as DiagnosticLite[],
+    // O diagnóstico salvo é da conta toda: com uma fazenda escolhida, tudo é calculado com os dados dela.
+    diagnostics: farmSel.selected ? [] : ((diagQ.data ?? []) as unknown as DiagnosticLite[]),
     scenarios: (scenQ.data ?? []) as unknown as ScenarioLite[],
   });
 
@@ -157,11 +159,13 @@ function InteligenciaPage() {
           </h1>
           <p className="text-muted-foreground">O que merece sua atenção hoje.</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {snap.propertyName ?? "Nenhuma fazenda cadastrada"}
+            {farmSel.selected ? farmSel.selected.name : farmSel.farms.length > 1 ? "Todas as fazendas" : (snap.propertyName ?? "Nenhuma fazenda cadastrada")}
             {" · "}
-            {snap.lastAnalysisAt
-              ? `Última análise em ${new Date(snap.lastAnalysisAt).toLocaleDateString("pt-BR")}`
-              : "Nenhuma análise gerada"}
+            {farmSel.selected
+              ? "Calculado agora com os dados desta fazenda"
+              : snap.lastAnalysisAt
+                ? `Última análise em ${new Date(snap.lastAnalysisAt).toLocaleDateString("pt-BR")}`
+                : "Nenhuma análise gerada"}
           </p>
         </div>
         <div className="rounded-xl border px-5 py-3 text-center">

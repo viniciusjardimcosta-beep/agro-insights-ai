@@ -72,3 +72,23 @@ export function snapshotOfFarm<
     costs: (snapshot.costs ?? []).filter((c) => ids.has(c.field_id)),
   };
 }
+
+/** Fazendas em que a soma das áreas dos talhões passa da área cadastrada da fazenda. */
+export function areaOverruns<P extends { id: string; name: string; total_area?: number | string | null }, F extends { property_id?: string | null; area?: number | string | null }>(
+  props: P[],
+  fields: F[],
+): { id: string; name: string; total: number; sum: number }[] {
+  const out: { id: string; name: string; total: number; sum: number }[] = [];
+  for (const p of props) {
+    const total = Number(p.total_area ?? 0);
+    if (!(total > 0)) continue;
+    const sum = Math.round(fields.filter((f) => f.property_id === p.id).reduce((a, f) => a + Number(f.area ?? 0), 0) * 100) / 100;
+    if (sum > total) out.push({ id: p.id, name: p.name, total, sum });
+  }
+  return out;
+}
+
+export function areaOverrunText(o: { name: string; total: number; sum: number }, showName: boolean): string {
+  const n = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  return `${showName ? `${o.name}: o` : "O"}s talhões somam ${n(o.sum)} ha e a fazenda tem ${n(o.total)} ha. Confira a área da fazenda ou a dos talhões.`;
+}
