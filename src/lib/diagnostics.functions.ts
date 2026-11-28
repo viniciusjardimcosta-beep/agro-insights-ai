@@ -411,3 +411,12 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
     await resyncAlerts(context.supabase, context.userId);
     return inserted;
   });
+/** Exclui um diagnóstico do histórico (a política de segurança do banco só deixa apagar os da própria conta). */
+export const deleteDiagnostic = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((raw: unknown) => z.object({ id: z.string().uuid() }).parse(raw))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase.from("diagnostics").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

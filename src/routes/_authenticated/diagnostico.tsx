@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Loader2,
   Sparkles,
+  Trash2,
   TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ import { useFarm } from "@/lib/farm-selection";
 import { diagnosticFreshness } from "@/lib/diagnostic-freshness";
 import { ptPercentDecimals } from "@/lib/format-pt";
 import {
+  deleteDiagnostic,
   generateDiagnostic,
   listDiagnostics,
   type DiagnosticReport,
@@ -70,6 +72,19 @@ function DiagnosticoPage() {
   const { data: snapshot } = useQuery(snapshotQuery);
   const farmSel = useFarm();
   const qc = useQueryClient();
+  const removeFn = useServerFn(deleteDiagnostic);
+  async function remove(id: string) {
+    if (!window.confirm("Excluir este diagnóstico do histórico?")) return;
+    try {
+      await removeFn({ data: { id } });
+      if (selectedId === id) setSelectedId(null);
+      await qc.invalidateQueries({ queryKey: ["diagnostics"] });
+      await qc.invalidateQueries({ queryKey: ["latest-diagnostic"] });
+      toast.success("Diagnóstico excluído");
+    } catch (e) {
+      toast.error("Não consegui excluir", { description: (e as Error).message });
+    }
+  }
   const gen = useServerFn(generateDiagnostic);
   const [busy, setBusy] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -344,25 +359,32 @@ function DiagnosticoPage() {
               {history.map((d) => {
                 const active = d.id === current.id;
                 return (
-                  <button
-                    key={d.id}
-                    onClick={() => setSelectedId(d.id)}
-                    className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                      active ? "bg-accent" : "hover:bg-accent/50"
-                    }`}
-                  >
-                    <span>
-                      {new Date(d.created_at).toLocaleString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <span className={`font-bold ${scoreColor(d.health_score)}`}>
-                      {d.health_score}
-                    </span>
-                  </button>
+                  <div key={d.id} className={`flex items-center rounded-md transition-colors ${active ? "bg-accent" : "hover:bg-accent/50"}`}>
+                    <button
+                      onClick={() => setSelectedId(d.id)}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-left text-sm"
+                    >
+                      <span>
+                        {new Date(d.created_at).toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span className={`font-bold ${scoreColor(d.health_score)}`}>
+                        {d.health_score}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Excluir diagnóstico"
+                      onClick={() => remove(d.id)}
+                      className="grid h-11 w-11 shrink-0 place-items-center text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 );
               })}
             </CardContent>
