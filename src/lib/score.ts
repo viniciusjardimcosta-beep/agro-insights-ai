@@ -162,7 +162,8 @@ export function computeScoreBreakdown(
 
   // Margem alta pesa de verdade: uma fazenda com 75% de margem nunca fica abaixo de uma no prejuízo.
   if (pf.length === 0) {
-    // Nenhum talhão com preço: não dá para avaliar a margem.
+    // Nenhum talhão com preço: não há receita, então a nota não pode ser "excelente".
+    if (farm.perField.length > 0) add("Nenhum talhão com preço cadastrado: sem receita não dá para avaliar a fazenda", -40);
   } else if (margin >= 50) add(`Margem líquida ${margin.toFixed(1)}% (acima de 50%)`, 15);
   else if (margin >= 35) add(`Margem líquida ${margin.toFixed(1)}% (35% a 50%)`, 8);
   else if (margin >= 20) add(`Margem líquida ${margin.toFixed(1)}% (20% a 35%)`, 0);
@@ -280,7 +281,9 @@ export function computeScoreBreakdown(
   const score = Math.max(0, Math.min(100, rawSum));
 
   const reason =
-    score >= 85
+    pf.length === 0 && farm.perField.length > 0
+      ? "Dados insuficientes: cadastre o preço das culturas para calcular receita, margem e a nota de verdade."
+      : score >= 85
       ? "Excelente saúde financeira: margem sólida e poucos riscos identificados."
       : score >= 70
         ? "Saúde financeira saudável, com pontos de atenção localizados."

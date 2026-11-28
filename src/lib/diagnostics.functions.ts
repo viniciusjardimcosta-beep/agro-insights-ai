@@ -15,6 +15,7 @@ import {
   computeScoreBreakdown as _computeScoreBreakdown,
   computeMetrics as _computeMetrics,
   cropDependency,
+  pricedFields,
 } from "@/lib/score";
 
 export const computeScoreBreakdown = _computeScoreBreakdown;
@@ -136,23 +137,36 @@ function normalize(report: DiagnosticReport): DiagnosticReport {
   };
 }
 
+/** Indicadores-chave calculados pelo sistema (só talhões com preço), para não depender do que a IA escreve. */
+function computeIndicators(farm: ReturnType<typeof aggregateFarm>): DiagnosticReport["indicators"] {
+  const pf = pricedFields(farm);
+  const byCrop: Record<string, { profit: number; area: number }> = {};
+  for (const f of pf) {
+    const c = (byCrop[f.field.crop] ??= { profit: 0, area: 0 });
+    c.profit += f.profit;
+    c.area += f.area;
+  }
+  const crops = Object.entries(byCrop)
+    .filter(([, v]) => v.area > 0)
+    .map(([crop, v]) => ({ crop, pph: v.profit / v.area }))
+    .sort((a, b) => b.pph - a.pph);
+  const fields = [...pf].filter((f) => f.area > 0).sort((a, b) => b.profitPerHa - a.profitPerHa);
+  const fmt = (v: number) => `${v < 0 ? "-" : ""}${BRL.format(Math.abs(v))}/ha`;
+  const dep = cropDependency(farm);
+  return {
+    mostProfitableCrop: crops[0] ? `${crops[0].crop} (${fmt(crops[0].pph)})` : "-",
+    leastProfitableCrop: crops.length > 1 ? `${crops[crops.length - 1].crop} (${fmt(crops[crops.length - 1].pph)})` : "-",
+    mostEfficientField: fields[0] ? `${fields[0].field.name} (${fmt(fields[0].profitPerHa)})` : "-",
+    leastEfficientField:
+      fields.length > 1 ? `${fields[fields.length - 1].field.name} (${fmt(fields[fields.length - 1].profitPerHa)})` : "-",
+    singleCropDependencyPct: dep.applies ? dep.pct : 0,
+  };
+}
+
 function fallbackReport(
   farm: ReturnType<typeof aggregateFarm>,
   textNote?: string,
 ): DiagnosticReport {
-  const byCrop: Record<string, { revenue: number; profit: number; area: number }> = {};
-  for (const f of farm.perField) {
-    const c = (byCrop[f.field.crop] ??= { revenue: 0, profit: 0, area: 0 });
-    c.revenue += f.revenue;
-    c.profit += f.profit;
-    c.area += f.area;
-  }
-  const crops = Object.entries(byCrop);
-  const sortedByProfit = [...crops].sort((a, b) =>
-    (b[1].area > 0 ? b[1].profit / b[1].area : -Infinity) -
-    (a[1].area > 0 ? a[1].profit / a[1].area : -Infinity),
-  );
-  const sortedFields = [...farm.perField].sort((a, b) => b.profitPerHa - a.profitPerHa);
   // Mesma conta da nota e dos Alertas: participação no lucro das culturas lucrativas.
   const depInfo = cropDependency(farm);
   const dep = depInfo.applies ? depInfo.pct : 0;
@@ -182,11 +196,7 @@ function fallbackReport(
       "Aprimorar gestão de fluxo de caixa e capital de giro.",
     ],
     indicators: {
-      mostProfitableCrop: sortedByProfit[0]?.[0] ?? "-",
-      leastProfitableCrop: sortedByProfit[sortedByProfit.length - 1]?.[0] ?? "-",
-      mostEfficientField: sortedFields[0]?.field.name ?? "-",
-      leastEfficientField: sortedFields[sortedFields.length - 1]?.field.name ?? "-",
-      singleCropDependencyPct: dep,
+      ...computeIndicators(farm),
     },
     actionPlan: [
       "Mapear os 5 maiores custos por talhão e renegociar fornecedores.",
@@ -290,9 +300,10 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       `Total: área ${NUM.format(farm.totalArea)} ha | custo ${BRL.format(farm.totalCost)} | receita ${BRL.format(farm.totalRevenue)} | lucro ${BRL.format(farm.totalProfit)} | lucro/ha ${BRL.format(farm.profitPerHa)}`,
       `Preços/saca: ${Object.entries(priceByCrop).map(([c, p]) => `${c} ${BRL.format(p)}`).join(", ") || "sem preços"}`,
       "Talhões:",
-      ...farm.perField.map(
-        (f) =>
-          `- ${f.field.name} (${f.field.crop}, ${NUM.format(f.area)} ha): yield ${NUM.format(f.yieldBag)} sc/ha, custo ${BRL.format(f.totalCost)} (${BRL.format(f.costPerHa)}/ha), receita ${BRL.format(f.revenue)}, lucro ${BRL.format(f.profit)} (${BRL.format(f.profitPerHa)}/ha)`,
+      ...farm.perField.map((f) =>
+        !(f.price > 0)
+          ? `- ${f.field.name} (${f.field.crop}, ${NUM.format(f.area)} ha): SEM PREÇO CADASTRADO — receita e lucro não calculados; custo ${BRL.format(f.totalCost)} (${BRL.format(f.costPerHa)}/ha)`
+          : `- ${f.field.name} (${f.field.crop}, ${NUM.format(f.area)} ha): yield ${NUM.format(f.yieldBag)} sc/ha, custo ${BRL.format(f.totalCost)} (${BRL.format(f.costPerHa)}/ha), receita ${BRL.format(f.revenue)}, lucro ${BRL.format(f.profit)} (${BRL.format(f.profitPerHa)}/ha)`,
       ),
     ].join("\n");
 
@@ -301,9 +312,10 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
 - finance: use EXATAMENTE os números do contexto (revenue, costs, profit, profitPerHa em reais).
 - risks: até 3 riscos curtos, concretos, quantificados quando possível (PT-BR).
 - opportunities: até 3 oportunidades curtas, concretas (PT-BR).
-- indicators: cultura/talhão mais e menos lucrativo (por lucro por hectare, em R$/ha), e % de dependência da maior cultura sobre a receita total.
+- indicators: cultura/talhão mais e menos lucrativo (por lucro por hectare, em R$/ha), e % de dependência da maior cultura sobre o LUCRO das culturas com lucro (o sistema recalcula os indicadores; não gaste texto neles).
+- Talhões marcados SEM PREÇO CADASTRADO não têm receita nem lucro calculados: NUNCA diga que a receita é zero, que a produtividade é zero ou que há prejuízo por causa deles. Diga que falta cadastrar o preço e que, sem ele, não dá para avaliar a rentabilidade. Se NENHUM talhão tem preço, o diagnóstico é de dados insuficientes: o plano de ação deve começar por cadastrar os preços.
 - actionPlan: EXATAMENTE 3 ações práticas priorizadas por impacto financeiro. NUNCA recomende aumentar área, trocar cultura ou alterar estratégia produtiva sem deixar claro que faltam dados agronômicos/climáticos. Priorize: custos, margem, comercialização, gestão financeira, eficiência operacional.
-- Clareza: ao citar dependência de cultura, diga se é sobre receita, lucro ou área (ex.: "milho concentra 70% do lucro"). Não misture culturas na mesma frase sem dizer qual é qual. Ao citar valores por hectare, diga a que talhão ou cultura se referem e use R$/ha.
+- Clareza: ao citar dependência de cultura, diga se é sobre receita, lucro ou área (ex.: "milho concentra 70% do lucro"; o sistema mede dependência pelo lucro). Não misture culturas na mesma frase sem dizer qual é qual. Ao citar valores por hectare, diga a que talhão ou cultura se referem e use R$/ha.
 - Vocabulário: "lucro por hectare" é um valor em R$/ha (lucro ÷ área). "Margem" (ou "margem líquida") é um PERCENTUAL (lucro ÷ receita). Nunca chame um valor em R$ de "margem" nem um percentual de "lucro por hectare". Use "margem" só com %, e "lucro por hectare" ou "lucro/ha" só com R$/ha.
 - Comparações de custo por hectare usam a MÉDIA DA FAZENDA (custo total ÷ área total). NUNCA cite média regional, de mercado, do setor ou de outras fazendas: o sistema não tem esses dados.
 - Tudo em português do Brasil, frases curtas. Não invente dados além do contexto.`;
@@ -374,6 +386,7 @@ export const generateDiagnostic = createServerFn({ method: "POST" })
       scoreBreakdown: computed.breakdown,
       scoreReason: computed.reason,
       metrics,
+      indicators: computeIndicators(farm),
     };
 
     const { data: inserted, error: insertError } = await context.supabase

@@ -317,9 +317,13 @@ function DiagnosticoPage() {
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
                 <Stat label="Cultura mais lucrativa" value={report.indicators.mostProfitableCrop} />
-                <Stat label="Cultura menos lucrativa" value={report.indicators.leastProfitableCrop} />
+                {report.indicators.leastProfitableCrop !== "-" && report.indicators.leastProfitableCrop !== report.indicators.mostProfitableCrop && (
+                  <Stat label="Cultura menos lucrativa" value={report.indicators.leastProfitableCrop} />
+                )}
                 <Stat label="Talhão mais eficiente" value={report.indicators.mostEfficientField} />
-                <Stat label="Talhão menos eficiente" value={report.indicators.leastEfficientField} />
+                {report.indicators.leastEfficientField !== "-" && report.indicators.leastEfficientField !== report.indicators.mostEfficientField && (
+                  <Stat label="Talhão menos eficiente" value={report.indicators.leastEfficientField} />
+                )}
                 <Stat
                   label="Dependência da maior cultura"
                   value={`${Math.round(report.indicators.singleCropDependencyPct)}%`}
