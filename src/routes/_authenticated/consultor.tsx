@@ -54,12 +54,12 @@ function Page() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Consultor IA</h1>
           <p className="text-sm text-muted-foreground">Converse sobre lucro, custos e simulações com base nos dados da sua fazenda.</p>
         </div>
-        <Button onClick={newThread}><Plus className="mr-2 h-4 w-4" />Nova conversa</Button>
+        <Button className="self-start" onClick={newThread}><Plus className="mr-2 h-4 w-4" />Nova conversa</Button>
       </div>
 
       {data.length === 0 ? (

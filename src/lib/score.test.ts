@@ -79,3 +79,13 @@ describe("nota: uma regra por talhão (Etapa 17)", () => {
     expect(breakdown.some((b) => b.label.startsWith("Dependência da cultura"))).toBe(false);
   });
 });
+
+describe("fazenda sem nenhum preço", () => {
+  it("não fica 'excelente': dados insuficientes", () => {
+    const fields = [field("T1", "Soja", 100)];
+    const costs = [{ field_id: "T1", amount: 2000, category: "Diesel" }];
+    const r = computeScoreBreakdown(aggregateFarm(fields as never, costs as never, [] as never));
+    expect(r.score < 50).toBe(true);
+    expect(r.reason.startsWith("Dados insuficientes")).toBe(true);
+  });
+});
